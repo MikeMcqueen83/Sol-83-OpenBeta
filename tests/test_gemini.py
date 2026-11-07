@@ -915,7 +915,9 @@ class Notes(Base):
         claude_prompt = next(c['prompt'] for c in self.calls() if c['agent'] == 'claude')
         self.assertIn('Użyj nazwy pliku wielkimi literami', claude_prompt)
         note = self.store.notes(project_id)[0]
-        self.assertEqual((note['status'], note['delivered_to']), ('delivered', 'claude'))
+        # Delivered to Claude, answered in its turn, and done with the accepted version (spec 1).
+        self.assertEqual((note['status'], note['delivered_to']), ('done', 'claude'))
+        self.assertIsNotNone(note['done_version'])
 
     def test_note_clears_earlier_acceptance(self):
         self.scenario(codex=[{'write': {'ok.txt': 'ok'}, 'lgtm': True, 'sleep': 1},
@@ -1179,13 +1181,16 @@ class Monitoring(Base):
                                                     verify_cmd=VERIFY, gemini_model='default')['id']
         self.wait_status(project_id, 'done')
         tokens = {turn['agent']: turn['tokens'] for turn in self.turn_ends(project_id)}
+        # Normalized per-turn values (gemini_app/usage.py): fresh input, cache read and output apart.
         self.assertEqual(tokens['codex'], {'total': 12345})
-        self.assertEqual(tokens['claude'], {'input': 41020, 'cached': 40000, 'output': 800, 'total': 41820})
-        self.assertEqual(tokens['gemini'], {'input': 1200, 'cached': 1000, 'output': 300, 'total': 1500})
+        self.assertEqual(tokens['claude'], {'input': 20, 'cache_read': 40000, 'output': 800, 'total': 41820})
+        self.assertEqual(tokens['gemini'], {'input': 1200, 'cache_read': 1000, 'output': 300, 'total': 2500})
         state = self.supervisor.detail(project_id)['monitor']
         self.assertEqual(state['tokens']['claude']['total'], 41820)
         self.assertEqual([row['agent'] for row in state['token_turns']], ['codex', 'gemini', 'claude'])
-        self.assertEqual(state['token_turns'][0]['session_turn'], 1)
+        codex = next(row for row in state['usage'] if row['agent'] == 'codex')
+        self.assertEqual((codex['input'], codex['output']), (None, None), 'Codex reports no split: no data, not 0')
+        self.assertEqual(codex['model'], 'gpt-6.1-sol')
 
     def test_turns_without_a_version_raise_a_signal_once_and_then_halt(self):
         broken = [{'write': {'ok.txt': f'zle {i}'}} for i in range(12)]
@@ -1269,7 +1274,10 @@ class Planning(Base):
         self.assertEqual(plan_module.validate(self.PLAN), [])
         bad = {'items': [{'id': 'A', 'title': 'x', 'kind': 'epic'}, {'id': 'A', 'title': 'y', 'parent': 'Z'}]}
         problems = plan_module.validate(bad)
-        self.assertEqual(len(problems), 3)
+        # "epic" is a listed variant of "feature" (plan_contract.KIND_MAP): corrected, not an error.
+        self.assertEqual(len(problems), 2)
+        self.assertTrue(any('powtórzone id A' in p for p in problems))
+        self.assertTrue(any('nieznany parent Z' in p for p in problems))
 
     def test_first_turn_asks_for_a_plan_then_each_turn_gets_its_summary(self):
         self.scenario(codex=[{'write': {'.sol83/plan.json': self.plan_json(), 'ok.txt': 'ok'},
@@ -2047,3 +2055,25 @@ class QueueFlow(Base):
         starts = [e for e in reversed(self.store.events(project_id)) if e['kind'] == 'turn_start']
         self.assertEqual(starts[0]['data']['config']['agent'], 'codex')
         self.assertIn('roles', starts[0]['data']['config'])
+
+    def test_auto_selection_picks_an_allowed_model_and_records_why(self):
+        self.scenario(codex=[{'write': {'ok.txt': 'ok'}}, {'lgtm': True}], claude=[{'lgtm': True}])
+        project_id = self.supervisor.create_project(task='Zbuduj ok.txt', repo_path=str(self.repo), verify_cmd=VERIFY,
+                                                    selections={'claude': 'auto_power'})['id']
+        self.wait_status(project_id, 'done', timeout=60)
+        starts = [e['data']['config'] for e in self.store.events(project_id) if e['kind'] == 'turn_start']
+        claude = next(c for c in starts if c['agent'] == 'claude')
+        self.assertEqual((claude['selection'], claude['model']), ('auto_power', 'opus'))
+        self.assertIn('policy_version', claude['decision'])
+        self.assertNotIn('fable', [c['model'] for c in starts])
+
+    def test_auto_without_an_allowed_model_waits_instead_of_falling_back(self):
+        # The fake Codex lists only gpt-test, which the catalog does not classify.
+        self.scenario(codex=[{'write': {'ok.txt': 'ok'}}], claude=[{'write': {'ok.txt': 'ok'}}, {'lgtm': True}])
+        project_id = self.supervisor.create_project(task='Zbuduj ok.txt', repo_path=str(self.repo), verify_cmd=VERIFY,
+                                                    selections={'codex': 'auto_economy'})['id']
+        self.wait_for(lambda: any('Auto: brak dozwolonego modelu' in e['text'] for e in self.store.events(project_id)),
+                      30, 'Codex czeka')
+        self.supervisor.stop(project_id, immediate=True)
+        self.wait_status(project_id, 'stopped', 'attention')
+        self.assertFalse([c for c in self.calls() if c['agent'] == 'codex'], 'Codex never ran with an unclassified model')

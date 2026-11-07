@@ -199,14 +199,16 @@ def token_counts(usage) -> Optional[dict]:
     return {'input': fresh + apart, 'cached': apart + inside, 'output': output, 'total': fresh + apart + output}
 
 
-def save_tokens(project_id: str, agent: str, usage) -> None:
-    """Written by an adapter at the end of a turn, read once by the scheduler."""
+def save_tokens(project_id: str, agent: str, usage, model: Optional[str] = None) -> None:
+    """Written by an adapter at the end of a turn, read once by the scheduler. Keeps the provider's raw
+    record and the model the CLI reported, so the scheduler can normalize and confirm the model."""
     counts = token_counts(usage)
-    if not counts:
+    if not counts and not model:
         return
     STATE.mkdir(parents=True, exist_ok=True)
     temp = STATE / f'tokens-{project_id}.{os.getpid()}.tmp'
-    temp.write_text(json.dumps({'agent': agent, 'tokens': counts}))
+    temp.write_text(json.dumps({'agent': agent, 'tokens': counts, 'raw': usage if isinstance(usage, dict) else None,
+                                'model': model}))
     temp.replace(STATE / f'tokens-{project_id}.json')
 
 

@@ -81,7 +81,10 @@ def main():
     if result is None:
         sys.exit(rc or 1)
     if os.environ.get('GEMINI_PROJECT_ID') and args[args.index('-p') + 1] != '/usage':
-        limits.save_tokens(os.environ['GEMINI_PROJECT_ID'], 'claude', result.get('usage'))
+        used = result.get('modelUsage') if isinstance(result.get('modelUsage'), dict) else {}
+        # The model that really answered, as Claude Code reports it; the biggest share if several.
+        model = max(used, key=lambda name: (used[name] or {}).get('outputTokens', 0)) if used else None
+        limits.save_tokens(os.environ['GEMINI_PROJECT_ID'], 'claude', result.get('usage'), model)
     if result.get('is_error'):
         print(result.get('result') or 'claude zwrócił błąd', file=sys.stderr)
         sys.exit(rc or 1)

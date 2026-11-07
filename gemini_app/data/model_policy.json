@@ -1,0 +1,21 @@
+{
+  "version": "2026-11-07.1",
+  "note": "Polityka dopuszczenia modeli do trybu Auto. Katalog dostarcza danych, ale nie może jej obejść. Zmiana polityki to zmiana tego pliku w repozytorium.",
+  "tiers": ["economy", "standard", "strong", "top"],
+  "auto_tiers": ["economy", "standard", "strong"],
+  "modes": {
+    "auto_economy": {
+      "start": {"plan": "strong", "implement": "standard", "review": "standard", "content": "standard"},
+      "effort": {"economy": "medium", "standard": "medium", "strong": "high"},
+      "escalate_after_failures": 2,
+      "ceiling": "strong"
+    },
+    "auto_power": {
+      "start": {"plan": "strong", "implement": "strong", "review": "strong", "content": "standard"},
+      "effort": {"economy": "high", "standard": "high", "strong": "high"},
+      "escalate_after_failures": 1,
+      "ceiling": "strong",
+      "step_down_below_remaining_percent": 15
+    }
+  }
+}

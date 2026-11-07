@@ -130,7 +130,8 @@ def main():
             print(json.dumps(reply, ensure_ascii=False)[:2000], file=sys.stderr)
         sys.exit(done.returncode or 1)
     if os.environ.get('GEMINI_PROJECT_ID'):
-        limits.save_tokens(os.environ['GEMINI_PROJECT_ID'], 'gemini', reply.get('usage'))
+        limits.save_tokens(os.environ['GEMINI_PROJECT_ID'], 'gemini', reply.get('usage'),
+                           reply.get('model') if isinstance(reply.get('model'), str) else None)
     print(json.dumps({'session_id': reply.get('conversation_id'), 'response': reply.get('response') or '',
                       'usage': reply.get('usage')}, ensure_ascii=False))
 

@@ -48,6 +48,14 @@ CREATE TABLE IF NOT EXISTS versions(
 CREATE TABLE IF NOT EXISTS blocks(
   provider TEXT PRIMARY KEY, until REAL, reason TEXT, reason_en TEXT, created_at REAL);
 CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT);
+CREATE TABLE IF NOT EXISTS usage(
+  id INTEGER PRIMARY KEY, project_id TEXT, turn INTEGER, agent TEXT, ts REAL, session_id TEXT, scope TEXT,
+  source TEXT, raw TEXT, model_requested TEXT, model_confirmed TEXT,
+  input INTEGER, cache_read INTEGER, cache_write INTEGER, output INTEGER, reasoning INTEGER, total INTEGER,
+  d_input INTEGER, d_cache_read INTEGER, d_cache_write INTEGER, d_output INTEGER, d_reasoning INTEGER,
+  d_total INTEGER, note TEXT, UNIQUE(project_id, turn, agent));
+CREATE TABLE IF NOT EXISTS catalog_versions(
+  version TEXT PRIMARY KEY, created_at REAL, source TEXT, status TEXT, data TEXT, note TEXT);
 CREATE TABLE IF NOT EXISTS plan_revisions(
   project_id TEXT, revision INTEGER, created_at REAL, turn INTEGER, sha TEXT, data TEXT, corrections TEXT,
   PRIMARY KEY(project_id, revision));
@@ -63,13 +71,14 @@ PROJECT_FIELDS = {
     'codex_model', 'claude_reasoning', 'codex_reasoning', 'status_detail_en', 'github_repo',
     'turn_timeout', 'github_url', 'github_visibility', 'github_version', 'github_branch', 'github_auto',
     'run_version', 'delivered_version', 'claude_role', 'codex_role', 'role_fallback',
-    'gemini_model', 'gemini_reasoning', 'gemini_role'}
+    'gemini_model', 'gemini_reasoning', 'gemini_role', 'claude_selection', 'codex_selection', 'gemini_selection'}
 MAX_BODY = 40000
 MIGRATIONS = {
     'projects': ('claude_reasoning', 'codex_reasoning', 'status_detail_en', 'github_repo',
                  'github_url', 'github_visibility', 'github_version', 'github_branch',
                  'github_auto', 'run_version', 'delivered_version', 'claude_role', 'codex_role',
-                 'role_fallback', 'gemini_model', 'gemini_reasoning', 'gemini_role'),
+                 'role_fallback', 'gemini_model', 'gemini_reasoning', 'gemini_role',
+                 'claude_selection', 'codex_selection', 'gemini_selection'),
     'live': ('reason_en', 'config'), 'events': ('text_en', 'body'), 'versions': ('verify_summary_en', 'how_to_run'),
     'notes': ('response', 'kind', 'reopened', 'request_key', 'priority', 'done_version', 'done_at', 'ref'),
     'blocks': ('reason_en',)}
@@ -245,7 +254,7 @@ class Store:
     def delete_project(self, project_id: str) -> None:
         """Every record of a project, in one transaction."""
         with self._db() as db:
-            for table in ('live', 'events', 'notes', 'questions', 'versions', 'plan_revisions', 'projects'):
+            for table in ('live', 'events', 'notes', 'questions', 'versions', 'plan_revisions', 'usage', 'projects'):
                 column = 'id' if table == 'projects' else 'project_id'
                 db.execute(f'DELETE FROM {table} WHERE {column}=?', (project_id,))
 

@@ -17,7 +17,7 @@ from typing import Optional
 
 from . import assets as content
 from . import github, gitops, limits, livelog, monitor, sandbox
-from . import orders, plan_contract
+from . import model_catalog, orders, plan_contract
 from . import plan as project_plan
 from . import roles as model_roles
 from .catalog import MODEL_OFF
@@ -37,7 +37,15 @@ DEFAULT_GEMINI_MODEL = 'default'
 SIDES = ('claude', 'codex', 'gemini')
 OLD_SIDES = ('claude', 'codex')
 BACKENDS = {'claude': 'claude', 'codex': 'codex', 'gemini': 'gemini'}
-MODEL_CHOICES = tuple(f'{side}_{kind}' for side in SIDES for kind in ('model', 'reasoning'))
+MODEL_CHOICES = tuple(f'{side}_{kind}' for side in SIDES for kind in ('model', 'reasoning', 'selection'))
+
+
+class TopModelNeedsConfirmation(ValueError):
+    """A manual choice of a provider's top model: the user must confirm this exact model."""
+
+    def __init__(self, side: str, model: str):
+        self.side, self.model = side, model
+        super().__init__(Msg('confirm_top', model=model))
 ROLE_CHOICES = (*(f'{side}_role' for side in SIDES), 'role_fallback')
 _SAFE_CHOICE = re.compile(r'^[\w.:\-\[\]]*$')
 DEFAULT_TURNS = 30
@@ -128,6 +136,23 @@ def state_kind(project: dict, live: Optional[dict], engine_alive: Optional[bool]
     return {'queued': 'queued', 'stopped': 'stopped', 'done': 'done'}.get(status, 'error')
 
 
+def catalog_runner(prompt: str, timeout: float) -> str:
+    """The research agent for the catalog update: Claude Code on the subscription, a model allowed in
+    Auto (never the top one), in an empty folder, with web search only."""
+    import tempfile
+    folder = tempfile.mkdtemp(prefix='sol83-catalog-')
+    try:
+        done = subprocess.run([str(BASE / 'bin/claude'), '-p', prompt, '--output-format', 'json', '--model', 'sonnet',
+                               '--no-session-persistence', '--allowedTools', 'WebSearch,WebFetch'],
+                              cwd=folder, capture_output=True, text=True, timeout=timeout,
+                              stdin=subprocess.DEVNULL, env={**os.environ, 'PATH': agent_path()})
+        if done.returncode:
+            raise RuntimeError((done.stderr or done.stdout)[-300:])
+        return json.loads(done.stdout).get('result') or ''
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
 def owns_repo(project: dict) -> bool:
     """Sol-83 created this repository: its main may follow the versions. A user's own
     repository, given as a folder or cloned from GitHub, keeps its main untouched."""
@@ -167,9 +192,16 @@ class Supervisor:
                        codex_reasoning: str = '', turn_timeout: int = DEFAULT_TURN_TIMEOUT,
                        github_repo: str = '', claude_role: str = '', codex_role: str = '',
                        role_fallback: str = '', gemini_model: str = '', gemini_reasoning: str = '',
-                       gemini_role: str = '') -> dict:
+                       gemini_role: str = '', selections: Optional[dict] = None,
+                       confirm_top: str = '') -> dict:
         self._validate_models(claude_model, codex_model, claude_reasoning, codex_reasoning, gemini_model,
                               gemini_reasoning)
+        selections = {f'{side}_selection': (selections or {}).get(side) or 'manual' for side in SIDES}
+        if any(value not in model_catalog.MODES for value in selections.values()):
+            raise ValueError(Msg('err_selection'))
+        top = self._check_top({'claude_model': claude_model.strip() or DEFAULT_CLAUDE_MODEL,
+                               'codex_model': codex_model.strip() or DEFAULT_CODEX_MODEL,
+                               'gemini_model': gemini_model.strip(), **selections}, None, confirm_top)
         team = self._validate_team({'claude_model': claude_model.strip(), 'codex_model': codex_model.strip(),
                                     'gemini_model': gemini_model.strip() or MODEL_OFF,
                                     'claude_role': claude_role.strip(), 'codex_role': codex_role.strip(),
@@ -199,13 +231,33 @@ class Supervisor:
             claude_reasoning=claude_reasoning.strip() or DEFAULT_CLAUDE_REASONING,
             codex_reasoning=codex_reasoning.strip() or DEFAULT_CODEX_REASONING,
             gemini_model=team['gemini_model'], gemini_reasoning=gemini_reasoning.strip() or DEFAULT_GEMINI_REASONING,
-            meta=json.dumps({'agents': list(SIDES)}), **{key: team[key] for key in ROLE_CHOICES})
+            meta=json.dumps({'agents': list(SIDES)}), **{key: team[key] for key in ROLE_CHOICES}, **selections)
         self.store.event(project_id, 'created', Msg('created'))
+        for side, model in top:
+            self.store.event(project_id, 'models', Msg('top_confirmed', model=model, who=AGENT_NAMES[side]),
+                             data={'side': side, 'model': model})
         return project
 
     def _validate_models(self, *choices: str) -> None:
         if not all(_SAFE_CHOICE.match(choice) for choice in choices):
             raise ValueError(Msg('err_model'))
+
+    def _check_top(self, chosen: dict, before: Optional[dict], confirm_top: str) -> list:
+        """Every manual choice of a top model needs a visible warning and a confirmation of exactly
+        that model (spec 6.1). Returns the confirmed (side, model) pairs to record."""
+        catalog = model_catalog.current(self.store)
+        confirmed = []
+        for side in SIDES:
+            model = chosen.get(f'{side}_model')
+            selection = chosen.get(f'{side}_selection') or (before or {}).get(f'{side}_selection') or 'manual'
+            if not model or selection != 'manual' or not model_catalog.is_top(catalog, side, model):
+                continue
+            if before and before.get(f'{side}_model') == model:
+                continue
+            if confirm_top != model:
+                raise TopModelNeedsConfirmation(side, model)
+            confirmed.append((side, model))
+        return confirmed
 
     def sides(self, project: dict) -> list:
         """The models this project's engine has: projects from before Gemini have two."""
@@ -227,15 +279,22 @@ class Supervisor:
             raise ValueError(Msg('err_roles', works=', '.join(Msg(f'work_{work}') for work in missing)))
         return team
 
-    def set_models(self, project_id: str, **choices: str) -> None:
-        """Change model or thinking level; the engine reads them before every turn."""
+    def set_models(self, project_id: str, confirm_top: str = '', **choices: str) -> None:
+        """Change model, thinking level, selection mode or role; the engine reads them before every
+        turn, so a change applies from the next turn and the running one keeps its snapshot."""
         project = self._require(project_id)
         sides = list(SIDES)
         chosen = {key: value.strip() for key, value in choices.items()
                   if key in (*MODEL_CHOICES, *ROLE_CHOICES) and value.strip()}
         self._validate_models(*chosen.values())
+        if any(chosen.get(f'{side}_selection', 'manual') not in model_catalog.MODES for side in SIDES):
+            raise ValueError(Msg('err_selection'))
         self._validate_team({**project, **chosen}, sides)
+        top = self._check_top(chosen, project, confirm_top)
         self.store.update_project(project_id, **chosen)
+        for side, model in top:
+            self.store.event(project_id, 'models', Msg('top_confirmed', model=model, who=AGENT_NAMES[side]),
+                             data={'side': side, 'model': model})
         before, project = project, self.store.project(project_id)
 
         def listing(text):
@@ -926,8 +985,29 @@ class Supervisor:
         else:
             self._attention(project_id, Msg('engine_lost'))
 
+    def _catalog_maintenance(self) -> None:
+        """Monthly model catalog update in the background: never blocks projects, never runs twice
+        (the attempt is recorded before it starts), and a failure keeps the last valid catalog."""
+        if self.store.text_setting('catalog_last_attempt') is None:
+            # First start of this installation: the first update is due a month from now.
+            self.store.set_setting('catalog_last_attempt', time.time())
+            return
+        if not model_catalog.due(self.store) or getattr(self, 'catalog_thread', None) and self.catalog_thread.is_alive():
+            return
+        self.catalog_thread = threading.Thread(target=self.update_catalog, daemon=True)
+        self.catalog_thread.start()
+
+    def update_catalog(self, runner=None) -> dict:
+        result = model_catalog.run_update(self.store, runner or catalog_runner)
+        self.store.set_setting('catalog_last_result', json.dumps(result, ensure_ascii=False)[:4000])
+        return result
+
     def tick(self) -> None:
         with self.lock:
+            try:
+                self._catalog_maintenance()
+            except Exception as exc:  # maintenance must never stop the queue
+                print(f'[sol83] katalog: {exc!r}', file=sys.stderr, flush=True)
             active = self.store.projects(*RUNNING)
             for project in active:
                 if not self._alive(project):
@@ -989,6 +1069,7 @@ class Supervisor:
     def next_config(self, project: dict) -> dict:
         """What the next turn will use: the settings as saved now."""
         return {side: {'model': project[f'{side}_model'], 'effort': project[f'{side}_reasoning'],
+                       'selection': project.get(f'{side}_selection') or 'manual',
                        'role': model_roles.of(project, side)} for side in self.sides(project)}
 
     def _turn_config(self, project_id: str) -> Optional[dict]:

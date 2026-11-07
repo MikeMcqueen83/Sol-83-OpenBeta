@@ -9,11 +9,12 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import assets as content
-from . import catalog, github, limits, monitor, observer
+from . import catalog, github, limits, model_catalog, monitor, observer, providers
 from .messages import Msg, en
 from .paths import WEB
 from .scheduler import AGENT_LABEL
 from .store import Store
+from . import supervisor as supervisor_module
 from .supervisor import Supervisor, preview, state_kind
 
 MAX_BODY = 2_000_000
@@ -87,7 +88,12 @@ class Handler(BaseHTTPRequestHandler):
             if path == '/api/overview':
                 return self._json(overview(self.supervisor))
             if path == '/api/catalog':
-                return self._json(catalog.read())
+                store = self.supervisor.store
+                return self._json({**catalog.read(), 'catalog': model_catalog.current(store),
+                                   'policy': model_catalog.policy(),
+                                   'catalog_due': model_catalog.due(store)})
+            if path == '/api/providers':
+                return self._json(providers.status())
             if path == '/api/github/repos':
                 return self._json({'repos': self.supervisor.github_repos()})
             if path == '/api/github':
@@ -119,6 +125,9 @@ class Handler(BaseHTTPRequestHandler):
         try:
             body = self._body()
             self._json(self._route(path, body))
+        except supervisor_module.TopModelNeedsConfirmation as exc:
+            self._json({'error': str(exc.args[0]), 'error_en': en(exc.args[0]), 'confirm_top': exc.model,
+                        'side': exc.side}, 409)
         except (ValueError, TypeError, KeyError) as exc:
             self._error(exc if not isinstance(exc, KeyError) else ValueError(Msg('err_bad_number')), 400)
         except LookupError as exc:
@@ -146,10 +155,26 @@ class Handler(BaseHTTPRequestHandler):
                 role_fallback=str(body.get('role_fallback') or ''),
                 gemini_model=str(body.get('gemini_model') or ''),
                 gemini_reasoning=str(body.get('gemini_reasoning') or ''),
-                gemini_role=str(body.get('gemini_role') or ''))
+                gemini_role=str(body.get('gemini_role') or ''),
+                selections={side: str(body.get(f'{side}_selection') or '') for side in ('claude', 'codex', 'gemini')},
+                confirm_top=str(body.get('confirm_top') or ''))
             return {'id': project['id']}
         if path == ['api', 'limits', 'refresh']:
             return {'limits': supervisor.limits_view(force=True)}
+        if path == ['api', 'catalog', 'update']:
+            threading.Thread(target=supervisor.update_catalog, daemon=True).start()
+            return {'ok': True}
+        if path == ['api', 'catalog', 'rollback']:
+            return {'version': model_catalog.rollback(supervisor.store)}
+        if path == ['api', 'catalog', 'settings']:
+            if 'enabled' in body:
+                supervisor.store.set_setting('catalog_update_enabled', 1 if body['enabled'] else 0)
+            if body.get('defer_days'):
+                supervisor.store.set_setting('catalog_deferred_until', time.time() + 86400 * float(body['defer_days']))
+            return {'due': model_catalog.due(supervisor.store)}
+        if path == ['api', 'providers', 'check']:
+            # "Check connection": local CLI checks only, no model call and no limit used.
+            return {'providers': providers.status(force=True), 'limits': supervisor.limits_view(force=True)}
         if path == ['api', 'settings']:
             for key, value in body.items():
                 if key in PROVIDER_THRESHOLDS and 50 <= float(value) <= 100:

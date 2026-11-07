@@ -15,10 +15,11 @@ from pathlib import Path
 from typing import Optional
 
 from . import assets as content
-from . import limits, monitor, sandbox
-from . import orders
+from . import limits, monitor, providers, sandbox
+from . import orders, usage
 from . import plan as project_plan
 from . import roles as model_roles
+from . import catalog, model_catalog
 from .catalog import MODEL_OFF
 from .gitops import Checkpoint, Git
 from .messages import Msg
@@ -45,7 +46,7 @@ _LABELS_AFTER = (r'(?=^[#*\s]*(?:LGTM|<<<|\[duet\]|---|WERSJA OK|CEL\s*:|OCENA P
 _WHAT_TO_TEST = re.compile(r'^[#*\s]*CO TESTOWA[ĆC][*\s]*:?[*\s]*(.*?)' + _LABELS_AFTER, re.M | re.S | re.I)
 _HOW_TO_RUN = re.compile(r'^[#*\s]*JAK URUCHOMI[ĆC][*\s]*:?[*\s]*(.*?)' + _LABELS_AFTER, re.M | re.S | re.I)
 _VERSION_OK = re.compile(r'^\s*WERSJA OK\b', re.M)
-_CODEX_TOKENS = re.compile(r'tokens used\s*:?\s*([\d,]+)', re.I)
+_CODEX_MODEL = re.compile(r'^model:\s*(\S+)', re.M)
 _REQUESTS_CHANGES = re.compile(r'^STATUS:\s*requesting-changes', re.M)
 _GOAL = re.compile(r'^[#*\s]*CEL[*\s]*:[*\s]*(\d+)\s*/\s*(\d+)', re.M | re.I)
 _ITEM = re.compile(r'^[#*\s]*PRACA[*\s]*:[*\s]*([\w.\-]+)', re.M | re.I)
@@ -149,6 +150,8 @@ class GeminiScheduler:
         self.accepted = set(store.meta(project_id).get('lgtm', []))
         self.accepted_tree = store.meta(project_id).get('lgtm_tree')
         self.opened = last is not None
+        self.reset_source = None
+        self.decision = None
         self.verify_raw = self.project.get('verify_cmd') or None
         self.inherited_instructed = False
 
@@ -208,18 +211,71 @@ class GeminiScheduler:
                                            self.spoke.get(self.names[i], 0), i != hint))
 
     def _availability(self, force: bool = False) -> list:
+        """A side in Auto with no allowed model is unavailable: it waits, it never falls back to a
+        top or unclassified model."""
         snapshots = self.reader.read(force=force)
-        return [limits.availability(snapshots.get(name), self.store.threshold(name),
-                                    self.store.block(name))
-                if on else limits.Availability(False, None, Msg('model_off_reason'))
-                for name, on in zip(self.names, self._enabled())]
+        result = []
+        for index, (name, on) in enumerate(zip(self.names, self._enabled())):
+            if not on:
+                result.append(limits.Availability(False, None, Msg('model_off_reason')))
+                continue
+            decision = self._auto_decision(index, snapshots)
+            if decision is not None and not decision['model']:
+                result.append(limits.Availability(False, None, Msg('auto_no_model', reason=decision['reason'])))
+                continue
+            result.append(limits.availability(snapshots.get(name), self.store.threshold(name), self.store.block(name)))
+        return result
+
+    def _auto_decision(self, index: int, snapshots: Optional[dict] = None) -> Optional[dict]:
+        """The Auto choice for this side and the current work, or None in manual mode."""
+        name = self.names[index]
+        mode = self.store.project(self.pid).get(f'{name}_selection') or 'manual'
+        if mode == 'manual':
+            return None
+        snapshot = (snapshots or {}).get(name)
+        remaining = limits.remaining(snapshot) if snapshot else None
+        live = None
+        if name in ('codex', 'gemini'):
+            listed = catalog.read().get(name) or []
+            live = [model['id'] for model in listed] or None
+        failures = self._steps_not_closer() + self._recent_verify_failures()
+        return model_catalog.choose(model_catalog.current(self.store), name, mode, self.work, failures,
+                                    remaining, live)
+
+    def _recent_verify_failures(self) -> int:
+        """Failed test runs in a row, newest first, since the last passing one."""
+        count = 0
+        for event in self.store.events(self.pid, 60):
+            if event['kind'] != 'verify':
+                continue
+            if (event['data'] or {}).get('passed'):
+                break
+            count += 1
+        return count
 
     def _apply_models(self, index: int) -> str:
-        """Read the user's choice every turn, so a change applies from the next one."""
+        """Read the user's choice every turn, so a change applies from the next one. In Auto the
+        policy picks the model and level by rules, and the decision is recorded with its reason."""
         agent = self.cfg.agents[index]
         project = self.store.project(self.pid)
-        agent.model = project[f'{agent.name}_model'] or agent.model
-        effort = project[f'{agent.name}_reasoning'] or None
+        previous = agent.model
+        self.decision = self._auto_decision(index, self.reader.read())
+        if self.decision and self.decision['model']:
+            agent.model, effort = self.decision['model'], self.decision.get('effort')
+            self.store.event(self.pid, 'models', Msg('auto_choice', mode=self.decision['mode'],
+                                                     model=agent.model, effort=effort or '-',
+                                                     reason=self.decision['reason']),
+                             agent=agent.name, data=self.decision)
+        else:
+            agent.model = project[f'{agent.name}_model'] or agent.model
+            effort = project[f'{agent.name}_reasoning'] or None
+        if previous and agent.model != previous and agent.session_id and self.spoke.get(agent.name):
+            # A resumed session keeps the old model's context; a model change starts a new session
+            # and the handoff (task, plan, changes, notes) carries the verified state.
+            agent.session_id = None
+            self.session_turns[agent.name] = 0
+            self.rotated = True
+            self.store.event(self.pid, 'models', Msg('model_session_fresh', who=label(agent.name)), agent=agent.name)
         if agent.backend == 'gemini':
             # Duet only nudges Gemini in the prompt; agy takes a real --effort through the adapter.
             # It travels in the environment: Duet refuses to resume a run with saved extra_args.
@@ -324,6 +380,7 @@ class GeminiScheduler:
                              Msg('handoff', to=label(name), who=label(skipped), reason=choice.reason,
                                  until=clock(avail[preferred].until)),
                              agent=name, data={'from': skipped})
+        self.rotated = False
         chosen = self._apply_models(index)
         limits.take_tokens(self.pid)
         if model_roles.specialized(roles):
@@ -331,7 +388,6 @@ class GeminiScheduler:
                          work=Msg(f'work_{self.work}'))
         self.roles = roles
         self.usage_before = self._usage(name)
-        self.rotated = False
         if choice.mode == 'self_review':
             self.session_turns[name] = 0
         elif self.session_turns[name] >= ROTATE_AFTER:
@@ -359,7 +415,9 @@ class GeminiScheduler:
         config = {'agent': name, 'model': agent.model,
                   'effort': (os.environ.get('SOL83_GEMINI_EFFORT') if agent.backend == 'gemini'
                              else agent.reasoning_effort) or None,
-                  'role': roles[index], 'work': self.work, 'mode': choice.mode, 'selection': 'manual',
+                  'role': roles[index], 'work': self.work, 'mode': choice.mode,
+                  'selection': self.decision['mode'] if self.decision else 'manual',
+                  'decision': self.decision,
                   'roles': {other: role for other, role, on in zip(self.names, roles, enabled) if on},
                   'fresh_session': agent.session_id is None}
         self.store.set_live(self.pid, phase='turn_running', speaker=name, turn=turn,
@@ -392,7 +450,9 @@ class GeminiScheduler:
                                'commit': checkpoint.head, 'changed': checkpoint.changed,
                                'failed': failed, 'lines': lines, 'cost': self._turn_cost(name),
                                'asked_item': self.asked_item, 'fresh_session': self.rotated,
-                               'work': self.work, 'tokens': self._tokens(name, entry, turn - self.turns_before),
+                               'work': self.work,
+                               'tokens': self._tokens(name, entry, turn - self.turns_before, turn, speaker_idx),
+                               'overlap': self._overlapping(name),
                                'session_turn': self.session_turns[name],
                                **({} if failed else goal_report(result.reply))},
                          body=result.reply)
@@ -450,17 +510,30 @@ class GeminiScheduler:
 
     # ---- Turn results -------------------------------------------------
 
-    def _tokens(self, name: str, entry: dict, duet_turn: int) -> Optional[dict]:
-        """What the turn cost in tokens: Claude and Antigravity report it, Codex prints a total."""
+    def _tokens(self, name: str, entry: dict, duet_turn: int, turn: int, index: int) -> Optional[dict]:
+        """What the turn cost in tokens, as a per-turn delta (see usage.py): Claude reports the turn,
+        Codex and Antigravity report their whole session so far."""
         saved = limits.take_tokens(self.pid)
-        if saved and saved.get('agent') == name:
-            return saved['tokens']
+        saved = saved if saved and saved.get('agent') == name else None
+        raw, confirmed = (saved or {}).get('raw'), (saved or {}).get('model')
         log = entry.get('stderr_log_path') or self.run_dir / f'turn-{duet_turn:02d}-{name}.stderr.log'
         if name == 'codex' and Path(log).exists():
-            found = _CODEX_TOKENS.findall(Path(log).read_text(errors='replace')[-4000:])
-            if found:
-                return {'total': int(found[-1].replace(',', ''))}
-        return None
+            text = Path(log).read_text(errors='replace')
+            raw = usage.parse_codex_total(text[-4000:])
+            found = _CODEX_MODEL.search(text)
+            confirmed = found[1] if found else None
+        agent = self.cfg.agents[index]
+        per_turn = usage.record(self.store, self.pid, turn, name, raw, agent.session_id, agent.model, confirmed)
+        if not per_turn:
+            return None
+        return {key: per_turn[key] for key in ('total', 'input', 'output', 'cache_read') if per_turn.get(key) is not None}
+
+    def _overlapping(self, name: str) -> list:
+        """Other projects with a turn of the same provider running now: the account's limit readings
+        moved for both, so this turn's cost is not this project's alone."""
+        return [row['project_id'] for row in self.store._rows(
+            "SELECT project_id FROM live WHERE phase='turn_running' AND speaker=? AND project_id<>?",
+            (name, self.pid))]
 
     def _recap(self, result, failed: bool) -> str:
         if failed:
@@ -674,7 +747,9 @@ class GeminiScheduler:
 
     def _on_failure(self, turn, index, result, entry, checkpoint: Checkpoint) -> Outcome:
         name = self.names[index]
-        kind = limits.classify_failure(self._failure_text(entry), result.failure_reason)
+        text = self._failure_text(entry)
+        kind = limits.classify_failure(text, result.failure_reason)
+        diagnosis = providers.diagnose(text)
         if kind == 'transient' and self.retries[name] < MAX_RETRIES:
             self.retries[name] += 1
             self.store.event(self.pid, 'retry', Msg('retry', who=label(name),
@@ -682,14 +757,15 @@ class GeminiScheduler:
             time.sleep(self.retry_delay * self.retries[name])
             self.force_next = index
             return Outcome(message=self.current_message)
-        until = self._block_failed_agent(name, kind)
+        until = self._block_failed_agent(name, kind, text)
         if kind != 'limit':
             self.failures += 1
             if self.failures >= MAX_FAILURES:
                 self.store.event(self.pid, 'attention',
                                  Msg('failures_stop', reason=Msg(f'fail_{kind}')), agent=name)
                 return Outcome()
-        data = {'from': name, 'kind': kind, 'until': until, 'commit': checkpoint.head}
+        data = {'from': name, 'kind': kind, 'until': until, 'commit': checkpoint.head, 'diagnosis': diagnosis,
+                'reset_source': self.reset_source}
         enabled = self._enabled()
         order = [i for i in self._order(self.work, enabled, self.roles, index, False) if i != index] \
             or [i for i, on in enumerate(enabled) if on and i != index]
@@ -709,17 +785,22 @@ class GeminiScheduler:
         self.force_next = successor
         return Outcome(message=self._takeover_message(turn, name, kind, checkpoint))
 
-    def _block_failed_agent(self, name: str, kind: str) -> float:
+    def _block_failed_agent(self, name: str, kind: str, text: str = '') -> float:
+        """How long a failed provider gets no turns. A reset the provider stated in its error (Antigravity:
+        "Resets in 144h11m44s") is used as it is; otherwise a reading, otherwise a growing estimate."""
         now = time.time()
+        self.reset_source = None
         if kind == 'auth':
             until, reason = now + AUTH_BLOCK_S, Msg('needs_login')
         elif kind == 'limit':
             snapshot = self.reader.read(force=True).get(name)
             found = limits.availability(snapshot, self.store.threshold(name))
+            stated = providers.reset_from_message(text, now)
             # Without a reading (Gemini has none) the pause doubles with each exhausted limit in a row.
             strikes = int(self.store.setting(f'strikes_{name}', 0))
-            until = found.until or now + limits.UNKNOWN_RESET_S * 2 ** min(strikes, 4)
-            if not found.until:
+            until = found.until or stated or now + limits.UNKNOWN_RESET_S * 2 ** min(strikes, 4)
+            self.reset_source = 'reading' if found.until else 'provider_message' if stated else 'estimate'
+            if not found.until and not stated:
                 self.store.set_setting(f'strikes_{name}', strikes + 1)
             reason = found.reason or Msg('provider_limit')
         else:

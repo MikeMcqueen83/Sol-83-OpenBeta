@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 
+from . import usage
 from .gitops import Git
 from .messages import Msg, en
 from .store import Store
@@ -105,17 +106,20 @@ def assess(store: Store, project: dict, with_git: bool = True) -> dict:
                                       budget=project_plan.budget(item),
                                       week=round(spent[item['id']]['week'])))
     count = max(len(versions), 1)
-    tokens = collections.defaultdict(lambda: {'turns': 0, 'total': 0, 'input': 0, 'output': 0})
-    for turn in turns:
-        if turn.get('tokens'):
-            row = tokens[turn['agent']]
-            row['turns'] += 1
-            for key in ('total', 'input', 'output'):
-                row[key] += turn['tokens'].get(key) or 0
-    token_turns = [{'turn': turn.get('turn'), 'agent': turn['agent'], 'session_turn': turn.get('session_turn'),
-                    'fresh': bool(turn.get('fresh_session')), **turn['tokens']}
-                   for turn in turns if turn.get('tokens')][-10:]
-    return {'tokens': dict(tokens), 'token_turns': token_turns,'goal': list(goals[-1]) if goals else None, 'goal_history': [done for done, _ in goals[-10:]],
+    # Tokens from the normalized per-turn records (usage.py): deltas, never cumulative counters
+    # added up, and None where a provider does not report a category.
+    measured = usage.summary(store, project_id)
+    tokens: dict = {}
+    for row in measured['rows']:
+        entry = tokens.setdefault(row['agent'], {'turns': 0, 'total': 0, 'input': None, 'output': None})
+        entry['turns'] += row['turns']
+        entry['total'] += row['total'] or 0
+        for key in ('input', 'output'):
+            if row[key] is not None:
+                entry[key] = (entry[key] or 0) + row[key]
+    token_turns = [{**row, 'session_turn': None, 'fresh': False} for row in measured['turns']][-10:]
+    return {'tokens': tokens, 'token_turns': token_turns, 'usage': measured['rows'],
+            'windows': usage.windows(turns),'goal': list(goals[-1]) if goals else None, 'goal_history': [done for done, _ in goals[-10:]],
             'verdicts': verdicts[-6:],'level': 'warn' if signals else 'ok', 'signals': signals, 'turns': len(turns),
             'versions': len(versions), 'since_version': len(since),
             'weekly_points': dict(weekly), 'weekly_since': dict(weekly_since),
