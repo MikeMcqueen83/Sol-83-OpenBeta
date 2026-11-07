@@ -1,10 +1,5 @@
 # Sol-83 Source-Available License — PROJEKT / DRAFT
 
-> **Projekt warunków, wymaga weryfikacji prawnej przed użyciem. Do czasu przyjęcia ostatecznej wersji przez autora
-> obowiązuje zasada „wszelkie prawa zastrzeżone”, z wyjątkiem komponentów na własnych licencjach (THIRD_PARTY_NOTICES.md).**
->
-> **Draft terms, to be reviewed by a lawyer before use. Until the author adopts a final version, all rights are reserved,
-> except for components under their own licenses (THIRD_PARTY_NOTICES.md).**
 
 Copyright (c) 2026 Michał Werpachowski. Wszelkie prawa zastrzeżone, z zastrzeżeniem poniższych warunków.
 
@@ -47,18 +42,3 @@ Naruszenie tych warunków powoduje automatyczne wygaśnięcie uprawnień z punkt
 ## 5. Brak gwarancji
 
 Oprogramowanie jest dostarczane „takie, jakie jest”, bez jakiejkolwiek gwarancji. Autor nie odpowiada za szkody wynikłe z jego użycia, w tym za działanie agentów AI uruchamianych przez Sol-83, zużycie limitów abonamentów ani zmiany w repozytoriach użytkownika.
-
----
-
-## Decyzje do podjęcia przez autora / Author's decisions
-
-Cel autora (7.11.2026): ochrona przed komercyjnym użyciem bez zgody (np. przez firmy) i przed wykorzystaniem kodu lub jego części w cudzych, monetyzowanych rozwiązaniach.
-
-1. **Gotowa licencja zamiast własnej**: rozważ przyjęcie sprawdzonego tekstu, np. *PolyForm Noncommercial License 1.0.0* (zakazuje użycia komercyjnego, dopuszcza prywatne i niekomercyjne) albo *Business Source License 1.1* (kod jawny, użycie produkcyjne tylko za zgodą, z opcjonalną datą zmiany licencji), oraz osobną płatną licencję komercyjną. Gotowe teksty mają mniej luk niż projekt pisany od zera.
-2. **Użycie Sol-83 jako narzędzia przez osoby prywatne do projektów zarobkowych** (np. freelancer buduje aplikację dla klienta): obecny projekt traktuje to jako użycie komercyjne (pkt 3.2); potwierdź albo złagodź.
-3. **Organizacje niekomercyjne** (szkoły, fundacje, administracja): czy dopuścić bez zgody.
-4. **Zgoda**: forma i kanał (dane kontaktowe do uzupełnienia przez autora; ten projekt ich nie podaje).
-5. **Wkład zewnętrzny**: CLA (przeniesienie lub licencja praw do wkładu, co pozwala później udzielać licencji komercyjnych) albo DCO.
-6. **Łatka do Duet** (`patches/duet-gemini.patch`): proponowane udostępnienie na licencji MIT, jak sam Duet; Duet jest na MIT, więc jego kod każdy może używać komercyjnie niezależnie od Sol-83.
-7. **Nazwa „Sol-83”**: rejestracja znaku towarowego, jeśli nazwa ma być chroniona.
-8. **Weryfikacja prawna** zgodności z prawem polskim i UE oraz z warunkami usług dostawców AI.
