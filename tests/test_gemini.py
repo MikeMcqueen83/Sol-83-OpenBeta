@@ -16,7 +16,9 @@ import urllib.error
 import urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-TEMP = pathlib.Path(tempfile.mkdtemp(prefix='gemini-test-'))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import _env  # noqa: E402
+TEMP = _env.HOME
 FAKES = ROOT / 'tests/fakes'
 os.environ.update({
     'GEMINI_NOTIFY': '0', 'GEMINI_GITHUB_URL': f'file://{TEMP}/github', 'GEMINI_HOME': str(TEMP), 'FAKE_DIR': str(TEMP), 'GEMINI_EXTRA_PATH': str(FAKES / 'bin'),
@@ -51,7 +53,7 @@ def exhausted(seconds=3600):
 
 
 def tearDownModule():
-    shutil.rmtree(TEMP, ignore_errors=True)
+    pass  # the shared data folder is removed when the test process exits (tests/_env.py)
 
 
 class Base(unittest.TestCase):

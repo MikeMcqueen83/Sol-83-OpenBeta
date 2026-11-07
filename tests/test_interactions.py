@@ -9,9 +9,10 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 TEMP = pathlib.Path(tempfile.mkdtemp(prefix='sol83-inter-'))
-os.environ.setdefault('GEMINI_HOME', str(TEMP))
 os.environ['GEMINI_NOTIFY'] = '0'
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import _env  # noqa: E402,F401  (one data folder for all test modules)
 
 from gemini_app import interactions, plan, prompts  # noqa: E402
 from gemini_app import roles as model_roles  # noqa: E402

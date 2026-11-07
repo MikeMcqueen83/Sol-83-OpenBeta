@@ -10,8 +10,9 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 TEMP = pathlib.Path(tempfile.mkdtemp(prefix='sol83-git-')).resolve()
-os.environ.setdefault('GEMINI_HOME', str(TEMP))
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import _env  # noqa: E402,F401  (one data folder for all test modules)
 
 from gemini_app import gitcontext  # noqa: E402
 from gemini_app.gitcontext import GitContextError, GitOps  # noqa: E402

@@ -10,9 +10,10 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 TEMP = pathlib.Path(tempfile.mkdtemp(prefix='sol83-queue-'))
-os.environ.setdefault('GEMINI_HOME', str(TEMP))
 os.environ['GEMINI_NOTIFY'] = '0'
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import _env  # noqa: E402,F401  (one data folder for all test modules)
 
 from gemini_app import orders, plan, plan_contract  # noqa: E402
 from gemini_app.store import Store  # noqa: E402

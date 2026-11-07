@@ -17,10 +17,10 @@ from unittest import mock
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 TEMP = pathlib.Path(tempfile.mkdtemp(prefix='sol83-sec-'))
-# Keep the data folder of a test module imported earlier: engines it starts read the same store.
-os.environ.setdefault('GEMINI_HOME', str(TEMP))
 os.environ['GEMINI_NOTIFY'] = '0'
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import _env  # noqa: E402,F401  (one data folder for all test modules)
 
 from gemini_app import github, gitops, monitor, sandbox, secretscan  # noqa: E402
 from gemini_app.gitops import Git  # noqa: E402
