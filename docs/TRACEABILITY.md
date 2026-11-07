@@ -23,6 +23,10 @@ Testy „atrapa” używają skryptowanych CLI z `tests/fakes` (bez prawdziwych 
 | Brak starego CLI obok koordynatora | `sol83`: tylko `serve`, `doctor` | `Portability.test_legacy_commands_are_gone` | zrobione | |
 | Błędne liczby w adresach API → 400 | `server.py` | (do dopisania w testach serwera) | częściowo | |
 
+## Ustalenie: środowisko procesu serwera (punkt 4)
+
+Stary serwer (uruchomiony 3.11.2026 z sesji Claude Code) miał w środowisku około 40 zmiennych tej sesji, m.in. `ANTHROPIC_BASE_URL`, `CLAUDECODE`, `CLAUDE_CODE_SESSION_ID` i tokeny komunikacji sesji, i przekazywał je agentom. Agent uruchomiony przez Sol-83 działał więc w innym środowisku niż ten sam CLI w terminalu użytkownika. Teraz `paths.clean_env` usuwa takie zmienne ze środowiska agentów, odczytów limitów i piaskownicy (test `HostSessionVariables`), a `sol83 doctor` je pokazuje.
+
 ## Etap 3: odkryte i naprawione błędy
 
 - Stan projektu (`meta`) był zapisywany w całości przez serwer i silnik naraz: zapis ze starej kopii gubił zmiany drugiej strony (np. zlecenie przebudowy planu, zamówienie treści). Teraz zapis scala tylko zmienione klucze w jednej transakcji (`Store.save_meta`, `Store.update_meta`); test `MetaMerge`.
@@ -64,3 +68,4 @@ Testy „atrapa” używają skryptowanych CLI z `tests/fakes` (bez prawdziwych 
 | 2026-11-07 | `agy models` w piaskownicy Seatbelt | lista modeli konta, kod 0 | bez wywołania modelu |
 | 2026-11-07 | `claude auth status`, `codex login status`, `codex app-server account/read` i `model/list` | konto, abonament, lista modeli | bez wywołania modelu |
 | 2026-11-07 | dokumentacja Anthropic „Models overview” | hierarchia Fable / Opus / Sonnet / Haiku do katalogu | strona WWW |
+| 2026-11-07 | jedna tura `agy` (gemini-3.8-flash-low) przez `bin/gemini` w piaskownicy Seatbelt, z pominięciem pytań o zgodę tylko wewnątrz piaskownicy | utworzył plik w folderze projektu, odpowiedź poprawna; usage: input 15 884, output 99, thinking 0, cache 0 | jedno zapytanie Gemini |

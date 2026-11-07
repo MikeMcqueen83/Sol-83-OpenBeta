@@ -119,7 +119,8 @@ def run(command: Sequence, cwd, write: Sequence = (), network: bool = False, tim
     """Run code from the repository with writes limited to `cwd`, `write` and a private temp folder.
     Output is merged and returned with credentials masked."""
     temp = Path(tempfile.mkdtemp(prefix='sol83-sbx-'))
-    env = {**(env or os.environ), 'TMPDIR': str(temp)}
+    from .paths import clean_env
+    env = {**clean_env(env), 'TMPDIR': str(temp)}
     for key in ('ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'OPENAI_API_KEY', 'CODEX_API_KEY',
                 'GEMINI_API_KEY', 'GOOGLE_API_KEY', 'GH_TOKEN', 'GITHUB_TOKEN'):
         env.pop(key, None)

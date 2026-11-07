@@ -23,7 +23,7 @@ from . import roles as model_roles
 from .catalog import MODEL_OFF
 from .gitops import Git
 from .messages import Msg, en
-from .paths import BASE, CONFIG, DUET, PROJECTS, RUNS, STATE, WORKTREES, agent_path
+from .paths import BASE, CONFIG, DUET, PROJECTS, RUNS, STATE, WORKTREES, agent_path, clean_env
 
 AGENT_NAMES = {'claude': 'Claude', 'codex': 'Codex', 'gemini': 'Gemini'}
 from .store import Store
@@ -834,7 +834,7 @@ class Supervisor:
 
     def _engine_env(self, project_id: str) -> dict:
         # Subscription only: an API key in the server's environment never reaches the agents.
-        env = {key: value for key, value in os.environ.items() if key not in limits.API_ENV_KEYS
+        env = {key: value for key, value in clean_env().items() if key not in limits.API_ENV_KEYS
                and key not in limits.GEMINI_KEY_ENV}
         env = {**env, 'PATH': agent_path(), 'DUET_METRICS': '0',
                'DUET_TURN_SCHEDULER': 'gemini_app.scheduler:build', 'PYTHONPATH': str(BASE),

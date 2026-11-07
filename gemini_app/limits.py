@@ -20,7 +20,7 @@ from typing import Optional
 from zoneinfo import ZoneInfo
 
 from .messages import Msg
-from .paths import BIN, STATE, agent_path
+from .paths import BIN, STATE, agent_path, clean_env
 
 FIVE_HOUR = 'five_hour'
 SEVEN_DAY = 'seven_day'
@@ -47,7 +47,7 @@ _RESET = re.compile(r'(?:(?P<mon>[A-Z][a-z]{2})\s+(?P<day>\d{1,2})(?:,\s*(?P<yea
 
 
 def _env() -> dict:
-    return {**os.environ, 'PATH': agent_path()}
+    return {**clean_env(), 'PATH': agent_path()}
 
 
 def _codex_snapshot(result: dict, now: float) -> dict:

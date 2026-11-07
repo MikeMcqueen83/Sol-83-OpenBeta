@@ -281,3 +281,17 @@ class EngineEnvironment(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class HostSessionVariables(unittest.TestCase):
+    def test_agents_never_see_a_host_sessions_variables(self):
+        from gemini_app.supervisor import Supervisor
+        host = {'CLAUDECODE': '1', 'CLAUDE_CODE_SESSION_ID': 's', 'ANTHROPIC_BASE_URL': 'http://proxy',
+                'CLAUDE_CODE_MESSAGING_TOKEN': 'tok', 'MCP_SERVER_CONNECTION_BATCH_SIZE': '3'}
+        with mock.patch.dict(os.environ, host):
+            env = Supervisor(Store())._engine_env('p')
+            limits_env = __import__('gemini_app.limits', fromlist=['_env'])._env()
+        for key in host:
+            self.assertNotIn(key, env)
+            self.assertNotIn(key, limits_env)
+        self.assertIn('PATH', env)

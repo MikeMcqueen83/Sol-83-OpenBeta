@@ -6,7 +6,7 @@ import shutil
 import sys
 
 from . import limits, sandbox
-from .paths import BASE, DUET, HOME, agent_path
+from .paths import BASE, DUET, HOME, HOST_SESSION_PREFIXES, agent_path
 
 
 def checks() -> list:
@@ -21,6 +21,8 @@ def checks() -> list:
         found = shutil.which(name, path=path)
         rows.append((f'Polecenie {name}', bool(found) or name in ('gh', 'ollama'), found or 'nie znaleziono'))
     rows.append(('Antigravity agy', True, limits.gemini_binary() or 'nie znaleziono (Gemini opcjonalny)'))
+    host = sorted(key for key in os.environ if key.startswith(HOST_SESSION_PREFIXES))
+    rows.append(('Zmienne sesji nadrzędnej (nie trafią do agentów)', True, ', '.join(host[:6]) + ('…' if len(host) > 6 else '') if host else 'brak'))
     keys = [key for key in (*limits.API_ENV_KEYS, *limits.GEMINI_KEY_ENV) if os.environ.get(key)]
     rows.append(('Brak kluczy API w środowisku', not keys, ', '.join(keys) or 'ok'))
     problem = limits.check_auth()
