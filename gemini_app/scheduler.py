@@ -16,7 +16,7 @@ from typing import Optional
 
 from . import assets as content
 from . import limits, monitor, providers, sandbox
-from . import interactions, orders, prompts, usage
+from . import interactions, licenses, orders, prompts, usage
 from . import plan as project_plan
 from . import roles as model_roles
 from . import catalog, model_catalog
@@ -198,6 +198,11 @@ class GeminiScheduler:
     def _take_user_orders(self) -> None:
         """Orders the user placed in the panel, and decisions on the agents' proposals, go into the file
         between turns, when no agent writes it."""
+        if self.store.meta(self.pid).get('license_request'):
+            try:
+                licenses.apply_pending(self.store, self.pid)
+            except licenses.LicenseError as exc:
+                self.store.event(self.pid, 'attention', Msg('license_kept', detail=str(exc)))
         decisions = self.store.meta(self.pid).get('asset_decisions') or []
         if decisions:
             content.apply_decisions(self.cfg.cwd, decisions)

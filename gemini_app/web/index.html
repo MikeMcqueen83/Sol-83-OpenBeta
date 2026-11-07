@@ -59,9 +59,13 @@ body{background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMac
 h1,h2,h3,p{margin:0}
 button,input,textarea,select{font:inherit;color:inherit}
 a{color:inherit}
-.app{display:grid;grid-template-columns:330px minmax(0,1fr);min-height:100%}
+.app{display:grid;grid-template-columns:var(--side-width,330px) minmax(0,1fr);min-height:100%}
+/* The sidebar width is the user's: drag the handle on its right edge (saved in this browser). */
+.side-resize{position:fixed;top:0;bottom:0;width:8px;margin-left:-4px;cursor:col-resize;z-index:5;left:var(--side-width,330px)}
+.side-resize:hover,.side-resize.dragging{background:var(--line-strong)}
 .side{background:var(--surface);border-right:1px solid var(--line);padding:18px 16px;display:flex;flex-direction:column;gap:20px;height:100vh;position:sticky;top:0;overflow:auto}
-.brand{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:flex-start;justify-content:space-between;gap:8px 12px;flex-wrap:wrap}
+.brand h1{white-space:nowrap}
 .brand h1{font-size:18px;letter-spacing:-.01em}
 .btn{appearance:none;border:1px solid var(--line-strong);background:var(--surface);border-radius:8px;padding:6px 12px;min-height:34px;cursor:pointer;font-weight:550;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px}
 .btn:hover{background:var(--surface-2)}
@@ -228,7 +232,9 @@ select:focus-visible{outline:2px solid var(--codex);outline-offset:1px}
 .lang{display:inline-flex;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden}
 .lang button{appearance:none;border:0;background:none;padding:4px 8px;font-size:12px;font-weight:600;color:var(--text-3);cursor:pointer}
 .lang button[aria-pressed=true]{background:var(--primary);color:var(--on-primary)}
-.brand-tools{display:flex;gap:8px;align-items:center}
+.brand-tools{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.brand-tools .btn,.brand-tools select{white-space:nowrap}
+#skin-pick{max-width:110px}
 .gh-row{display:flex;gap:10px;margin:8px 0}
 .gh-row label{display:inline-flex;gap:5px;align-items:center;font-size:13px}
 .gh-link{font-weight:600;overflow-wrap:anywhere}
@@ -238,6 +244,7 @@ select:focus-visible{outline:2px solid var(--codex);outline-offset:1px}
 @media (max-width:1080px){.columns{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:820px){
   .app{grid-template-columns:minmax(0,1fr)}
+  .side-resize{display:none}
   .side{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line)}
   main{padding:18px 16px 40px}
   .grid2{grid-template-columns:1fr}
@@ -248,6 +255,7 @@ select:focus-visible{outline:2px solid var(--codex);outline-offset:1px}
 </head>
 <body>
 <div class="app">
+  <div class="side-resize" id="side-resize" role="separator" aria-orientation="vertical" aria-label="Szerokość panelu" tabindex="0"></div>
   <aside class="side">
     <div class="brand"><h1>Sol-83</h1><div class="brand-tools">
       <div class="lang" role="group" aria-label="Language">
@@ -440,6 +448,7 @@ pl:{
   withdraw:'Cofnij przekazanie', withdrawn:'Przekazanie cofnięte', monTokens:'Tokeny łącznie', monTokensTurns:'Tokeny ostatnich tur',
   accounts:'Konta i logowanie', checkConnection:'Sprawdź połączenie', checkHint:'Sprawdza CLI i logowanie bez wywołania modelu: nie zużywa limitów.', cliVersion:'CLI', authState:'Logowanie', account:'Konto', planLabel:'Abonament', stale:'dane nieaktualne', loginWith:'Zaloguj', authOk:'zalogowany', authNotLogged:'brak logowania', authExpired:'sesja wygasła', authWrongAccount:'niewłaściwe konto', authNoModel:'brak dostępu do modelu', authPlanLimit:'limit abonamentu', authRateLimit:'ograniczenie częstotliwości', authNetwork:'błąd sieci', authOutage:'awaria dostawcy', authUnknown:'przyczyna nieustalona', authNoCli:'brak CLI', authApiKey:'klucz API (nieużywany przez Sol-83)',
   selection:'Wybór modelu', sel_manual:'Ręczny', sel_auto_economy:'Auto — ekonomiczny', sel_auto_power:'Auto — power', topShort:'najwyższy', topWarning:'Najwyższy model dostawcy: może bardzo szybko zużyć limity abonamentu. Auto nigdy go nie wybiera; ręczny wybór wymaga potwierdzenia.', autoHint:'Auto wybiera model tego dostawcy przed każdą turą według rodzaju pracy, wyników i limitów, nigdy najwyższy ani niesklasyfikowany. Decyzja z powodem jest w Activity.', aboutModel:'O modelu', usesLabel:'Zastosowania', autoLabel:'Auto', autoManualOnly:'tylko ręcznie', autoAllowed:'dopuszczony', autoUnclassified:'model niesklasyfikowany: poza Auto',
+  licTitle:'Licencja projektu', licNow:l=>`Obecnie: ${l}.`, licKind:'Rodzaj', lic_standard:'standardowa open source', lic_custom:'własna / source-available', lic_none:'brak zadeklarowanej licencji', licStandard:'Licencja standardowa', licHolder:'Właściciel praw (do pliku LICENSE)', licOverwrite:'zastąp istniejący plik LICENSE (świadoma decyzja)', licCustom:'Treść licencji własnej', licHint:'Teksty standardowe są niezmienione (identyfikatory SPDX). Wybór nie zmienia licencji zależności ani cudzego kodu. Brak licencji nie oznacza prawa do dowolnego użycia. Licencja Sol-83 jest od tego niezależna.',
   notAvailable:'brak danych', usageByModel:'Zużycie tokenów według dostawcy i modelu', colTurns:'Tury', colCache:'Cache (odczyt)', colProvider:'Dostawca', col5h:'Okno 5 h', colEquiv:'Pełne okna', colWeek:'Tydzień', colGaps:'Tury bez odczytu', sharedTurns:'wspólne z innym projektem', modelUnconfirmed:'model niepotwierdzony przez CLI',
   usageHelp:'Wartości na turę: przyrost licznika tej samej sesji. Claude podaje turę, Codex i Antigravity sumę całej sesji, z której koordynator liczy przyrost. Codex podaje tylko sumę, więc wejście i wyjście są niedostępne. „brak danych” nie znaczy zero. Kategorii różnych dostawców nie należy porównywać wprost.',
   windowsTitle:'Udział projektu w limitach abonamentów', windowsHelp:'Szacunek z ruchu odczytów limitów konta w czasie tur projektu: obejmuje też inną pracę na tym koncie. 250% okna 5 h to 2,5 pełnego okna, a nie bieżące saldo. Dostawców nie sumuje się. Antigravity nie udostępnia odczytów, więc brak danych.',
@@ -558,6 +567,7 @@ en:{
   withdraw:'Take it back', withdrawn:'Taken back', monTokens:'Tokens in total', monTokensTurns:'Tokens of recent turns',
   accounts:'Accounts and sign-in', checkConnection:'Check connection', checkHint:'Checks the CLI and sign-in without calling a model: no limit is used.', cliVersion:'CLI', authState:'Sign-in', account:'Account', planLabel:'Plan', stale:'data out of date', loginWith:'Sign in with', authOk:'signed in', authNotLogged:'not signed in', authExpired:'session expired', authWrongAccount:'wrong account', authNoModel:'no access to the model', authPlanLimit:'subscription limit', authRateLimit:'rate limited', authNetwork:'network error', authOutage:'provider outage', authUnknown:'cause unknown', authNoCli:'no CLI', authApiKey:'API key (not used by Sol-83)',
   selection:'Model choice', sel_manual:'Manual', sel_auto_economy:'Auto — economy', sel_auto_power:'Auto — power', topShort:'top', topWarning:'The provider\'s top model: it can use up subscription limits very fast. Auto never picks it; a manual choice needs confirmation.', autoHint:'Auto picks this provider\'s model before every turn by kind of work, results and limits, never the top or an unclassified one. The decision and its reason are in Activity.', aboutModel:'About the model', usesLabel:'Uses', autoLabel:'Auto', autoManualOnly:'manual only', autoAllowed:'allowed', autoUnclassified:'unclassified model: not used by Auto',
+  licTitle:'Project license', licNow:l=>`Now: ${l}.`, licKind:'Kind', lic_standard:'standard open source', lic_custom:'own / source-available', lic_none:'no declared license', licStandard:'Standard license', licHolder:'Copyright holder (for LICENSE)', licOverwrite:'replace the existing LICENSE file (a deliberate decision)', licCustom:'Text of your own license', licHint:'Standard texts are unmodified (SPDX ids). The choice does not change the license of dependencies or anyone else\'s code. No license does not mean free use. Sol-83\'s own license is separate.',
   notAvailable:'no data', usageByModel:'Token usage by provider and model', colTurns:'Turns', colCache:'Cache (read)', colProvider:'Provider', col5h:'5 h window', colEquiv:'Full windows', colWeek:'Week', colGaps:'Turns without a reading', sharedTurns:'shared with another project', modelUnconfirmed:'model not confirmed by the CLI',
   usageHelp:'Per-turn values: the increase of the same session\'s counter. Claude reports the turn, Codex and Antigravity the total of the whole session, from which the coordinator takes the increase. Codex reports only a total, so input and output are unavailable. "no data" does not mean zero. Categories of different providers are not directly comparable.',
   windowsTitle:'Project share of subscription limits', windowsHelp:'An estimate from how the account\'s limit readings moved during the project\'s turns: other work on the same account is included. 250% of the 5 h window means 2.5 full windows, not the current balance. Providers are never added together. Antigravity offers no readings, so there is no data.',
@@ -629,6 +639,28 @@ function setHTML(id, html){
   const el = document.getElementById(id);
   if(el && state.html[id] !== html){ el.innerHTML = html; state.html[id] = html; }
 }
+// Sidebar width: dragged by the user, kept between 260 and 640 px, remembered in this browser.
+function setSideWidth(px){
+  const width = Math.max(260, Math.min(640, Math.round(px)));
+  document.documentElement.style.setProperty('--side-width', width + 'px');
+  try{ localStorage.setItem('sol83-side-width', width); }catch(error){}
+}
+try{ const saved = Number(localStorage.getItem('sol83-side-width')); if(saved) setSideWidth(saved); }catch(error){}
+(() => {
+  const handle = document.getElementById('side-resize');
+  if(!handle) return;
+  handle.addEventListener('pointerdown', e => {
+    handle.setPointerCapture(e.pointerId); handle.classList.add('dragging');
+    const move = ev => setSideWidth(ev.clientX);
+    const up = () => { handle.classList.remove('dragging'); handle.removeEventListener('pointermove', move); handle.removeEventListener('pointerup', up); };
+    handle.addEventListener('pointermove', move); handle.addEventListener('pointerup', up);
+  });
+  handle.addEventListener('keydown', e => {
+    const now = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--side-width')) || 330;
+    if(e.key === 'ArrowLeft') setSideWidth(now - 20);
+    if(e.key === 'ArrowRight') setSideWidth(now + 20);
+  });
+})();
 // The skin is the user's preference, apart from language and project (spec 18).
 function applySkin(skin){
   if(skin) document.documentElement.dataset.theme = skin; else delete document.documentElement.dataset.theme;
@@ -938,6 +970,19 @@ function projectSection(d){
     <form id="rename-form" class="row" style="flex-wrap:nowrap"><input id="rename-text" type="text" value="${esc(p.title)}" aria-label="${esc(t('projectName'))}"><button class="btn">${esc(t('rename'))}</button></form>
     <p class="hint">${esc(t('keyHint', p.key || '–'))}</p>${lang}</section>`;
 }
+const LICENSES = ['MIT','Apache-2.0','BSD-3-Clause','MPL-2.0','GPL-3.0-only','AGPL-3.0-only'];
+function licenseSection(d){
+  const current = JSON.parse(d.project.license || '{}');
+  const label = current.kind === 'standard' ? current.spdx : current.kind ? t('lic_'+current.kind) : t('notAvailable');
+  return `<section style="margin-top:18px"><h3>${esc(t('licTitle'))}</h3><p class="hint">${esc(t('licNow', label))}</p>
+    <form id="license-form" class="grid2">
+      <label>${esc(t('licKind'))}<select id="lic-kind">${['standard','custom','none'].map(k => `<option value="${k}" ${current.kind===k?'selected':''}>${esc(t('lic_'+k))}</option>`).join('')}</select></label>
+      <label>${esc(t('licStandard'))}<select id="lic-spdx">${LICENSES.map(l => `<option ${current.spdx===l?'selected':''}>${l}</option>`).join('')}</select></label>
+      <label>${esc(t('licHolder'))}<input id="lic-holder" type="text" value="${esc(current.holder || '')}"></label>
+      <label class="check"><input type="checkbox" id="lic-overwrite"> ${esc(t('licOverwrite'))}</label>
+      <label style="grid-column:1/-1">${esc(t('licCustom'))}<textarea id="lic-custom" rows="3">${esc(current.custom || '')}</textarea></label>
+      <div class="row" style="grid-column:1/-1"><span class="hint">${esc(t('licHint'))}</span><button class="btn">${esc(t('save'))}</button></div></form></section>`;
+}
 function gitSection(d){
   const g = d.git || {}, saved = g.saved || {}, repo = g.repository || {}, remotes = Object.keys(repo.remotes || {});
   const state_ = repo.repository ? `${esc(t('gitBranch'))}: ${esc(repo.branch || t('gitDetached'))} · ${esc(t('gitChanges', repo.staged || 0, repo.unstaged || 0, repo.untracked || 0))}${repo.merging||repo.rebasing ? ' · '+esc(t('gitInProgress')) : ''}` : esc(t('gitNoRepo'));
@@ -968,7 +1013,7 @@ function renderTab(d){
            <input id="verify-cmd" type="text" value="${esc(d.project.verify_cmd || '')}" placeholder="${esc(t('fVerifyPlaceholder'))}"><button class="btn">${esc(t('save'))}</button></form>
            <p class="hint" style="margin-top:6px">${esc(t('verifyHint'))}</p></section>
          <section style="margin-top:18px"><h3>${esc(t('coordTitle'))}</h3><div id="coordinator"></div><p class="hint" style="margin-top:6px">${esc(t('coordHint'))}</p></section>
-         ${projectSection(d)}${gitSection(d)}
+         ${projectSection(d)}${licenseSection(d)}${gitSection(d)}
          ${d.setup ? setupSection(d.setup) : ''}
          <section style="margin-top:18px"><h3>${esc(t('ghTitle'))}</h3><div id="github"></div></section>
          <section style="margin-top:24px;padding-top:14px;border-top:1px solid var(--line)"><h3>${esc(t('deleteTitle'))}</h3>
@@ -1435,6 +1480,13 @@ document.addEventListener('submit', async e => {
   if(e.target.id === 'rename-form'){
     e.preventDefault();
     try{ await api(`/api/projects/${route()}/rename`, {title:document.getElementById('rename-text').value}); poll(); }catch(error){ alert(error.message); }
+    return;
+  }
+  if(e.target.id === 'license-form'){
+    e.preventDefault();
+    const v = id => document.getElementById(id);
+    try{ await api(`/api/projects/${route()}/license`, {kind:v('lic-kind').value, spdx:v('lic-spdx').value, holder:v('lic-holder').value, custom:v('lic-custom').value, overwrite:v('lic-overwrite').checked}); state.renderedTab = null; poll(); }
+    catch(error){ alert(error.message); }
     return;
   }
   if(e.target.id === 'git-form'){

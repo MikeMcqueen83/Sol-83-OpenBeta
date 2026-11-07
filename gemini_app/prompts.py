@@ -155,6 +155,10 @@ When the whole goal is met and you checked it yourself, give an LGTM rationale a
                             'odpowiedź; pracuj nad niezależnymi.',
                       'en': 'Open questions and tests for the user (do not repeat them): {items}. Items {blocked} wait for '
                             'the answer; work on independent ones.'},
+    'license_note': {'pl': 'Użytkownik wybrał licencję projektu: {license}. Plik LICENSE jest już w repozytorium; dopisz '
+                           'krótką informację o licencji w README. Nie zmieniaj licencji zależności ani cudzego kodu.',
+                     'en': 'The user chose the project license: {license}. The LICENSE file is already in the repository; add '
+                           'a short license note to the README. Do not change the license of dependencies or anyone else\'s code.'},
     'language_rule': {'pl': 'Język projektu: polski. Plan, opisy, pytania i podsumowania pisz po polsku; wartości techniczne '
                             'bez zmian.',
                       'en': 'Project language: English. Write the plan, descriptions, questions and summaries in English; '

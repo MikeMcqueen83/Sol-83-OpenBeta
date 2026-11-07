@@ -154,3 +154,37 @@ class Interactions(Base):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ProjectLicense(Base):
+    def setUp(self):
+        super().setUp()
+        from gemini_app import gitops
+        self.work = pathlib.Path(tempfile.mkdtemp(dir=TEMP))
+        gitops.create_repo(self.work)
+        self.store.update_project(self.pid, worktree=str(self.work), status='stopped')
+
+    def test_standard_license_text_is_unmodified_and_committed(self):
+        from gemini_app import licenses
+        self.supervisor.set_license(self.pid, 'standard', 'MIT', 'Jan Kowalski')
+        text = (self.work / 'LICENSE').read_text()
+        original = (licenses.DATA / 'MIT.txt').read_text()
+        self.assertEqual(text.replace('Jan Kowalski', '[fullname]').split('\n', 3)[3], original.split('\n', 3)[3])
+        self.assertIn('Jan Kowalski', text)
+        self.assertIn('licencja MIT', __import__('subprocess').run(['git', 'log', '-1', '--format=%s'], cwd=self.work,
+                                                                   capture_output=True, text=True).stdout)
+        self.assertTrue(any('LICENSE' in n['text'] for n in self.store.notes(self.pid)))
+
+    def test_existing_license_needs_an_explicit_decision(self):
+        (self.work / 'LICENSE').write_text('own terms\n')
+        with self.assertRaises(ValueError):
+            self.supervisor.set_license(self.pid, 'standard', 'Apache-2.0', 'X')
+        self.assertEqual((self.work / 'LICENSE').read_text(), 'own terms\n')
+        self.supervisor.set_license(self.pid, 'custom', custom='Source-available, see terms.', overwrite=True)
+        self.assertIn('Source-available', (self.work / 'LICENSE').read_text())
+
+    def test_none_and_unknown(self):
+        self.supervisor.set_license(self.pid, 'none')
+        self.assertFalse((self.work / 'LICENSE').exists())
+        with self.assertRaises(ValueError):
+            self.supervisor.set_license(self.pid, 'standard', 'WTFPL-ish')

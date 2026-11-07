@@ -17,7 +17,7 @@ from typing import Optional
 
 from . import assets as content
 from . import github, gitops, limits, monitor, sandbox
-from . import gitcontext, interactions, model_catalog, orders, plan_contract, prompts, runner
+from . import gitcontext, interactions, licenses, model_catalog, orders, plan_contract, prompts, runner
 from . import plan as project_plan
 from . import roles as model_roles
 from .catalog import MODEL_OFF
@@ -860,6 +860,12 @@ class Supervisor:
         worktree.parent.mkdir(parents=True, exist_ok=True)
         base = gitops.add_worktree(repo, worktree, branch, start)
         self._setup(project_id, worktree)
+        if self.store.meta(project_id).get('license_request'):
+            self.store.update_project(project_id, worktree=str(worktree))
+            try:
+                self.apply_license(project_id)
+            except ValueError as exc:
+                self.store.event(project_id, 'attention', Msg('license_kept', detail=str(exc)))
         if (worktree / project_plan.PLAN_FILE).exists():
             # The repository carries the plan of an earlier project: the first turn plans this task anew.
             meta = self.store.meta(project_id)
@@ -1295,6 +1301,31 @@ class Supervisor:
                          'tag_only': folder is None, 'how_to_run': version['how_to_run'],
                          'what_to_check': version['what_to_test'], 'check_id': check['id'] if check else None})
         return rows
+
+    # ---- Project license (spec 15) -------------------------------------------------------------
+
+    def set_license(self, project_id: str, kind: str, spdx: str = '', holder: str = '', custom: str = '',
+                    overwrite: bool = False) -> dict:
+        """Record the project's license and write it into the agents' folder between turns. An existing
+        LICENSE stays unless the user explicitly chose to replace it."""
+        project = self._require(project_id)
+        if kind not in licenses.KINDS or (kind == 'standard' and spdx not in licenses.STANDARD):
+            raise ValueError(Msg('err_license'))
+        choice = {'kind': kind, 'spdx': spdx if kind == 'standard' else None, 'holder': holder.strip()[:200],
+                  'custom': custom[:20000] if kind == 'custom' else None, 'overwrite': bool(overwrite), 'at': time.time()}
+        self.store.update_project(project_id, license=json.dumps(choice))
+        self.store.update_meta(project_id, lambda meta: meta.__setitem__('license_request', choice))
+        result = {'pending': True}
+        if project.get('worktree') and project['status'] not in RUNNING:
+            result = self.apply_license(project_id)
+        self.store.event(project_id, 'license', Msg('license_set', license=spdx or kind))
+        return result
+
+    def apply_license(self, project_id: str) -> dict:
+        try:
+            return licenses.apply_pending(self.store, project_id)
+        except licenses.LicenseError as exc:
+            raise ValueError(str(exc))
 
     # ---- Git context (spec 22) -----------------------------------------------------------------
 

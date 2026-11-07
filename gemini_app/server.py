@@ -9,7 +9,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import assets as content
-from . import catalog, github, limits, model_catalog, monitor, observer, plan, providers
+from . import catalog, github, licenses, limits, model_catalog, monitor, observer, plan, providers
 from .messages import Msg, en
 from .paths import WEB
 from .scheduler import AGENT_LABEL
@@ -104,6 +104,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json({**catalog.read(), 'catalog': model_catalog.current(store),
                                    'policy': model_catalog.policy(),
                                    'catalog_due': model_catalog.due(store)})
+            if path == '/api/licenses':
+                return self._json({'standard': licenses.STANDARD, 'kinds': licenses.KINDS})
             if path == '/api/providers':
                 return self._json(providers.status())
             if path == '/api/github/repos':
@@ -251,6 +253,10 @@ class Handler(BaseHTTPRequestHandler):
                                        bool(body.get('allow_pr')), str(body.get('subdir') or ''))
         elif action == 'git-deliver':
             return supervisor.git_deliver(project_id, str(body.get('request_key') or ''))
+        elif action == 'license':
+            return supervisor.set_license(project_id, str(body.get('kind') or ''), str(body.get('spdx') or ''),
+                                          str(body.get('holder') or ''), str(body.get('custom') or ''),
+                                          bool(body.get('overwrite')))
         elif action == 'language':
             supervisor.set_language(project_id, str(body.get('language') or ''))
         elif action == 'rename':

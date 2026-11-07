@@ -336,6 +336,9 @@ CATALOG.update({
     'git_context_saved': ('Zapisano kontekst Git: {strategy}, remote {remote}.', 'Saved the Git context: {strategy}, remote {remote}.'),
     'git_pushed': ('Wysłano gałąź {branch}. {detail}', 'Pushed branch {branch}. {detail}'),
     'git_push_failed': ('Wysyłka gałęzi {branch} nie powiodła się: {detail}', 'Pushing branch {branch} failed: {detail}'),
+    'err_license': ('Nieznany wybór licencji.', 'Unknown license choice.'),
+    'license_set': ('Licencja projektu: {license}.', 'Project license: {license}.'),
+    'license_kept': ('Licencja nie została zapisana: {detail}', 'The license was not written: {detail}'),
     'plan_restored': ('Plan nie został naprawiony po kolejnych próbach ({problems}). Przywrócono rewizję {revision}; błędna wersja jest w .sol83/plan.invalid.json.',
                       'The plan was not repaired after repeated attempts ({problems}). Restored revision {revision}; the broken version is in .sol83/plan.invalid.json.'),
 })
