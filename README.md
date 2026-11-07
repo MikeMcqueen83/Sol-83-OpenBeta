@@ -1,12 +1,60 @@
-# Sol-83 (OpenBeta)
+<p align="center">
+  <img src="Assets/logo.jpeg" alt="Sol-83 OpenBeta: Your AI subscriptions. One collaborative team." width="760">
+</p>
 
-[English](README.en.md)
+<p align="center">
+  <b>Twoje abonamenty AI. Jeden zgrany zespół.</b><br>
+  Claude Code · Codex · Gemini (Antigravity) · lokalny LLM
+</p>
+
+<p align="center">
+  <a href="README.en.md">English</a> ·
+  <a href="docs/pl/INSTALACJA.md">Instalacja</a> ·
+  <a href="docs/pl/PRZEWODNIK.md">Przewodnik</a> ·
+  <a href="#zrzuty-ekranu">Zrzuty ekranu</a> ·
+  <a href="#kawa">Postaw mi kawę ☕</a>
+</p>
+
+# Sol-83 (OpenBeta)
 
 Sol-83 to lokalny koordynator, który każe agentom programistycznym pracować na zmianę nad jednym repozytorium: **Claude Code**, **Codex** i opcjonalnie **Gemini przez Antigravity**. Agenci sprawdzają się nawzajem, a gdy jednemu kończy się limit abonamentu, pracę przejmuje drugi. Koordynator to zwykły program, nie model. Zapisuje checkpoint Git po każdej turze, uruchamia testy w piaskownicy i numeruje wersję tylko wtedy, gdy przeszły. Ty dostajesz sprawdzone wersje, pytania tylko wtedy, gdy są naprawdę potrzebne, i panel WWW na `127.0.0.1:8765` po polsku i angielsku.
 
 Korzysta wyłącznie z abonamentów: bez kluczy API i bez płatnego rozszerzenia limitów.
 
 > **Status:** wersja OpenBeta, rozwijana od listopada 2026. Przetestowana na macOS (Apple Silicon). Linux jest obsługiwany w kodzie, ale nie był testowany na prawdziwej maszynie; Windows nie jest obsługiwany. Stan każdej funkcji, z testami i ograniczeniami: [docs/TRACEABILITY.md](docs/TRACEABILITY.md).
+
+<a id="zrzuty-ekranu"></a>
+## Jak to wygląda
+
+<p align="center">
+  <img src="Assets/sc4.png" alt="Sol-83 w skórce SAKURA: limity abonamentów, karty projektów, plan z postępem netto" width="100%"><br>
+  <sub>Skórka SAKURA: limity abonamentów, karty projektów i plan z postępem netto.</sub>
+</p>
+
+<table>
+  <tr>
+    <td width="50%" align="center" valign="top">
+      <img src="Assets/sc2.png" alt="Plan projektu w skórce TERMINAL"><br>
+      <sub>Plan z priorytetami, budżetem tur i przyciskiem „Zleć” przy każdej pozycji.</sub>
+    </td>
+    <td width="50%" align="center" valign="top">
+      <img src="Assets/sc3.png" alt="Ustawienia modeli i ról w skórce TERMINAL"><br>
+      <sub>Ustawienia: migawka bieżącej tury, wiele ról na model, tryb Auto.</sub>
+    </td>
+  </tr>
+</table>
+
+<details>
+  <summary><b>Więcej zrzutów</b></summary>
+  <p align="center">
+    <img src="Assets/sc1.png" alt="Przebieg tur w skórce TERMINAL" width="100%"><br>
+    <sub>Przebieg: wyraźne nagłówki tur (wykonawca, model, rodzaj pracy) i odpowiedź lokalnego koordynatora.</sub>
+  </p>
+  <p align="center">
+    <img src="Assets/sc5.png" alt="Interfejs po angielsku w skórce SAKURA" width="100%"><br>
+    <sub>Interfejs po angielsku: język strony zmienia się niezależnie od stałego języka projektu.</sub>
+  </p>
+</details>
 
 ## Szybki start
 
@@ -51,6 +99,15 @@ Potem otwórz http://127.0.0.1:8765 i kliknij **Nowy projekt**.
 | Audyt i poprawki | [AUDIT-2026-11-07](docs/AUDIT-2026-11-07.md) | |
 | Wymagania i stan wdrożenia | [TRACEABILITY](docs/TRACEABILITY.md) | |
 | Zmiany | [CHANGELOG.md](CHANGELOG.md) | [CHANGELOG.md](CHANGELOG.md) |
+
+<a id="kawa"></a>
+## ☕ Postaw mi kawę
+
+Sol-83 rozwijam samodzielnie i udostępniam bezpłatnie do użytku niekomercyjnego. Jeśli oszczędził Ci czas albo limity abonamentów, jeśli podoba Ci się sam pomysł, albo po prostu chcesz, żeby kolejne funkcje pojawiały się szybciej, postaw mi kawę. To realnie pomaga w dalszym rozwoju, a każde wsparcie bardzo motywuje. Dziękuję! 🌸
+
+<p align="center">
+  <a href="https://buycoffee.to/evvil" target="_blank"><img src="https://buycoffee.to/static/img/share/share-button-dark--en.png" width="406" height="92" style="width: 406px; height: 92px" alt="Buy a coffee for Evvil at buycoffee.to"></a>
+</p>
 
 ## Licencja
 
