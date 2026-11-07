@@ -98,4 +98,14 @@ Checklista odbioru:
 
 ## 6. Przełączenie instancji i wynik testów końcowych
 
-(uzupełniane po przełączeniu)
+**Testy końcowe:** `python3 -m unittest discover -s tests` na commicie `ea28c6f` (kod przełączanej wersji; późniejsze commity zmieniają dokumentację, licencję i rozpoznawanie silników w migracji z osobnym testem): **253 testy, OK**, 510 s, macOS 26, Python 3.14, atrapy CLI.
+
+**Przełączenie, 7 listopada 2026, na polecenie użytkownika:**
+1. Silniki starej instancji: brak działających.
+2. Migawka bazy w chwili przełączenia: `~/Sol-83-backups/2026-11-07-przed-OpenBeta/data/state/gemini-at-switch.db`.
+3. `./sol83 migrate --from /Users/evvil/AplikacjeLokalne/ProjectGemini` → `~/Sol-83-data`: 9/9 projektów, 823/823 zdarzeń, 49/49 wersji, 11/11 zleceń, 13/13 pytań, 14 worktree z tym samym HEAD, 63 pola ścieżek w bazie i 36 plików JSON przepisane, brak starych ścieżek w bazie; raport w `~/Sol-83-data/MIGRATION.json`. Migracja zatrzymała się raz na fałszywym alarmie (własne polecenie powłoki uznane za silnik); poprawione i przetestowane.
+4. Stary serwer zatrzymany (`pkill -f "sol83 serve"`), nowy uruchomiony na 8765 z czystym środowiskiem (bez zmiennych sesji Claude Code), odłączony od sesji, log: `~/Sol-83-data/state/server.log`.
+5. Sprawdzenie: API zwraca 9 projektów z kluczami PR1/26…PR9/26 i pełnymi szczegółami; panel w przeglądarce bez błędów konsoli; `sol83 doctor` same `[ok]`; piaskownica sandbox-exec.
+6. Stary folder `/Users/evvil/AplikacjeLokalne/ProjectGemini` przeniesiony do Kosza (nie usunięty), jako ostatni krok.
+
+Projekty po przełączeniu: PR1/26 Facade360 (zatrzymany, 30 wersji), PR2/26 Payment processing demo (EN), PR3/26 Rampart26_Rebuild, PR4/26 Sol-83 vs Relay Green, PR5/26 Dune RTS (EN), PR6/26 research rynkowy, PR7/26 zarabianie kasy, PR8/26 AgenticPay Onboarding, PR9/26 Sol-83 Terminal (wymaga uwagi). Język odczytany z treści zadań; sprawdź PR2 i PR5, jeśli miały być polskie: jest ustalony, ale przed ponownym uruchomieniem możesz go zmienić w Ustawieniach.
