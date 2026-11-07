@@ -9,13 +9,13 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import assets as content
-from . import catalog, github, limits, model_catalog, monitor, observer, providers
+from . import catalog, github, limits, model_catalog, monitor, observer, plan, providers
 from .messages import Msg, en
 from .paths import WEB
 from .scheduler import AGENT_LABEL
 from .store import Store
 from . import supervisor as supervisor_module
-from .supervisor import Supervisor, preview, state_kind
+from .supervisor import Supervisor, preview, recommended_version, state_kind
 
 MAX_BODY = 2_000_000
 PROVIDER_THRESHOLDS = {f'{kind}_{name}' for name in limits.PROVIDERS
@@ -28,7 +28,19 @@ def overview(supervisor: Supervisor) -> dict:
     for project in store.projects():
         versions = store.versions(project['id'])
         live = store.live(project['id'])
+        revision = store.plan_revision(project['id'])
+        last = store.last_event(project['id'], 'turn_start')
+        run = store._row("SELECT state, version, port FROM app_runs WHERE project_id=? ORDER BY id DESC LIMIT 1",
+                         (project['id'],))
+        recommended = recommended_version(versions)
         projects.append({**project, 'task': None, 'live': live, 'state_kind': state_kind(project, live),
+                         'summary': (project['task'] or '').strip().splitlines()[0][:160] if project['task'] else '',
+                         'recommended': recommended['number'] if recommended else None,
+                         'progress': plan.progress(revision['data']) if revision else None,
+                         'questions_open': store._row("SELECT COUNT(*) AS n FROM interactions WHERE project_id=? "
+                                                      "AND state='open'", (project['id'],))['n'],
+                         'last_config': (json.loads(last['data']).get('config') if last and last['data'] else None),
+                         'run': run,
                          'monitor_level': monitor.assess(store, project, with_git=False)['level'],
                          'latest_version': versions[0]['number'] if versions else None,
                          'versions_count': len(versions)})
@@ -102,8 +114,6 @@ class Handler(BaseHTTPRequestHandler):
             parts = path.strip('/').split('/')
             if len(parts) == 3 and parts[:2] == ['api', 'projects']:
                 return self._json(self.supervisor.detail(parts[2]))
-            if len(parts) == 4 and parts[:2] == ['api', 'projects'] and parts[3] == 'live':
-                return self._json(self.supervisor.live_log(parts[2]))
             if len(parts) == 5 and parts[:2] == ['api', 'projects'] and parts[3] == 'events':
                 if not parts[4].isdigit():
                     return self._error(ValueError(Msg('err_bad_number')), 400)

@@ -8,3 +8,4 @@ __pycache__/
 config/run-*.json
 reports/*.log
 .DS_Store
+.claude/

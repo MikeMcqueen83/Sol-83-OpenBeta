@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Optional
 
 from . import assets as content
-from . import github, gitops, limits, livelog, monitor, sandbox
+from . import github, gitops, limits, monitor, sandbox
 from . import gitcontext, interactions, model_catalog, orders, plan_contract, prompts, runner
 from . import plan as project_plan
 from . import roles as model_roles
@@ -551,10 +551,6 @@ class Supervisor:
                 self.store.update_note(pending[-1]['id'], reopened=project['status'])
             self.resume(project_id)
 
-    def live_log(self, project_id: str) -> dict:
-        project = self._require(project_id)
-        return livelog.live(project.get('worktree'), (self.store.live(project_id) or {}).get('speaker'))
-
     def stop(self, project_id: str, immediate: bool = False) -> None:
         with self.lock:
             project = self._require(project_id)
@@ -743,7 +739,10 @@ class Supervisor:
 
     def _sync_github(self) -> None:
         """New versions of connected private repositories go up on their own.
-        A public repository always waits for the user's click."""
+        A public repository always waits for the user's click. SOL83_OFFLINE=1 (a trial instance on a
+        copy of the data) never sends anything anywhere."""
+        if os.environ.get('SOL83_OFFLINE') == '1':
+            return
         for project in self.store.projects():
             if not project['github_auto'] or project['github_visibility'] != 'private':
                 continue
@@ -1108,6 +1107,11 @@ class Supervisor:
             self._attention(project_id, Msg('engine_lost'))
 
     def _catalog_maintenance(self) -> None:
+        if os.environ.get('SOL83_OFFLINE') == '1':
+            return
+        self._catalog_maintenance_due()
+
+    def _catalog_maintenance_due(self) -> None:
         """Monthly model catalog update in the background: never blocks projects, never runs twice
         (the attempt is recorded before it starts), and a failure keeps the last valid catalog."""
         if self.store.text_setting('catalog_last_attempt') is None:

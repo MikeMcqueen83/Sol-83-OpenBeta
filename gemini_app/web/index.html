@@ -14,7 +14,7 @@
   --good-soft:#e8f5e8;--warn-soft:#fdf3dc;--bad-soft:#fbe9e9;
   --primary:#0b0b0b;--on-primary:#fcfcfb;
 }
-@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+@media (prefers-color-scheme:dark){:root:not([data-theme]){
   color-scheme:dark;
   --bg:#121211;--surface:#1a1a19;--surface-2:#222220;--line:rgba(240,239,236,.11);--line-strong:rgba(240,239,236,.24);
   --text:#f0efec;--text-2:#c3c2b7;--text-3:#96958c;--track:#2f2f2c;
@@ -32,6 +32,27 @@
   --good-soft:#1c2e1c;--warn-soft:#332a14;--bad-soft:#351f1f;
   --primary:#f0efec;--on-primary:#1a1a19;
 }
+/* Skins (spec 18): one set of variables, same functions. LIGHT and DARK above; SAKURA and TERMINAL here. */
+:root[data-theme=sakura]{
+  color-scheme:light;
+  --bg:#fbf1f4;--surface:#fffafc;--surface-2:#f7e8ee;--line:rgba(120,60,90,.14);--line-strong:rgba(120,60,90,.28);
+  --text:#3a2233;--text-2:#6b4a5e;--text-3:#86677a;--track:#f0dbe4;
+  --codex:#5b7fd6;--claude:#d9667c;--gemini:#9b7ad8;
+  --good:#3f9b6b;--warn:#d9a032;--bad:#c64b6a;--good-ink:#1f6b44;--warn-ink:#7a5200;--bad-ink:#a3304f;
+  --good-soft:#e6f4ec;--warn-soft:#fbf0dc;--bad-soft:#fbe4ea;
+  --primary:#b0587e;--on-primary:#fffafc;
+}
+:root[data-theme=terminal]{
+  color-scheme:dark;
+  --bg:#050805;--surface:#0a120a;--surface-2:#0f1a0f;--line:rgba(80,255,120,.16);--line-strong:rgba(80,255,120,.34);
+  --text:#7dff9b;--text-2:#5fd17a;--text-3:#4aa862;--track:#123018;
+  --codex:#53c8ff;--claude:#ffb347;--gemini:#d68cff;
+  --good:#39ff6a;--warn:#ffd23f;--bad:#ff5c5c;--good-ink:#39ff6a;--warn-ink:#ffd23f;--bad-ink:#ff7b7b;
+  --good-soft:#0f2a14;--warn-soft:#2a2610;--bad-soft:#2d1111;
+  --primary:#39ff6a;--on-primary:#050805;
+}
+:root[data-theme=terminal] body,:root[data-theme=terminal] button,:root[data-theme=terminal] input,
+:root[data-theme=terminal] textarea,:root[data-theme=terminal] select{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
 body{background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
@@ -50,6 +71,20 @@ a{color:inherit}
 .btn.danger{color:var(--bad-ink);border-color:var(--bad)}
 .btn.small{min-height:28px;padding:3px 9px;font-size:13px}
 .btn:disabled{opacity:.5;cursor:not-allowed}
+.actionbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:10px 0 14px}
+.actionbar .danger-zone{margin-left:auto;display:flex;gap:8px;padding-left:12px;border-left:1px solid var(--line)}
+.turn-head{display:flex;gap:10px;align-items:center;margin:14px 0 4px;padding:6px 10px;border-left:4px solid var(--line-strong);background:var(--surface-2);border-radius:6px;font-weight:650;font-size:13px}
+.turn-head.codex{border-left-color:var(--codex)}.turn-head.claude{border-left-color:var(--claude)}.turn-head.gemini{border-left-color:var(--gemini)}
+.turn-head .who{text-transform:uppercase;letter-spacing:.04em;font-size:11px;padding:1px 6px;border-radius:4px;background:var(--surface);border:1px solid var(--line-strong)}
+.share{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--text-2);margin-bottom:6px}
+.qcard{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:8px 0;background:var(--surface)}
+.qcard .meta{font-size:12px;color:var(--text-3)}
+.counter{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:9px;background:var(--bad);color:#fff;font-size:11px;text-align:center}
+.progress-box{display:flex;gap:14px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px;font-size:13px}
+.task-full{white-space:pre-wrap;overflow-wrap:anywhere;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;background:var(--surface-2);padding:10px;border-radius:8px;max-height:none}
+.vcard{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:10px 0}
+.vcard.rec{border-color:var(--good)}
+.box{border:1px dashed var(--line-strong);border-radius:8px;padding:8px 10px;margin-top:8px}
 .eyebrow{font-size:12px;font-weight:600;color:var(--text-3);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
 .linkbtn{background:none;border:0;padding:0;color:var(--text-3);font-size:12px;font-weight:500;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 .limit{padding:10px 0;border-top:1px solid var(--line)}
@@ -218,6 +253,7 @@ select:focus-visible{outline:2px solid var(--codex);outline-offset:1px}
       <div class="lang" role="group" aria-label="Language">
         <button data-lang="pl" aria-pressed="true">PL</button><button data-lang="en" aria-pressed="false">EN</button>
       </div>
+      <select id="skin-pick" aria-label="Skin" class="small"><option value="light">LIGHT</option><option value="dark">DARK</option><option value="sakura">SAKURA</option><option value="terminal">TERMINAL</option><option value="">AUTO</option></select>
       <a class="btn primary small" href="#/nowy" data-t="newProject"></a></div></div>
     <section>
       <div class="eyebrow"><span data-t="limits"></span><button class="linkbtn" id="refresh" data-t="refresh"></button></div>
@@ -309,6 +345,30 @@ select:focus-visible{outline:2px solid var(--codex);outline-offset:1px}
 <script>
 const TEXT = {
 pl:{
+  whyRunning:'Projekt już pracuje albo czeka w kolejce.', whyNotRunning:'Projekt nie pracuje.', runApp:'RUN', runRunning:'RUN działa', whyRunActive:'Aplikacja już działa: zatrzymaj ją albo otwórz adres.', whyNoVersion:'Brak wersji do uruchomienia.', runStop:'Zatrzymaj RUN',
+  questionsBtn:'Pytania i testy', questionsOpen:'Otwarte pytania i testy', questionsShort:'pytań/testów', langUnknown:'język nieustalony', langFixed:'Język projektu: stały od utworzenia.', actions:'Akcje projektu', seeGates:'Zobacz bramki odbioru',
+  progressHelp:'Postęp netto = funkcjonalny minus dług w punktach procentowych, na tej samej podstawie: pozycje zakresu z planu ważone priorytetem (must 3, should 2, could 1). To wskaźnik zarządczy, nie prawdopodobieństwo sukcesu. Bramki odbioru są osobno.',
+  progressShort:(n,f,d)=>`postęp netto ${n}% (funkcje ${f}% − dług ${d} p.p.)`, coordName:'Koordynator', turnN:n=>`Tura ${n}`, turnsWord:'tur', eventsWord:'zdarzeń',
+  work_plan:'plan', work_implement:'implementacja', work_review:'przegląd', work_content:'treści',
+  run_running:'działa', run_stopped:'zatrzymany', run_ended:'zakończył się', portLabel:'port', runLog:'Log uruchomienia', autoTests:'Testy automatyczne', manualTest:'Test ręczny', reviewLabel:'Przegląd',
+  res_works:'działa', res_fails:'nie działa', res_partial:'częściowo', res_cannot:'nie mogę wykonać', res_oczekuje:'oczekuje',
+  copyPath:'Kopiuj ścieżkę', openFolder:'Pokaż w Finderze', tagOnly:tag=>`Ta wersja istnieje tylko jako tag ${tag}: nie ma jej folderu na dysku.`, prepareFolder:'Przygotuj w folderze użytkownika', recBadge:'rekomendowana', location:'Lokalizacja na dysku', runThis:'Uruchom tę wersję (RUN)',
+  k_key:'Klucz', taskFull:'Pełna treść zadania', chars:'znaków', copy:'Kopiuj', copied:'Skopiowano',
+  tabQuestions:'Pytania i testy', qNone:'Brak pytań i testów dla Ciebie.', gatesTitle:'Bramki odbioru (blokują zamknięcie zakresu)', qt_clarification:'pytanie', qt_decision:'decyzja', qt_manual_test:'test ręczny', versionCheck:'co sprawdzić w wersji',
+  qs_open:'otwarte', qs_answered:'odpowiedziane', qs_applied:'zastosowane', qs_deferred:'odroczone', qs_cancelled:'anulowane', qs_superseded:'zastąpione nowszym', mandatory:'obowiązkowe', why:'Dlaczego', blocks:'Blokuje', independent:'Można kontynuować', environment:'Środowisko',
+  ownAnswer:'Własna odpowiedź', lateAnswer:'spóźniona, nie zastosowana', defer:'Odłóż', histTitle:'Historia odpowiedzi', testComment:'Opis wyniku (opcjonalnie):',
+  actualSize:s=>`faktyczny rozmiar ${s}`, ad_approve:'Zatwierdź', ad_reject:'Odrzuć', ad_defer:'Odłóż', as_proposed:'propozycja', as_rejected:'odrzucone', as_deferred:'odłożone',
+  aSizeHint:'Rozmiar i styl to wskazówki dla generatora: nie każdy wykonawca przyjmuje dokładną rozdzielczość. Po wykonaniu widać faktyczny rozmiar pliku.',
+  tipPrio_must:'must: bez tego cel zadania nie jest spełniony', tipPrio_should:'should: wyraźnie lepiej', tipPrio_could:'could: dodatek',
+  tipSt_todo:'do zrobienia', tipSt_doing:'w toku', tipSt_done:'zrobione', tipSt_deferred:'odłożone: to nie jest ukończenie; usunięcie z zakresu wymaga decyzji',
+  tipCost:'Udział limitu tygodniowego zużyty na pozycje danego rodzaju, z odczytów limitów konta (szacunek).',
+  pDone:(a,b)=>`ukończone ${a}/${b}`, pFunctional:'funkcjonalny', pDebt:'dług', pNet:'netto', pDeferredMust:n=>`${n} odłożonych must`, pGates:n=>`${n} bramek odbioru`, pNoEstimate:'Brak planu: brak oszacowania postępu.',
+  planStale:r=>`Plik planu jest błędny: pokazana jest ostatnia poprawna rewizja ${r}.`,
+  roles:'Role (można kilka)', rd_general:'Plan, implementacja i przegląd. Nie wykonuje zamówionych treści.', rd_architect:'Plan, architektura, research; tury na początku i po nowym zleceniu.', rd_implementer:'Zadania z planu; tura, gdy plan jest gotowy.', rd_tester:'Przegląd i testy; tura po każdej zmianie.', rd_analyst:'Luki, ryzyka, dług; tury przeglądu.', rd_content:'Grafiki, teksty, fabuła z zatwierdzonych zamówień.',
+  langChoose:'Język projektu (ustal raz):', langFixedIs:l=>`Język projektu: ${l}. Ustalony przy utworzeniu; zmiana języka strony go nie zmienia.`, projectTitle:'Projekt', projectName:'Nazwa projektu', rename:'Zmień nazwę', keyHint:k=>`Klucz ${k} i folder projektu nie zmieniają się przy zmianie nazwy.`,
+  gitBranch:'gałąź', gitDetached:'odłączony HEAD', gitChanges:(a,b,c)=>`zmiany: ${a} w indeksie, ${b} niezapisane, ${c} nowe pliki`, gitInProgress:'trwa merge lub rebase', gitNoRepo:'brak repozytorium',
+  gitTitle:'Git projektu', gitRemote:'Remote', gitBase:'Gałąź bazowa', gitStrategy:'Dostarczanie', gs_local:'tylko lokalnie', gs_push:'push gałęzi', gs_pr:'push i PR', gitAllowPush:'zgoda na push', gitAllowPr:'zgoda na PR', gitNeedPermission:'Najpierw zapisz remote i zgodę na push.', gitSendNow:b=>`Wyślij gałąź ${b}`,
+  gitHint:'Agenci pracują na własnej gałęzi; commit, push i PR to osobne zgody. Nigdy force push, reset ani zmiana ochrony gałęzi.', lastTurn:'ostatnia tura',
   locale:'pl-PL', newProject:'Nowy projekt', limits:'Limity abonamentów', refresh:'Odśwież', handoffAt:'Przekazuj pracę przy zużyciu',
   thresholdHint:'Okno 5 h: kiedy przekazać pracę drugiemu modelowi. Tydzień: zapas na Twoją własną pracę do końca tygodnia, 100 oznacza brak zapasu.', projects:'Projekty', noProjects:'Brak projektów.',
   rejectHint:'Opis trafi do następnego modelu, a projekt wróci do pracy.', rejectPlaceholder:'Co nie działa? Co zrobiłeś i co się stało?',
@@ -373,7 +433,7 @@ pl:{
   fName:'Nazwa', fNameHint:'Domyślnie: pierwszy wiersz zadania', fVerify:'Polecenie testów', fVerifyPlaceholder:'np. python3 -m pytest', fVerifyHint:'Na tej podstawie koordynator nadaje numer wersji. Bez polecenia nie potwierdzi, że kod działa.',
   fFolder:'Folder istniejącego projektu', fFolderPlaceholder:'/pełna/ścieżka. Puste: nowy projekt', fFolderHint:'Musi być repozytorium Git bez niezapisanych zmian. Twój kod zostaje nietknięty: praca toczy się na osobnej gałęzi.',
   fModelsHint:'Możesz to zmienić w każdej chwili, także podczas pracy.', fAdvanced:'Ustawienia zaawansowane', fTurns:'Limit tur', fSubmit:'Zleć projekt',
-  tabPlan:'Plan', tabLive:'Na żywo', tabEff:'Efektywność', tabSettings:'Ustawienia',
+  tabPlan:'Plan', tabEff:'Efektywność', tabSettings:'Ustawienia',
   msgTitle:'Wiadomość do modeli', msgPlaceholder:'Zapytaj o status, zleć pracę albo dodaj uwagę', send:'Wyślij', interrupt:'Przerwij bieżącą pracę',
   msgHint:'Koordynator wiadomości (wybierasz go w Ustawieniach) odpowie i sam rozpozna, czy to pytanie, czy praca dla agentów. Przerwanie zatrzymuje turę od razu i przekazuje wiadomość.',
   gNoReading:'Antigravity nie podaje limitów: dostępność poznaję po błędach.',
@@ -403,6 +463,30 @@ pl:{
   ghSent:n=>`Wysłano: v${n}`, ghSend:n=>`Wyślij v${n}`, ghUpToDate:'Najnowsza sprawdzona wersja jest już wysłana.', ghToPublic:'Zmień na publiczne', ghToPrivate:'Zmień na prywatne', ghHint:'Każde wysłanie to Twoje kliknięcie. Nic nie trafia tam samo.',
 },
 en:{
+  whyRunning:'The project is already working or queued.', whyNotRunning:'The project is not working.', runApp:'RUN', runRunning:'RUN is on', whyRunActive:'The app is already running: stop it or open its address.', whyNoVersion:'No version to run.', runStop:'Stop RUN',
+  questionsBtn:'Questions and tests', questionsOpen:'Open questions and tests', questionsShort:'questions/tests', langUnknown:'language not set', langFixed:'Project language: fixed at creation.', actions:'Project actions', seeGates:'See acceptance gates',
+  progressHelp:'Net progress = functional minus debt in percentage points, on the same basis: the plan\'s scope items weighted by priority (must 3, should 2, could 1). A management indicator, not a probability of success. Acceptance gates are separate.',
+  progressShort:(n,f,d)=>`net progress ${n}% (features ${f}% − debt ${d} pp)`, coordName:'Coordinator', turnN:n=>`Turn ${n}`, turnsWord:'turns', eventsWord:'events',
+  work_plan:'plan', work_implement:'implementation', work_review:'review', work_content:'content',
+  run_running:'running', run_stopped:'stopped', run_ended:'ended', portLabel:'port', runLog:'Run log', autoTests:'Automatic tests', manualTest:'Manual test', reviewLabel:'Review',
+  res_works:'works', res_fails:'does not work', res_partial:'partly', res_cannot:'cannot run it', res_oczekuje:'waiting',
+  copyPath:'Copy path', openFolder:'Show in Finder', tagOnly:tag=>`This version exists only as tag ${tag}: it has no folder on disk.`, prepareFolder:'Prepare in the user folder', recBadge:'recommended', location:'Location on disk', runThis:'Run this version (RUN)',
+  k_key:'Key', taskFull:'Full task text', chars:'characters', copy:'Copy', copied:'Copied',
+  tabQuestions:'Questions and tests', qNone:'No questions or tests for you.', gatesTitle:'Acceptance gates (they block closing the scope)', qt_clarification:'question', qt_decision:'decision', qt_manual_test:'manual test', versionCheck:'what to check in the version',
+  qs_open:'open', qs_answered:'answered', qs_applied:'applied', qs_deferred:'deferred', qs_cancelled:'cancelled', qs_superseded:'superseded', mandatory:'mandatory', why:'Why', blocks:'Blocks', independent:'Can continue', environment:'Environment',
+  ownAnswer:'Your own answer', lateAnswer:'late, not applied', defer:'Defer', histTitle:'Answer history', testComment:'Describe the result (optional):',
+  actualSize:s=>`actual size ${s}`, ad_approve:'Approve', ad_reject:'Reject', ad_defer:'Defer', as_proposed:'proposed', as_rejected:'rejected', as_deferred:'deferred',
+  aSizeHint:'Size and style are hints for the generator: not every executor takes an exact resolution. After it is made, the real file size is shown.',
+  tipPrio_must:'must: without it the goal is not met', tipPrio_should:'should: clearly better', tipPrio_could:'could: an extra',
+  tipSt_todo:'to do', tipSt_doing:'in progress', tipSt_done:'done', tipSt_deferred:'deferred: this is not completion; removing it from scope needs a decision',
+  tipCost:'Share of the weekly limit used on items of this kind, from the account\'s limit readings (an estimate).',
+  pDone:(a,b)=>`done ${a}/${b}`, pFunctional:'functional', pDebt:'debt', pNet:'net', pDeferredMust:n=>`${n} deferred must`, pGates:n=>`${n} acceptance gates`, pNoEstimate:'No plan: no progress estimate.',
+  planStale:r=>`The plan file is invalid: showing the last valid revision ${r}.`,
+  roles:'Roles (several allowed)', rd_general:'Planning, implementation and review. Does not make ordered content.', rd_architect:'Plan, architecture, research; turns at the start and after a new request.', rd_implementer:'Plan tasks; a turn when the plan is ready.', rd_tester:'Review and tests; a turn after every change.', rd_analyst:'Gaps, risks, debt; review turns.', rd_content:'Graphics, texts, story from approved orders.',
+  langChoose:'Project language (set once):', langFixedIs:l=>`Project language: ${l}. Set at creation; switching the page language does not change it.`, projectTitle:'Project', projectName:'Project name', rename:'Rename', keyHint:k=>`The key ${k} and the project folder do not change with the name.`,
+  gitBranch:'branch', gitDetached:'detached HEAD', gitChanges:(a,b,c)=>`changes: ${a} staged, ${b} unsaved, ${c} new files`, gitInProgress:'a merge or rebase is in progress', gitNoRepo:'no repository',
+  gitTitle:'Project Git', gitRemote:'Remote', gitBase:'Base branch', gitStrategy:'Delivery', gs_local:'local only', gs_push:'push the branch', gs_pr:'push and PR', gitAllowPush:'allow push', gitAllowPr:'allow PR', gitNeedPermission:'Save a remote and the permission to push first.', gitSendNow:b=>`Push branch ${b}`,
+  gitHint:'The agents work on their own branch; commit, push and PR are separate permissions. Never a force push, reset or change of branch protection.', lastTurn:'last turn',
   locale:'en-GB', newProject:'New project', limits:'Subscription limits', refresh:'Refresh', handoffAt:'Hand work over at usage',
   thresholdHint:'5 h window: when to hand work to the other model. Week: a reserve for your own work until the week ends, 100 means none.', projects:'Projects', noProjects:'No projects yet.',
   rejectHint:'The description goes to the next model and the project returns to work.', rejectPlaceholder:'What does not work? What did you do and what happened?',
@@ -467,7 +551,7 @@ en:{
   fName:'Name', fNameHint:'Default: first line of the task', fVerify:'Test command', fVerifyPlaceholder:'e.g. python3 -m pytest', fVerifyHint:'The coordinator numbers versions based on this. Without it, it cannot confirm the code works.',
   fFolder:'Existing project folder', fFolderPlaceholder:'/full/path. Empty: new project', fFolderHint:'Must be a Git repository with no uncommitted changes. Your code stays untouched: work happens on a separate branch.',
   fModelsHint:'You can change this at any time, even during work.', fAdvanced:'Advanced settings', fTurns:'Turn limit', fSubmit:'Start project',
-  tabPlan:'Plan', tabLive:'Live', tabEff:'Efficiency', tabSettings:'Settings',
+  tabPlan:'Plan', tabEff:'Efficiency', tabSettings:'Settings',
   msgTitle:'Message to the models', msgPlaceholder:'Ask about status, order work or add a note', send:'Send', interrupt:'Interrupt the current work',
   msgHint:'The message coordinator (chosen in Settings) answers and decides whether it is a question or work for the agents. Interrupting stops the turn at once and passes the message on.',
   gNoReading:'Antigravity reports no limits: availability is learned from errors.',
@@ -545,6 +629,13 @@ function setHTML(id, html){
   const el = document.getElementById(id);
   if(el && state.html[id] !== html){ el.innerHTML = html; state.html[id] = html; }
 }
+// The skin is the user's preference, apart from language and project (spec 18).
+function applySkin(skin){
+  if(skin) document.documentElement.dataset.theme = skin; else delete document.documentElement.dataset.theme;
+  try{ localStorage.setItem('sol83-skin', skin || ''); }catch(error){}
+  const pick = document.getElementById('skin-pick'); if(pick) pick.value = skin || '';
+}
+try{ applySkin(localStorage.getItem('sol83-skin') || ''); }catch(error){ applySkin(''); }
 // One key per user action: a retransmitted request is recognised, a new click is new work.
 const requestKey = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
 async function api(path, body){
@@ -681,19 +772,23 @@ function sideControls(side, model, effort, role, selection){
   return `<div class="side-pick"><div class="agent"><span class="swatch ${side}"></span>${NAME[side]}</div><div class="pair">
     <label>${esc(t('model'))}<select data-side="${side}" data-kind="model" ${problem?'disabled':''}>${options.map(m => `<option value="${esc(m.id)}" ${m.id===model?'selected':''}>${esc(m.label)}${isTop(side, m.id) ? ' ⚠ ' + esc(t('topShort')) : ''}</option>`).join('')}</select></label>
     <label>${esc(t('thinking'))}<select data-side="${side}" data-kind="reasoning" ${off||fixed?'disabled':''}>${off ? '' : fixed ? `<option value="">${esc(t('inModel'))}</option>` : effortOptions(side, model, effort)}</select></label>
-  </div><label style="display:block;font-size:12px;color:var(--text-3);margin-top:4px">${esc(t('role'))}<select data-side="${side}" data-kind="role">
-    ${ROLES.map(r => `<option value="${r}" ${r===(role||'general')?'selected':''}>${esc(t('r_'+r))}</option>`).join('')}</select></label>${off ? '' : selectionControl(side, selection) + modelNote(side, model, selection)}${problem?`<p class="hint">${esc(problem)}</p>`:''}</div>`;
+  </div><fieldset class="roles-pick" data-side="${side}" style="border:0;padding:0;margin:4px 0 0;font-size:12px;color:var(--text-3)"><legend>${esc(t('roles'))}</legend>
+    ${ROLES.map(r => `<label class="check" title="${esc(t('rd_'+r))}"><input type="checkbox" value="${r}" ${(role||'general').split(',').includes(r)?'checked':''}> ${esc(t('r_'+r))}</label>`).join(' ')}</fieldset>${off ? '' : selectionControl(side, selection) + modelNote(side, model, selection)}${problem?`<p class="hint">${esc(problem)}</p>`:''}</div>`;
 }
 function renderProjects(projects){
   const current = route();
   if(!projects.length){ setHTML('projects',`<p class="empty" style="padding:4px 8px">${esc(t('noProjects'))}</p>`); return; }
   setHTML('projects', projects.map(p => {
     const kind = STATUS_KIND[p.status] || 'idle', label = t('s_'+p.status);
-    const text = p.status === 'running' ? (activity(p, p.live) || label) : label;
+    const text = p.status === 'running' ? (activity(p, p.live) || label) : (local(p,'status_detail') || label);
     const dot = p.monitor_level === 'warn' ? 'warn' : p.status === 'running' ? (p.live?.phase === 'turn_running' ? 'run' : 'warn') : kind;
+    const models = SIDES.filter(s => p[s+'_model'] && p[s+'_model'] !== 'none').map(s => `${NAME[s]}: ${p[s+'_selection'] && p[s+'_selection'] !== 'manual' ? t('sel_'+p[s+'_selection']) : p[s+'_model']}`).join(' · ');
+    const last = p.last_config ? `${NAME[p.last_config.agent]||''} ${p.last_config.model||''}` : '';
     return `<a class="proj" href="#/p/${p.id}" aria-current="${p.id===current}">
-      <div class="proj-top"><span class="proj-title">${esc(p.title)}</span><span class="proj-ver">${p.latest_version?'v'+p.latest_version:''}</span></div>
-      <div class="proj-sub"><span class="dot ${dot}"></span><span>${p.monitor_level === 'warn' ? '⚠ '+esc(t('monSidebar'))+' · ' : ''}${esc(text)}</span></div></a>`;
+      <div class="proj-top"><span class="proj-title"><span class="hint">${esc(p.key||'')}</span> ${esc(p.title)}</span><span class="proj-ver">${p.recommended?'v'+p.recommended:''}${p.run?.state==='running'?' ▶':''}</span></div>
+      ${p.summary ? `<div class="proj-sub hint" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.summary)}</div>` : ''}
+      <div class="proj-sub"><span class="dot ${dot}"></span><span>${p.monitor_level === 'warn' ? '⚠ '+esc(t('monSidebar'))+' · ' : ''}${esc(text)}</span></div>
+      <div class="proj-sub hint">${esc(models)}${last ? ' · '+esc(t('lastTurn'))+': '+esc(last) : ''}${p.progress ? ' · '+esc(t('pNet'))+' '+p.progress.net+'%' : ''}${p.questions_open ? ` · <span class="counter">${p.questions_open}</span> ${esc(t('questionsShort'))}` : ''}</div></a>`;
   }).join(''));
 }
 function testCard(d){
@@ -733,36 +828,83 @@ function eventRow(e){
   const content = e.has_body
     ? `<details data-event="${e.id}" ${state.open.has(e.id)?'open':''}><summary>${shown}</summary><div class="body">${esc(state.bodies[e.id] ?? t('loading'))}</div></details>`
     : `<span>${shown}</span>`;
-  return `<div class="event ${MAJOR.has(e.kind)?'major':''}"><time>${new Date(e.ts*1000).toLocaleTimeString(t('locale'),{hour:'2-digit',minute:'2-digit'})}</time><span class="dot ${dot}"></span>${content}</div>`;
+  const who = e.agent ? `<span class="who-tag">${esc(NAME[e.agent]||e.agent)}</span>` : `<span class="who-tag">${esc(t('coordName'))}</span>`;
+  const row = `<div class="event ${MAJOR.has(e.kind)?'major':''}"><time>${new Date(e.ts*1000).toLocaleTimeString(t('locale'),{hour:'2-digit',minute:'2-digit'})}</time><span class="dot ${dot}"></span>${content}</div>`;
+  if(e.kind !== 'turn_start') return row;
+  // Turns stand apart: number, executor, model and kind of work, with a text label besides the colour.
+  const c = e.data?.config || {};
+  return `<div class="turn-head ${esc(e.agent||'')}"><span class="who">${esc(NAME[e.agent]||e.agent||'')}</span><span>${esc(t('turnN', e.data?.turn ?? ''))}</span><span>${esc(c.model || '')}${c.effort ? ' · '+esc(c.effort) : ''}</span><span>${esc(t('work_'+(e.data?.work||'implement')))}</span>${c.selection && c.selection !== 'manual' ? `<span class="hint">${esc(t('sel_'+c.selection))}</span>` : ''}</div>` + row;
+}
+function activityTab(d){
+  if(!d.events.length) return `<p class="empty">${esc(t('noEvents'))}</p>`;
+  const turns = {}; let coordinator = 0;
+  for(const e of d.events){ if(e.kind === 'turn_start') turns[e.agent] = (turns[e.agent]||0) + 1; else if(!e.agent) coordinator += 1; }
+  const share = `<div class="share">${Object.entries(turns).map(([a,n]) => `<span><span class="swatch ${esc(a)}"></span> ${esc(NAME[a]||a)}: ${n} ${esc(t('turnsWord'))}</span>`).join('')}<span>${esc(t('coordName'))}: ${coordinator} ${esc(t('eventsWord'))}</span></div>`;
+  return share + d.events.map(eventRow).join('');
 }
 function versionsTab(d){
-  if(!d.versions.length) return `<p class="empty">${esc(t('noVersions'))}</p>`;
-  return d.versions.map(v => {
-    const verdict = v.user_verdict === 'ok' ? pill(t('works'),'good') : v.user_verdict === 'bad' ? pill(t('broken'),'bad') : '';
-    return `<div class="ver"><span class="n">v${v.number}</span><div>
-      <div>${pill(t('l_'+v.level), LEVEL_KIND[v.level]||'idle')} ${verdict}</div>
-      <div class="ver-sub">${esc(v.summary||'')}</div>
-      <div class="ver-sub">${esc(t('commit'))} ${esc(v.commit_sha.slice(0,7))} · ${clock(v.created_at)} · ${esc(t('turnBy', v.turn, NAME[v.agent]||v.agent))} · ${esc(t('tag'))} ${esc(v.tag)}</div>
-    </div><div class="ver-actions"><button class="btn small" data-act="test-copy" data-n="${v.number}">${esc(t(d.project.run_version===v.number?'inTestFolder':'testThis'))}</button></div></div>`;
+  const run = d.app_run, rows = d.versions_view || [];
+  const runBox = run ? `<div class="box"><b>RUN v${run.version}</b> · ${esc(t('run_'+run.state))}${run.url ? ` · <a href="${esc(run.url)}" target="_blank" rel="noopener">${esc(run.url)}</a>` : ''} · ${esc(t('portLabel'))} ${run.port}
+    ${run.state === 'running' ? `<button class="btn small" data-act="run-stop">${esc(t('runStop'))}</button>` : ''}
+    <details><summary>${esc(t('runLog'))}</summary><pre class="task-full">${esc(run.log_tail || '')}</pre></details></div>` : '';
+  if(!rows.length) return runBox + `<p class="empty">${esc(t('noVersions'))}</p>`;
+  return runBox + rows.map(v => {
+    const tests = [`${t('autoTests')}: ${v.automatic_tests || t('notAvailable')}`, `${t('manualTest')}: ${v.manual_test ? t('res_'+v.manual_test) : t('notAvailable')}`,
+      `${t('reviewLabel')}: ${(v.review||[]).map(a => NAME[a]||a).join(', ') || t('notAvailable')}`];
+    const where = v.folder ? `<div class="path">${esc(v.folder)}</div><button class="btn small" data-act="copy" data-text="${esc(v.folder)}">${esc(t('copyPath'))}</button> <button class="btn small" data-act="reveal" data-path="${esc(v.folder)}">${esc(t('openFolder'))}</button>`
+      : `<p class="hint">${esc(t('tagOnly', v.tag))}</p><button class="btn small" data-act="test-copy" data-n="${v.number}">${esc(t('prepareFolder'))}</button>`;
+    return `<div class="vcard ${v.recommended?'rec':''}"><div><b>v${v.number}</b> · ${clock(v.created_at)} ${v.recommended ? pill(t('recBadge'),'good') : ''}${v.rejected ? pill(t('broken'),'bad') : ''} ${pill(t('l_'+v.level), LEVEL_KIND[v.level]||'idle')}</div>
+      <div class="ver-sub">${esc(v.summary || '')}</div>
+      <div class="ver-sub">${tests.map(esc).join(' · ')}</div>
+      <div class="ver-sub">${esc(t('commit'))} ${esc(v.commit.slice(0,7))} · ${esc(t('tag'))} ${esc(v.tag)}</div>
+      <div class="box"><div class="label">${esc(t('location'))}</div>${where}</div>
+      <div class="box"><div class="label">${esc(t('howToRun'))}</div><div class="steps">${esc(v.how_to_run || t('runNotYet'))}</div>
+        <button class="btn small" data-act="run-app" data-n="${v.number}">${esc(t('runThis'))}</button></div>
+      ${v.what_to_check ? `<div class="box"><div class="label">${esc(t('whatToCheck'))}</div><div class="steps">${esc(v.what_to_check)}</div></div>` : ''}</div>`;
   }).join('');
 }
 function taskTab(d){
   const p = d.project;
-  const rows = [['k_verify', p.verify_cmd || t('k_noVerify')], ['k_source', p.repo_path || t('k_later')], ['k_branch', p.branch || '–'],
+  const rows = [['k_key', p.key || '–'], ['k_verify', p.verify_cmd || t('k_noVerify')], ['k_source', p.repo_path || t('k_later')], ['k_branch', p.branch || '–'],
     ['k_work', p.worktree || '–'], ['k_models', SIDES.map(s => `${NAME[s]}: ${!p[s+'_model'] || p[s+'_model'] === 'none' ? t('modelOff') : p[s+'_model']}`).join(', ')], ['k_turns', p.max_turns], ['k_added', clock(p.created_at)]];
-  return `<div class="task">${esc(p.task)}</div><dl class="kv">${rows.map(([k,v])=>`<dt>${esc(t(k))}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;
+  // The full task, never cut: collapsible, copyable, with its original formatting.
+  return `<details open><summary>${esc(t('taskFull'))} (${p.task.length} ${esc(t('chars'))})</summary>
+    <div class="row" style="justify-content:flex-end"><button class="btn small" data-act="copy" data-text="${esc(p.task)}">${esc(t('copy'))}</button></div>
+    <pre class="task-full">${esc(p.task)}</pre></details><dl class="kv">${rows.map(([k,v])=>`<dt>${esc(t(k))}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;
 }
-const TABS = [['przebieg','tabRun'],['plan','tabPlan'],['nazywo','tabLive'],['wersje','tabVersions'],['tresci','tabAssets'],['efekt','tabEff'],['ustawienia','tabSettings'],['zadanie','tabTask']];
-const ASSET_KIND = {requested:'idle', done:'good', error:'bad'};
+function questionsTab(d){
+  const items = d.interactions || [];
+  const gates = (d.blockers || []).length ? `<div class="alert">${esc(t('gatesTitle'))}: ${(d.blockers||[]).map(esc).join(', ')}</div>` : '';
+  if(!items.length) return gates + `<p class="empty">${esc(t('qNone'))}</p>`;
+  return gates + items.map(q => {
+    const open = ['open','answered','deferred'].includes(q.state), test = q.type === 'manual_test';
+    const steps = (q.steps || []).length ? `<ol>${q.steps.map(s => `<li>${esc(s.step||'')}${s.expected ? ` <span class="hint">→ ${esc(s.expected)}</span>` : ''}</li>`).join('')}</ol>` : '';
+    const options = (q.options || []).map(o => `<button class="btn small" data-act="answer" data-q="${q.id}" data-value="${esc(o)}">${esc(o)}${q.recommendation === o ? ' ★' : ''}</button>`).join(' ');
+    const form = !open ? '' : test
+      ? `<div class="row" style="flex-wrap:wrap">${['works','fails','partial','cannot'].map(r => `<button class="btn small" data-act="test-result" data-q="${q.id}" data-result="${r}">${esc(t('res_'+r))}</button>`).join(' ')}</div>`
+      : `<div class="row" style="flex-wrap:wrap">${options}<input type="text" id="answer-${q.id}" placeholder="${esc(t('ownAnswer'))}" style="flex:1;min-width:160px"><button class="btn small primary" data-act="answer" data-q="${q.id}">${esc(t('send'))}</button></div>`;
+    const history = (q.answers || []).map(a => `<li>${clock(a.ts)} · ${esc(a.result ? t('res_'+a.result) : a.value || '')} ${esc(a.comment || '')}${a.version ? ' · v'+a.version : ''}${a.late ? ' · '+esc(t('lateAnswer')) : ''}</li>`).join('');
+    return `<div class="qcard"><div class="meta">${esc(q.ref)} · ${esc(t('qt_'+q.type))} · ${esc(NAME[q.author] || (q.author === 'version' ? t('versionCheck') : q.author || ''))} · ${esc(t('qs_'+q.state))}${q.version_number ? ' · v'+q.version_number : ''}${q.mandatory ? ' · '+esc(t('mandatory')) : ''}</div>
+      <div><b>${esc(q.text)}</b></div>${q.why ? `<div class="hint">${esc(t('why'))}: ${esc(q.why)}</div>` : ''}
+      ${(q.blocks||[]).length ? `<div class="hint">${esc(t('blocks'))}: ${q.blocks.map(esc).join(', ')}${q.independent ? ' · '+esc(t('independent'))+': '+esc(q.independent) : ''}</div>` : ''}
+      ${q.environment ? `<div class="hint">${esc(t('environment'))}: ${esc(q.environment)}${q.minutes ? ' · ~'+q.minutes+' min' : ''}</div>` : ''}${steps}${form}
+      ${open ? `<div class="row"><button class="linkbtn" data-act="q-state" data-q="${q.id}" data-state="deferred">${esc(t('defer'))}</button><button class="linkbtn" data-act="q-state" data-q="${q.id}" data-state="cancelled">${esc(t('cancel'))}</button></div>` : ''}
+      ${history ? `<details><summary>${esc(t('histTitle'))}</summary><ul>${history}</ul></details>` : ''}</div>`;
+  }).join('');
+}
+const TABS = [['przebieg','tabRun'],['plan','tabPlan'],['pytania','tabQuestions'],['wersje','tabVersions'],['tresci','tabAssets'],['efekt','tabEff'],['ustawienia','tabSettings'],['zadanie','tabTask']];
+const ASSET_KIND = {requested:'idle', done:'good', error:'bad', proposed:'warn', rejected:'bad', deferred:'idle'};
 function assetsList(d){
   const waiting = (d.asset_orders || []).map(o => `<div class="asset"><div class="thumb">${esc(t('aWaiting'))}</div><div><b>${esc(o.path)}</b> ${pill(t('aByUser'),'idle')}<div class="ver-sub">${esc(o.prompt)}</div></div></div>`).join('');
   const rows = (d.assets || []).map(a => {
     const thumb = a.image ? `<img src="/api/projects/${esc(d.project.id)}/asset?path=${encodeURIComponent(a.path)}&s=${esc(a.status)}" alt="${esc(a.prompt||a.path)}" loading="lazy">`
       : `<div class="thumb">${esc(t(a.type === 'text' ? 'aText' : 'aImage'))}</div>`;
-    const meta = [a.size, a.style].filter(Boolean).join(' · ');
-    return `<div class="asset">${thumb}<div><b>${esc(a.id)}</b> ${pill(t('as_'+a.status), ASSET_KIND[a.status]||'idle')}${a.by==='user'?' '+pill(t('aByUser'),'idle'):''}
-      <div class="ver-sub">${esc(a.prompt||'')}</div><div class="path">${esc(a.path||'')}${meta?' · '+esc(meta):''}</div>
-      ${a.note?`<div class="ver-sub">${esc(a.note)}</div>`:''}${a.preview?`<div class="steps" style="margin-top:6px;max-height:160px;overflow:auto">${esc(a.preview)}</div>`:''}</div></div>`;
+    const meta = [a.size, a.style, a.actual_size ? t('actualSize', a.actual_size) : ''].filter(Boolean).join(' · ');
+    const decide = ['proposed','deferred'].includes(a.status) ? `<div class="row">${['approve','reject','defer'].map(x => `<button class="btn small ${x==='approve'?'primary':''}" data-act="asset-decision" data-id="${esc(a.id)}" data-decision="${x}">${esc(t('ad_'+x))}</button>`).join(' ')}</div>` : '';
+    return `<div class="asset">${thumb}<div><b>${esc(a.id)}</b> ${pill(t('as_'+a.status), ASSET_KIND[a.status]||'idle')}${a.by==='user'?' '+pill(t('aByUser'),'idle'):a.by?' '+pill(NAME[a.by]||a.by,'idle'):''}${a.mandatory?' '+pill(t('mandatory'),'warn'):''}
+      <div class="ver-sub">${esc(a.prompt||'')}</div>${a.why?`<div class="hint">${esc(t('why'))}: ${esc(a.why)}</div>`:''}${(a.blocks||[]).length?`<div class="hint">${esc(t('blocks'))}: ${a.blocks.map(esc).join(', ')}</div>`:''}
+      <div class="path">${esc(a.path||'')}${meta?' · '+esc(meta):''}</div>
+      ${a.note?`<div class="ver-sub">${esc(a.note)}</div>`:''}${a.preview?`<div class="steps" style="margin-top:6px;max-height:160px;overflow:auto">${esc(a.preview)}</div>`:''}${decide}</div></div>`;
   }).join('');
   return waiting + rows || `<p class="empty">${esc(t('aNone'))}</p>`;
 }
@@ -771,8 +913,9 @@ function assetForm(){
     <div class="grid2" style="margin-top:4px"><label class="label" style="font-size:13px">${esc(t('aPath'))}<input id="asset-path" type="text" placeholder="${esc(t('aPathPh'))}"></label>
     <label class="label" style="font-size:13px">&nbsp;<select id="asset-type"><option value="image">${esc(t('aImage'))}</option><option value="text">${esc(t('aText'))}</option></select></label></div>
     <label class="label" style="font-size:13px;margin-top:8px">${esc(t('aPrompt'))}<textarea id="asset-prompt" rows="3"></textarea></label>
-    <div class="grid2"><label class="label" style="font-size:13px">${esc(t('aSize'))}<input id="asset-size" type="text" placeholder="512x512"></label>
+    <div class="grid2"><label class="label" style="font-size:13px">${esc(t('aSize'))}<input id="asset-size" type="text" list="size-presets" placeholder="1024x1024"><datalist id="size-presets">${['512x512','1024x1024','1920x1080','1080x1920','1:1','16:9','9:16','4:3'].map(x => `<option value="${x}">`).join('')}</datalist></label>
     <label class="label" style="font-size:13px">${esc(t('aStyle'))}<input id="asset-style" type="text"></label></div>
+    <p class="hint">${esc(t('aSizeHint'))}</p>
     <div class="row"><span class="hint">${esc(t('aHint'))}</span><button class="btn primary">${esc(t('aOrder'))}</button></div></form>`;
 }
 function runInfo(d){
@@ -786,6 +929,28 @@ function runInfo(d){
   return `<div class="wip">${here}${others ? `<details style="margin-top:8px"><summary>${esc(t('otherFolders'))}</summary>
     <dl class="kv" style="border:0;margin-top:6px;padding-top:0;grid-template-columns:minmax(0,1fr)">${others}</dl></details>` : ''}</div>`;
 }
+function projectSection(d){
+  const p = d.project;
+  const lang = p.language === 'unknown'
+    ? `<label>${esc(t('langChoose'))} <select id="lang-pick"><option value="">–</option><option value="pl">Polski</option><option value="en">English</option></select></label>`
+    : `<p class="hint">${esc(t('langFixedIs', (p.language||'pl').toUpperCase()))}</p>`;
+  return `<section style="margin-top:18px"><h3>${esc(t('projectTitle'))}</h3>
+    <form id="rename-form" class="row" style="flex-wrap:nowrap"><input id="rename-text" type="text" value="${esc(p.title)}" aria-label="${esc(t('projectName'))}"><button class="btn">${esc(t('rename'))}</button></form>
+    <p class="hint">${esc(t('keyHint', p.key || '–'))}</p>${lang}</section>`;
+}
+function gitSection(d){
+  const g = d.git || {}, saved = g.saved || {}, repo = g.repository || {}, remotes = Object.keys(repo.remotes || {});
+  const state_ = repo.repository ? `${esc(t('gitBranch'))}: ${esc(repo.branch || t('gitDetached'))} · ${esc(t('gitChanges', repo.staged || 0, repo.unstaged || 0, repo.untracked || 0))}${repo.merging||repo.rebasing ? ' · '+esc(t('gitInProgress')) : ''}` : esc(t('gitNoRepo'));
+  const ops = (g.operations || []).slice(0, 5).map(o => `<li>${clock(o.created_at)} · ${esc(o.operation)} · ${esc(o.branch || '')} · ${esc(o.state)}${o.pr_url ? ` · <a href="${esc(o.pr_url)}" target="_blank" rel="noopener">PR</a>` : ''}${o.detail ? ' · '+esc(o.detail) : ''}</li>`).join('');
+  return `<section style="margin-top:18px"><h3>${esc(t('gitTitle'))}</h3><p class="hint">${state_}</p>
+    <form id="git-form" class="grid2">
+      <label>${esc(t('gitRemote'))}<select id="git-remote"><option value="">–</option>${remotes.map(r => `<option ${saved.remote===r?'selected':''}>${esc(r)}</option>`).join('')}</select></label>
+      <label>${esc(t('gitBase'))}<input id="git-base" type="text" value="${esc(saved.base_branch || '')}" placeholder="main"></label>
+      <label>${esc(t('gitStrategy'))}<select id="git-strategy">${['local','push','pr'].map(x => `<option value="${x}" ${saved.strategy===x?'selected':''}>${esc(t('gs_'+x))}</option>`).join('')}</select></label>
+      <div><label class="check"><input type="checkbox" id="git-push" ${saved.allow_push?'checked':''}> ${esc(t('gitAllowPush'))}</label><br><label class="check"><input type="checkbox" id="git-pr" ${saved.allow_pr?'checked':''}> ${esc(t('gitAllowPr'))}</label></div>
+      <div class="row" style="grid-column:1/-1"><button class="btn">${esc(t('save'))}</button><button type="button" class="btn" data-act="git-deliver" ${saved.allow_push?'':'disabled'} title="${esc(saved.allow_push?'':t('gitNeedPermission'))}">${esc(t('gitSendNow', d.project.branch || ''))}</button></div></form>
+    <p class="hint">${esc(t('gitHint'))}</p>${ops ? `<ul class="hint">${ops}</ul>` : ''}</section>`;
+}
 function setupSection(s){
   const state_ = s.approved ? `<p class="hint">${esc(t('setupApproved').replace('{0}', s.sha.slice(0,12)))}</p>`
     : s.sandbox ? `<button class="btn" data-act="setup-approve" data-sha="${esc(s.sha)}">${esc(t('setupApprove'))}</button>`
@@ -796,19 +961,19 @@ function setupSection(s){
 function renderTab(d){
   if(state.renderedTab !== state.tab){
     state.renderedTab = state.tab; state.ghKey = null;
-    delete state.html['tab-inner']; delete state.html['models']; delete state.html['coordinator']; delete state.html['assets-list']; delete state.html['monitor']; delete state.html['live-log'];
+    delete state.html['tab-inner']; delete state.html['models']; delete state.html['coordinator']; delete state.html['assets-list']; delete state.html['monitor'];
     document.getElementById('tab-body').innerHTML = state.tab === 'ustawienia'
       ? `<section><h3>${esc(t('modelsTitle'))}</h3><div class="models" id="models"></div><p class="hint" style="margin-top:8px">${esc(t('modelsHint'))} ${esc(t('rolesHint'))}</p></section>
          <section style="margin-top:18px"><h3>${esc(t('fVerify'))}</h3><form id="verify-form" class="row" style="flex-wrap:nowrap">
            <input id="verify-cmd" type="text" value="${esc(d.project.verify_cmd || '')}" placeholder="${esc(t('fVerifyPlaceholder'))}"><button class="btn">${esc(t('save'))}</button></form>
            <p class="hint" style="margin-top:6px">${esc(t('verifyHint'))}</p></section>
          <section style="margin-top:18px"><h3>${esc(t('coordTitle'))}</h3><div id="coordinator"></div><p class="hint" style="margin-top:6px">${esc(t('coordHint'))}</p></section>
+         ${projectSection(d)}${gitSection(d)}
          ${d.setup ? setupSection(d.setup) : ''}
          <section style="margin-top:18px"><h3>${esc(t('ghTitle'))}</h3><div id="github"></div></section>
          <section style="margin-top:24px;padding-top:14px;border-top:1px solid var(--line)"><h3>${esc(t('deleteTitle'))}</h3>
            <p class="hint" style="margin-bottom:8px">${esc(t('deleteHint'))}</p><button class="btn danger" data-act="delete-project">${esc(t('deleteButton'))}</button></section>`
       : state.tab === 'efekt' ? `<div id="monitor"></div><div class="help">${esc(t('effHelp'))}</div>`
-      : state.tab === 'nazywo' ? `<p class="hint" id="live-who"></p><div class="live" id="live-log"></div>`
       : state.tab === 'tresci' ? `${assetForm()}<div id="assets-list"></div>`
       : `<div id="tab-inner"></div>`;
   }
@@ -820,10 +985,9 @@ function renderTab(d){
     renderGitHub(d);
   }
   else if(state.tab === 'efekt') renderMonitor(d.monitor, d.plan);
-  else if(state.tab === 'nazywo') renderLive();
   else if(state.tab === 'tresci') setHTML('assets-list', assetsList(d));
-  else setHTML('tab-inner', ({przebieg: () => d.events.length ? d.events.map(eventRow).join('') : `<p class="empty">${esc(t('noEvents'))}</p>`,
-    plan: () => planTab(d), wersje: () => versionsTab(d), zadanie: () => taskTab(d)})[state.tab]());
+  else setHTML('tab-inner', ({przebieg: () => activityTab(d),
+    plan: () => planTab(d), wersje: () => versionsTab(d), zadanie: () => taskTab(d), pytania: () => questionsTab(d)})[state.tab]());
 }
 function planTab(d){
   const pl = d.plan || {};
@@ -833,7 +997,7 @@ function planTab(d){
     const over = r.kind !== 'feature' && r.turns > r.budget && ['todo','doing'].includes(r.status);
     const open = ['todo','deferred'].includes(r.status) && r.kind !== 'feature';
     return `<tr class="${r.status==='done'?'done':''}"><td style="padding-left:${8+depth*18}px"><b>${esc(r.id)}</b> ${esc(r.title)}${r.category?` <span class="pill idle">${esc(r.category)}</span>`:''}${r.note?`<div class="ver-sub">${esc(r.note)}</div>`:''}</td>
-      <td>${esc(t('pr_'+r.priority))}</td><td>${esc(t('st_'+r.status))}</td>
+      <td title="${esc(t('tipPrio_'+r.priority))}">${esc(t('pr_'+r.priority))}</td><td title="${esc(t('tipSt_'+r.status))}">${esc(t('st_'+r.status))}</td>
       <td class="num">${r.kind==='feature'?'':`${r.turns}/${r.budget}${over?' '+pill(t('overBudget'),'warn'):''}`}</td><td class="num">${r.week ? r.week+'%' : ''}</td>
       <td>${open?`<button class="btn small" data-act="item" data-item="${esc(r.id)}">${esc(t('startItem'))}</button>`:''}</td></tr>`;
   };
@@ -841,24 +1005,14 @@ function planTab(d){
   const tree = main.filter(r => !r.parent || !main.some(m => m.id === r.parent)).flatMap(f => [line(f, 0), ...main.filter(c => c.parent === f.id).map(c => line(c, 1))]).join('');
   const shares = Object.entries(pl.breakdown || {}).filter(([,v]) => v).map(([k,v]) => `${t('grp_'+k)} ${v}%`).join(' · ');
   const head = `<tr><th>${esc(t('colItem'))}</th><th>${esc(t('colPrio'))}</th><th>${esc(t('colStatus'))}</th><th class="num">${esc(t('colTurns'))}</th><th class="num">${esc(t('colCost'))}</th><th></th></tr>`;
-  return `${pl.problem ? `<div class="alert">${esc(t('planProblem'))}${esc(pl.problem)}</div>` : ''}
-    <p class="hint">${esc(t('planSpend'))}: <b>${esc(shares || '–')}</b></p>
+  const g = d.progress;
+  const progress = g ? `<div class="progress-box" title="${esc(t('progressHelp'))}"><span>${esc(t('pDone', g.done_items, g.scope_items))}</span><span>${esc(t('pFunctional'))}: <b>${g.functional}%</b></span><span>${esc(t('pDebt'))}: <b>−${g.debt_penalty} p.p.</b></span><span>${esc(t('pNet'))}: <b>${g.net}%</b></span>${g.deferred_must ? `<span class="pill warn">${esc(t('pDeferredMust', g.deferred_must))}</span>` : ''}${(d.blockers||[]).length ? `<button class="linkbtn" data-act="tab-questions">${esc(t('pGates', d.blockers.length))}</button>` : ''}</div><p class="hint">${esc(t('progressHelp'))}</p>` : `<p class="hint">${esc(t('pNoEstimate'))}</p>`;
+  return `${progress}${pl.stale ? `<div class="alert">${esc(t('planStale', pl.revision))}</div>` : ''}${pl.problem ? `<div class="alert">${esc(t('planProblem'))}${esc(pl.problem)}</div>` : ''}
+    <p class="hint" title="${esc(t('tipCost'))}">${esc(t('planSpend'))}: <b>${esc(shares || '–')}</b></p>
     <table class="plan">${head}${tree}</table>
     ${debt.length ? `<h3 style="margin:16px 0 6px">${esc(t('planDebt'))} (${debt.length})</h3><table class="plan">${head}${debt.map(r => line(r, 0)).join('')}</table>` : ''}
     <details style="margin-top:14px"><summary>${esc(t('planArch'))}</summary><p class="task" style="margin-top:6px">${esc(pl.architecture || '–')}</p></details>
     <p class="hint" style="margin-top:8px">${esc(t('planFile'))}: <span class="path">${esc(pl.path)}</span></p>`;
-}
-function renderLive(){
-  const data = state.live || {items:[]}, box = document.getElementById('live-log');
-  if(!box) return;
-  document.getElementById('live-who').textContent = data.agent ? t('liveAgent', NAME[data.agent]) : t('liveNone');
-  const icon = {tool:'🔧', thinking:'💭', text:'💬'};
-  const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
-  setHTML('live-log', data.items.map(i => `<div class="live-row ${i.type}"><time>${i.t ? new Date(i.t).toLocaleTimeString(t('locale'),{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : ''}</time><span>${icon[i.type]||''}</span><span>${esc(i.text)}</span></div>`).join(''));
-  if(atBottom) box.scrollTop = box.scrollHeight;
-}
-async function refreshLive(id){
-  try{ state.live = await api(`/api/projects/${id}/live`); renderLive(); }catch(error){ console.error(error); }
 }
 function renderThread(d){
   const items = [
@@ -919,17 +1073,27 @@ function renderGitHub(d){
 }
 function renderHead(d){
   const p = d.project, kind = STATUS_KIND[p.status] || 'idle';
-  const canStop = ['running','queued'].includes(p.status), canResume = ['stopped','attention'].includes(p.status);
-  const buttons = [
-    d.live?.phase === 'waiting_partner' ? `<button class="btn" data-act="accept">${esc(t('acceptNoReview'))}</button>` : '',
-    canStop ? `<button class="btn" data-act="stop">${esc(t('stopAfter'))}</button><button class="btn danger" data-act="stop-now">${esc(t('stopNow'))}</button>` : '',
-    canResume ? `<button class="btn primary" data-act="resume">${esc(t('resume'))}</button>` : '',
-    p.status === 'done' ? `<button class="btn" data-act="resume">${esc(t('keepWorking'))}</button>` : ''
+  const running = ['running','stopping'].includes(p.status), canStop = ['running','queued'].includes(p.status), canResume = ['stopped','attention'].includes(p.status);
+  const rec = d.recommended, run = d.app_run, open = (d.interactions || []).filter(i => i.state === 'open').length;
+  const btn = (act, label, cls, enabled, why, extra='') => `<button class="btn ${cls||''}" data-act="${act}" ${extra} ${enabled ? '' : 'disabled'} title="${esc(enabled ? '' : why)}">${esc(t(label))}</button>`;
+  const main = [
+    btn('resume', p.status === 'done' ? 'keepWorking' : 'resume', 'primary', canResume || p.status === 'done', t('whyRunning')),
+    btn('stop', 'stopAfter', '', canStop, t('whyNotRunning')),
+    d.live?.phase === 'waiting_partner' ? btn('accept', 'acceptNoReview', '', true, '') : '',
+    rec ? btn('run-app', run?.state === 'running' ? 'runRunning' : 'runApp', '', run?.state !== 'running', t('whyRunActive'), `data-n="${rec.number}"`)
+        : btn('run-app', 'runApp', '', false, t('whyNoVersion')),
+    run?.state === 'running' ? btn('run-stop', 'runStop', '', true, '') : '',
+    btn('tab-questions', 'questionsBtn', '', true, '', '') + (open ? `<span class="counter" title="${esc(t('questionsOpen'))}">${open}</span>` : ''),
   ].join('');
-  setHTML('head', `<div><h2>${esc(p.title)}</h2><div class="activity" aria-live="polite">${pill(t('s_'+p.status),kind)}<span>${esc(activity(p,d.live))}</span></div></div><div class="actions">${buttons}</div>`);
+  const danger = `<div class="danger-zone">${btn('stop-now', 'stopNow', 'danger', canStop && running, t('whyNotRunning'))}</div>`;
+  const lang = p.language === 'unknown' ? `<span class="pill warn">${esc(t('langUnknown'))}</span>` : `<span class="pill idle" title="${esc(t('langFixed'))}">${esc((p.language||'pl').toUpperCase())}</span>`;
+  setHTML('head', `<div style="width:100%"><div class="eyebrow"><span>${esc(p.key || '')}</span>${lang}</div><h2>${esc(p.title)}</h2>
+    <div class="activity" aria-live="polite">${pill(t('s_'+p.status),kind)}<span>${esc(activity(p,d.live))}</span>${progressLine(d.progress)}</div>
+    <div class="actionbar" role="toolbar" aria-label="${esc(t('actions'))}">${main}${danger}</div></div>`);
   const detail = local(p,'status_detail');
-  setHTML('alert', detail ? `<div class="alert">${esc(detail)}</div>` : '');
+  setHTML('alert', detail ? `<div class="alert">${esc(detail)}${(d.blockers||[]).length ? `<br><button class="linkbtn" data-act="tab-questions">${esc(t('seeGates'))}</button>` : ''}</div>` : '');
 }
+const progressLine = g => g ? `<span class="hint" title="${esc(t('progressHelp'))}">· ${esc(t('progressShort', g.net, g.functional, g.debt_penalty))}</span>` : '';
 function renderDetail(){
   const d = state.detail; if(!d) return;
   renderHead(d); setHTML('test', testCard(d)); renderTab(d); renderThread(d);
@@ -1021,7 +1185,9 @@ function renderForm(){
   document.getElementById('new').addEventListener('submit', async e => {
     e.preventDefault();
     const value = id => document.getElementById(id).value;
-    const pick = (side, kind) => document.querySelector(`#form-models [data-side=${side}][data-kind=${kind}]`).value;
+    const pick = (side, kind) => kind === 'role'
+      ? [...document.querySelectorAll(`#form-models .roles-pick[data-side=${side}] input:checked`)].map(i => i.value).join(',') || 'general'
+      : document.querySelector(`#form-models [data-side=${side}][data-kind=${kind}]`).value;
     try{
       const {id} = await withTopConfirm('/api/projects', {task:value('task'), lang:state.lang,
         claude_selection:pick('claude','selection'), codex_selection:pick('codex','selection'), gemini_selection:document.querySelector('#form-models [data-side=gemini][data-kind=selection]')?.value || 'manual', title:value('title'), verify_cmd:value('verify'), repo_path:repo ? '' : value('repo'), github_repo:repo,
@@ -1054,7 +1220,6 @@ async function poll(){
     if(id && id !== 'new'){
       state.detail = await api('/api/projects/'+id);
       renderDetail();
-      if(state.tab === 'nazywo') await refreshLive(id);
     }
   }catch(error){ console.error(error); }
 }
@@ -1094,7 +1259,6 @@ document.addEventListener('click', async e => {
     document.querySelectorAll('.tab').forEach(item => item.setAttribute('aria-selected', item === tab));
     state.html['tab-body'] = null;
     if(state.detail) renderTab(state.detail);
-    if(state.tab === 'nazywo') refreshLive(route());
     return;
   }
   const button = e.target.closest('[data-act]');
@@ -1146,6 +1310,35 @@ document.addEventListener('click', async e => {
     if(goingPublic){ document.getElementById('public-dialog').showModal(); return; }
     return runGitHub(button, 'private');
   }
+  if(act === 'tab-questions'){
+    state.tab = 'pytania'; document.querySelectorAll('.tab').forEach(item => item.setAttribute('aria-selected', item.dataset.tab === 'pytania'));
+    state.html['tab-body'] = null; renderTab(state.detail); return;
+  }
+  if(act === 'copy'){
+    try{ await navigator.clipboard.writeText(button.dataset.text); button.textContent = t('copied'); }catch(error){ alert(button.dataset.text); }
+    return;
+  }
+  if(act === 'answer' || act === 'test-result'){
+    const q = Number(button.dataset.q), own = document.getElementById('answer-'+q);
+    const body = {interaction:q, request_key:requestKey()};
+    if(act === 'test-result'){ body.result = button.dataset.result; body.comment = prompt(t('testComment')) || ''; }
+    else { body.value = button.dataset.value || own?.value || ''; if(!body.value.trim()) return; }
+    button.disabled = true;
+    try{ await api(`/api/projects/${id}/answer`, body); await poll(); }catch(error){ alert(error.message); button.disabled = false; }
+    return;
+  }
+  const extra = {
+    'run-app':['run',{number:n}], 'run-stop':['run-stop',{}], reveal:['reveal',{path:button.dataset.path}],
+    'q-state':['interaction-state',{interaction:Number(button.dataset.q), state:button.dataset.state}],
+    'asset-decision':['asset-decision',{id:button.dataset.id, decision:button.dataset.decision}],
+    'git-deliver':['git-deliver',{request_key:requestKey()}]
+  };
+  if(extra[act]){
+    button.disabled = true;
+    try{ await api(`/api/projects/${id}/${extra[act][0]}`, extra[act][1]); await poll(); }catch(error){ alert(error.message); }
+    button.disabled = false;
+    return;
+  }
   const calls = {
     stop:['stop',{}], 'stop-now':['stop',{immediate:true}], resume:['resume',{}], accept:['accept',{}],
     works:['verdict',{number:n,works:true}], 'test-copy':['test-copy',{number:n}], 'gh-visibility':['github-visibility',{visibility:'private'}]
@@ -1184,6 +1377,19 @@ document.addEventListener('toggle', async e => {
   }
 }, true);
 document.addEventListener('change', async e => {
+  const rolesBox = e.target.closest('.roles-pick');
+  if(rolesBox){
+    if(!rolesBox.closest('#models')) return;
+    const side = rolesBox.dataset.side, roles = [...rolesBox.querySelectorAll('input:checked')].map(i => i.value).join(',') || 'general';
+    try{ await api(`/api/projects/${route()}/models`, {[side+'_role']:roles}); }catch(error){ alert(error.message); }
+    delete state.html['models']; poll();
+    return;
+  }
+  if(e.target.id === 'skin-pick'){ applySkin(e.target.value); return; }
+  if(e.target.id === 'lang-pick'){
+    try{ await api(`/api/projects/${route()}/language`, {language:e.target.value}); }catch(error){ alert(error.message); }
+    poll(); return;
+  }
   if(e.target.id === 'coordinator-pick'){
     try{ await api('/api/settings', {coordinator:e.target.value}); }catch(error){ alert(error.message); }
     delete state.html['coordinator']; poll();
@@ -1226,6 +1432,18 @@ document.addEventListener('change', async e => {
   }
 });
 document.addEventListener('submit', async e => {
+  if(e.target.id === 'rename-form'){
+    e.preventDefault();
+    try{ await api(`/api/projects/${route()}/rename`, {title:document.getElementById('rename-text').value}); poll(); }catch(error){ alert(error.message); }
+    return;
+  }
+  if(e.target.id === 'git-form'){
+    e.preventDefault();
+    const v = id => document.getElementById(id);
+    try{ await api(`/api/projects/${route()}/git-context`, {remote:v('git-remote').value, base_branch:v('git-base').value, strategy:v('git-strategy').value, allow_push:v('git-push').checked, allow_pr:v('git-pr').checked}); state.renderedTab = null; poll(); }
+    catch(error){ alert(error.message); }
+    return;
+  }
   if(e.target.id === 'verify-form'){
     e.preventDefault();
     try{ await api(`/api/projects/${route()}/verify`, {command:document.getElementById('verify-cmd').value}); poll(); }

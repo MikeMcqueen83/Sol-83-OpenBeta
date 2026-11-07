@@ -29,7 +29,7 @@ for key in ('ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'CODEX_API_KEY'):
     os.environ.pop(key, None)
 sys.path.insert(0, str(ROOT))
 
-from gemini_app import catalog, gitops, limits, livelog, observer  # noqa: E402
+from gemini_app import catalog, gitops, limits, observer  # noqa: E402
 from gemini_app import plan as plan_module  # noqa: E402
 from gemini_app.gitops import Git  # noqa: E402
 from gemini_app.messages import CATALOG, Msg  # noqa: E402
@@ -1402,34 +1402,6 @@ class Planning(Base):
         with self.assertRaises(ValueError):
             self.supervisor.start_item(project_id, 'NIE-MA')
 
-    def test_live_view_reads_both_agents_logs(self):
-        worktree = str(TEMP / 'wt-live')
-        claude_dir = TEMP / 'claude-projects' / re.sub(r'[^A-Za-z0-9]', '-', worktree)
-        claude_dir.mkdir(parents=True)
-        (claude_dir / 's.jsonl').write_text(json.dumps({'type': 'assistant', 'timestamp': '2026-11-02T10:00:00Z',
-            'message': {'content': [{'type': 'thinking', 'thinking': 'Sprawdzam testy'},
-                                    {'type': 'tool_use', 'name': 'Bash', 'input': {'command': 'make test'}}]}}) + '\n')
-        codex_dir = TEMP / 'codex-sessions/2026/11/02'
-        codex_dir.mkdir(parents=True)
-        (codex_dir / 'r.jsonl').write_text('\n'.join(json.dumps(row) for row in [
-            {'type': 'session_meta', 'payload': {'cwd': worktree}},
-            {'timestamp': '2026-11-02T10:01:00Z', 'type': 'response_item',
-             'payload': {'type': 'function_call', 'name': 'shell', 'arguments': '{"cmd": "ls"}'}},
-            {'timestamp': '2026-11-02T10:01:01Z', 'type': 'event_msg',
-             'payload': {'type': 'agent_reasoning', 'text': 'Czytam plan'}}]) + '\n')
-        os.environ.update(GEMINI_CLAUDE_PROJECTS=str(TEMP / 'claude-projects'),
-                          GEMINI_CODEX_SESSIONS=str(TEMP / 'codex-sessions'))
-        try:
-            claude_view = livelog.live(worktree, 'claude')
-            codex_view = livelog.live(worktree, 'codex')
-        finally:
-            os.environ.pop('GEMINI_CLAUDE_PROJECTS'); os.environ.pop('GEMINI_CODEX_SESSIONS')
-        self.assertEqual([i['type'] for i in claude_view['items']], ['thinking', 'tool'])
-        self.assertEqual(claude_view['items'][1]['text'], 'Bash: make test')
-        self.assertEqual([i['text'] for i in codex_view['items']], ['shell: ls', 'Czytam plan'])
-
-
-class Versioning(Base):
     def test_only_passing_code_becomes_a_version(self):
         self.scenario(
             codex=[{'write': {'ok.txt': 'zle'}}, {'write': {'ok.txt': 'zepsute dalej'}}],
