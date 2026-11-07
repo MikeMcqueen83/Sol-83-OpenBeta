@@ -593,7 +593,7 @@ class ThreeModels(Base):
         project_id = self.older()
         self.wait_status(project_id, 'done')
         self.assertEqual(self.engine_agents(project_id), ['claude', 'codex'])
-        self.supervisor.set_models(project_id, gemini_model='gemini-4-argon-high')
+        self.supervisor.set_models(project_id, gemini_model='gemini-4-argon-high', confirm_top='gemini-4-argon-high')
         self.assertEqual(self.supervisor.sides(self.store.project(project_id)), ['claude', 'codex', 'gemini'])
         self.assertIn('Gemini dołączy przy następnym uruchomieniu', self.store.events(project_id)[0]['text'])
         self.scenario(gemini=[{'write': {'g.txt': '1'}, 'lgtm': True}], codex=[{'lgtm': True}],

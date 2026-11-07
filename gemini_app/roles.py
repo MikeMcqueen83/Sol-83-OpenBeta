@@ -132,6 +132,7 @@ def label(roles, lang: str = 'pl'):
     """The roles as a user-facing text; a Msg in Polish so the English version stays available."""
     from .messages import Msg
     parts = [Msg(f'role_{role}') for role in parse(roles)]
-    if len(parts) == 1:
-        return parts[0]
-    return Msg('roles_joined', text=' + '.join(parts), text_en=' + '.join(part.en() for part in parts))
+    joined = parts[-1]
+    for part in reversed(parts[:-1]):
+        joined = Msg('roles_joined', a=part, b=joined)
+    return joined

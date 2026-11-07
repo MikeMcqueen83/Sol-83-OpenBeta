@@ -105,6 +105,13 @@ class Migration(unittest.TestCase):
         pairs = [('/a/Sol', '/b/data')]
         self.assertEqual(migrate.rewrite('/a/Sol/x and /a/Solar/y', pairs), '/b/data/x and /a/Solar/y')
 
+    def test_command_line(self):
+        done = subprocess.run([sys.executable, str(ROOT / 'sol83'), 'migrate', '--from', str(self.old), '--to',
+                               str(self.new), '--dry-run'], capture_output=True, text=True)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn('skopiowałbym', done.stdout)
+        self.assertFalse(self.new.exists())
+
     def test_dry_run_writes_nothing(self):
         migrate.migrate(self.old, self.new, self.code, dry_run=True)
         self.assertFalse(self.new.exists())

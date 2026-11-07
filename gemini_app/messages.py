@@ -125,7 +125,7 @@ CATALOG = {
     'roles_changed': ('Role od następnej tury: {roles}. Gdy model z rolą jest niedostępny: {fallback}.',
                       'Roles from the next turn: {roles}. When a model with a role is unavailable: {fallback}.'),
     'role_of': ('{who}: {role}', '{who}: {role}'),
-    'roles_joined': ('{text}', '{text_en}'),
+    'roles_joined': ('{a} + {b}', '{a} + {b}'),
     'join1': ('{a}', '{a}'),
     'join2': ('{a}; {b}', '{a}; {b}'),
     'join3': ('{a}; {b}; {c}', '{a}; {b}; {c}'),

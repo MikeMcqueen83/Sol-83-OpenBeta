@@ -188,7 +188,7 @@ def migrate(source: Path, target: Path, code: Path, dry_run: bool = False,
     report = [('źródło', True, str(source)), ('ścieżki zapisane w danych', True, str(root)),
               ('cel', True, str(target))]
     if dry_run:
-        report += [(f'skopiowałbym {name}', (source / name).exists(), str(source / name))
+        report += [(f'skopiowałbym {name}', True, str(source / name) if (source / name).exists() else 'brak, pominę')
                    for name in (*DATA_DIRS, *LEGACY_DIRS)]
         return report
     target.mkdir(parents=True, exist_ok=True)
