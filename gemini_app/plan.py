@@ -246,3 +246,37 @@ def summary(plan: dict, turns: list, focus: Optional[str] = None, lang: str = 'p
     if not open_must:
         lines.append(text(lang, 'all_must_done'))
     return '\n'.join(lines)
+
+
+WEIGHTS = {'must': 3, 'should': 2, 'could': 1}
+
+
+def progress(plan: Optional[dict], out_of_scope: Optional[set] = None) -> Optional[dict]:
+    """Functional progress, technical debt and net progress on one explicit basis (spec 12).
+
+    Basis: the scope items of the plan, weighted by priority (must 3, should 2, could 1). A feature
+    counts through its tasks; a feature without tasks counts itself. Debt items are weighted the same
+    way and measured against the same denominator, so the two can be subtracted:
+    net = max(0, functional - debt). Deferred is not done. Each debt item is one item, whoever found it.
+    No plan means no estimate. This is a management indicator, not a probability or a time forecast.
+    """
+    all_items = items(plan)
+    if not all_items:
+        return None
+    out_of_scope = out_of_scope or set()
+    parents = {item.get('parent') for item in all_items if item.get('parent')}
+    scope = [item for item in all_items if item.get('kind') != 'debt' and item['id'] not in out_of_scope
+             and (item.get('kind') != 'feature' or item['id'] not in parents)]
+    debt = [item for item in all_items if item.get('kind') == 'debt' and item.get('status', 'todo') in OPEN]
+    weight = lambda item: WEIGHTS.get(item.get('priority'), 2)  # noqa: E731
+    total = sum(weight(item) for item in scope)
+    if not total:
+        return None
+    done = sum(weight(item) for item in scope if item.get('status') == 'done')
+    functional = 100.0 * done / total
+    penalty = 100.0 * sum(weight(item) for item in debt) / total
+    return {'done_items': sum(1 for item in scope if item.get('status') == 'done'), 'scope_items': len(scope),
+            'functional': round(functional, 1), 'debt_penalty': round(penalty, 1),
+            'net': round(max(0.0, functional - penalty), 1), 'open_debt': len(debt),
+            'deferred_must': sum(1 for item in scope if item.get('priority') == 'must' and item.get('status') == 'deferred'),
+            'basis': 'pozycje zakresu z planu, wagi must 3 / should 2 / could 1; dług w tej samej skali'}

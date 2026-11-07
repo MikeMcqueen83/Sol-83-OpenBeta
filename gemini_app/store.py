@@ -61,6 +61,15 @@ CREATE TABLE IF NOT EXISTS interactions(
   plan_revision INTEGER, item TEXT, order_note INTEGER, created_at REAL, updated_at REAL, state TEXT,
   answers TEXT DEFAULT '[]', lang TEXT);
 CREATE TABLE IF NOT EXISTS project_keys(year INTEGER PRIMARY KEY, last INTEGER);
+CREATE TABLE IF NOT EXISTS git_ops(
+  op_key TEXT PRIMARY KEY, project_id TEXT, operation TEXT, repo TEXT, branch TEXT, head_before TEXT, head_after TEXT,
+  files TEXT, commit_sha TEXT, remote TEXT, pr_url TEXT, state TEXT, detail TEXT, created_at REAL);
+CREATE TABLE IF NOT EXISTS run_plans(
+  project_id TEXT, version INTEGER, commit_sha TEXT, manifest TEXT, data TEXT, created_at REAL,
+  PRIMARY KEY(project_id, version));
+CREATE TABLE IF NOT EXISTS app_runs(
+  id INTEGER PRIMARY KEY, project_id TEXT, version INTEGER, pid INTEGER, started TEXT, port INTEGER, command TEXT,
+  folder TEXT, log TEXT, state TEXT, created_at REAL, stopped_at REAL);
 CREATE TABLE IF NOT EXISTS catalog_versions(
   version TEXT PRIMARY KEY, created_at REAL, source TEXT, status TEXT, data TEXT, note TEXT);
 CREATE TABLE IF NOT EXISTS plan_revisions(
@@ -285,7 +294,7 @@ class Store:
         """Every record of a project, in one transaction."""
         with self._db() as db:
             for table in ('live', 'events', 'notes', 'questions', 'versions', 'plan_revisions', 'usage', 'interactions',
-                          'projects'):
+                          'run_plans', 'app_runs', 'git_ops', 'projects'):
                 column = 'id' if table == 'projects' else 'project_id'
                 db.execute(f'DELETE FROM {table} WHERE {column}=?', (project_id,))
 

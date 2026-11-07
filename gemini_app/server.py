@@ -222,6 +222,25 @@ class Handler(BaseHTTPRequestHandler):
         elif action == 'asset-decision':
             supervisor.decide_asset(project_id, str(body.get('id') or ''), str(body.get('decision') or ''),
                                     str(body.get('note') or ''))
+        elif action == 'run':
+            record = supervisor.run_app(project_id, int(body['number']))
+            return {'run': record['id'], 'port': record['port'], 'duplicate': bool(record.get('duplicate'))}
+        elif action == 'run-stop':
+            supervisor.stop_app(project_id)
+        elif action == 'run-plan':
+            project = supervisor._require(project_id)
+            version = supervisor.store.version(project_id, int(body['number']))
+            if not version:
+                raise ValueError(Msg('err_version'))
+            return supervisor.run_plan(project, version, refresh=bool(body.get('refresh')))
+        elif action == 'reveal':
+            supervisor.reveal(project_id, str(body.get('path') or ''))
+        elif action == 'git-context':
+            supervisor.set_git_context(project_id, str(body.get('remote') or ''), str(body.get('base_branch') or ''),
+                                       str(body.get('strategy') or 'local'), bool(body.get('allow_push')),
+                                       bool(body.get('allow_pr')), str(body.get('subdir') or ''))
+        elif action == 'git-deliver':
+            return supervisor.git_deliver(project_id, str(body.get('request_key') or ''))
         elif action == 'language':
             supervisor.set_language(project_id, str(body.get('language') or ''))
         elif action == 'rename':

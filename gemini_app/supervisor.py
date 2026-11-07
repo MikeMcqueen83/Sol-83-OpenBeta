@@ -17,7 +17,7 @@ from typing import Optional
 
 from . import assets as content
 from . import github, gitops, limits, livelog, monitor, sandbox
-from . import interactions, model_catalog, orders, plan_contract, prompts
+from . import gitcontext, interactions, model_catalog, orders, plan_contract, prompts, runner
 from . import plan as project_plan
 from . import roles as model_roles
 from .catalog import MODEL_OFF
@@ -1174,6 +1174,11 @@ class Supervisor:
                 'events': self.store.events(project_id), 'notes': self.store.notes(project_id),
                 'questions': self.store.questions(project_id), 'versions': versions,
                 'queue': orders.view(self.store, project_id),
+                'progress': project_plan.progress(project_plan.effective(self.store, project)[0]
+                                                  if project.get('worktree') else None),
+                'versions_view': self.versions_view(project, versions),
+                'app_run': runner.view(self.store, project_id),
+                'git': self.git_context(project),
                 'interactions': interactions.listing(self.store, project_id),
                 'blockers': self.close_blockers(project_id),
                 'next_config': self.next_config(project), 'turn_config': self._turn_config(project_id),
@@ -1204,6 +1209,138 @@ class Supervisor:
         last = self.store.last_event(project_id, 'turn_start')
         data = json.loads(last['data']) if last and last['data'] else {}
         return data.get('config')
+
+    # ---- RUN and Versions (spec 11 and 14) ---------------------------------------------------
+
+    def run_plan(self, project: dict, version: dict, refresh: bool = False) -> dict:
+        """The run plan stored for this version; derived again only when the version's launch files
+        changed (manifest hash) or on request."""
+        manifest = runner.manifest_hash(project['repo_path'], version['commit_sha']) if project.get('repo_path') else ''
+        row = self.store._row('SELECT * FROM run_plans WHERE project_id=? AND version=?', (project['id'], version['number']))
+        if row and not refresh and row['manifest'] == manifest:
+            return {**json.loads(row['data']), 'stored': True}
+        folder = Path(self.run_here(project, [version])['path'] or project['worktree'] or '.')
+        plan = runner.derive(self._run_steps(project['repo_path'], version), folder, use_llm=refresh or not row)
+        plan.update(commit=version['commit_sha'], manifest=manifest)
+        with self.store._db() as db:
+            db.execute('INSERT OR REPLACE INTO run_plans(project_id,version,commit_sha,manifest,data,created_at) '
+                       'VALUES(?,?,?,?,?,?)', (project['id'], version['number'], version['commit_sha'], manifest,
+                                               json.dumps(plan, ensure_ascii=False), time.time()))
+        return {**plan, 'stored': False}
+
+    def run_app(self, project_id: str, number: int) -> dict:
+        """RUN: the chosen version in the user's folder (prepared first if needed), never the agents' worktree."""
+        project = self._require(project_id)
+        version = self.store.version(project_id, number)
+        if not version:
+            raise ValueError(Msg('err_version'))
+        if project['run_version'] != number:
+            self.prepare_test_copy(project_id, number)
+            project = self.store.project(project_id)
+        folder = Path(self.run_here(project, [version])['path'])
+        if Git(folder).head() != version['commit_sha']:
+            raise RuntimeError(Msg('run_wrong_version', number=number))
+        plan = self.run_plan(project, version)
+        try:
+            record = runner.start(self.store, project_id, number, folder, plan, RUNS / project_id / f'app-v{number}.log')
+        except runner.RunError as exc:
+            raise RuntimeError(Msg('run_failed', detail=str(exc)))
+        if not record.get('duplicate'):
+            self.store.event(project_id, 'run', Msg('run_started', number=number, port=record['port']),
+                             data={'run': record['id']})
+        return record
+
+    def stop_app(self, project_id: str) -> None:
+        current = runner.view(self.store, project_id)
+        if current and current['state'] == 'running':
+            runner.stop(self.store, current['id'])
+            self.store.event(project_id, 'run', Msg('run_stopped', number=current['version']))
+
+    def reveal(self, project_id: str, path: str) -> None:
+        """Show a project folder in Finder (macOS) or the file manager: only folders of this project."""
+        project = self._require(project_id)
+        allowed = {str(Path(p).resolve()) for p in (project.get('repo_path'), project.get('worktree'),
+                                                    test_folder(project_id)) if p}
+        if str(Path(path).resolve()) not in allowed or not Path(path).exists():
+            raise ValueError(Msg('err_not_found'))
+        command = ['open', '-R', path] if sys.platform == 'darwin' else ['xdg-open', str(Path(path))]
+        try:
+            subprocess.run(command, capture_output=True, timeout=10)
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise RuntimeError(str(exc))
+
+    def versions_view(self, project: dict, versions: list) -> list:
+        """Each version as the Versions tab shows it: tests of each kind, commit and tag, recommendation,
+        the real folder (or none when it exists only as a tag), how to run it and what to check."""
+        recommended = recommended_version(versions)
+        checks = {row['version_number']: row for row in interactions.listing(self.store, project['id'])
+                  if row['author'] == 'version'}
+        own = owns_repo(project)
+        rows = []
+        for version in versions:
+            here = project['run_version'] == version['number']
+            folder = (project['repo_path'] if own else str(test_folder(project['id']))) if here else None
+            check = checks.get(version['number'])
+            manual = check['answers'][-1]['result'] if check and check['answers'] else None
+            rows.append({'number': version['number'], 'created_at': version['created_at'], 'summary': version['summary'],
+                         'commit': version['commit_sha'], 'tag': version['tag'], 'level': version['level'],
+                         'automatic_tests': version['verify_summary'], 'review': version['accepted_by'],
+                         'manual_test': manual or ('oczekuje' if check else None),
+                         'recommended': bool(recommended and recommended['number'] == version['number']),
+                         'rejected': version['user_verdict'] == 'bad', 'folder': folder,
+                         'tag_only': folder is None, 'how_to_run': version['how_to_run'],
+                         'what_to_check': version['what_to_test'], 'check_id': check['id'] if check else None})
+        return rows
+
+    # ---- Git context (spec 22) -----------------------------------------------------------------
+
+    def git_context(self, project: dict) -> dict:
+        """The saved context and the real state of the project's repository and work folder."""
+        saved = json.loads(project.get('git_context') or '{}')
+        repo = project.get('repo_path')
+        return {'saved': saved, 'repository': gitcontext.inspect(repo) if repo else {'exists': False},
+                'work': gitcontext.inspect(project['worktree']) if project.get('worktree') else {'exists': False},
+                'work_branch': project.get('branch'),
+                'operations': self.store._rows('SELECT op_key, operation, branch, commit_sha, remote, pr_url, state, '
+                                               'detail, created_at FROM git_ops WHERE project_id=? ORDER BY created_at '
+                                               'DESC LIMIT 20', (project['id'],))}
+
+    def set_git_context(self, project_id: str, remote: str = '', base_branch: str = '', strategy: str = 'local',
+                        allow_push: bool = False, allow_pr: bool = False, subdir: str = '') -> None:
+        """Save how this project's work leaves the machine. Each permission is separate; nothing here
+        creates a repository or changes its visibility or protection."""
+        project = self._require(project_id)
+        if strategy not in gitcontext.STRATEGIES or (subdir and ('..' in Path(subdir).parts or Path(subdir).is_absolute())):
+            raise ValueError(Msg('err_git_context'))
+        state = gitcontext.inspect(project['repo_path']) if project.get('repo_path') else {'remotes': {}}
+        if remote and remote not in (state.get('remotes') or {}):
+            raise ValueError(Msg('err_git_remote', remote=remote))
+        context = {'remote': remote or None, 'base_branch': base_branch or None, 'strategy': strategy,
+                   'allow_push': bool(allow_push), 'allow_pr': bool(allow_pr), 'subdir': subdir or ''}
+        self.store.update_project(project_id, git_context=json.dumps(context))
+        self.store.event(project_id, 'git', Msg('git_context_saved', strategy=strategy, remote=remote or '-'))
+
+    def git_deliver(self, project_id: str, request_key: str = '') -> dict:
+        """Send the agents' work branch as the saved context allows: push, and a PR when allowed. A missing
+        decision (remote, permission) is asked for instead of guessed."""
+        project = self._require(project_id)
+        context = json.loads(project.get('git_context') or '{}')
+        if not context.get('remote') or not context.get('allow_push'):
+            raise ValueError(Msg('err_git_no_permission'))
+        ops = gitcontext.GitOps(self.store)
+        key = request_key or f"push-{project['branch']}-{Git(project['worktree']).head()[:12]}"
+        result = ops.push(project_id, project['repo_path'], context['remote'], project['branch'], key)
+        self.store.event(project_id, 'git', Msg('git_pushed' if result['state'] == 'pushed' else 'git_push_failed',
+                                                branch=project['branch'], detail=result.get('detail') or ''),
+                         data={'op': result['op_key']})
+        if result['state'] == 'pushed' and context.get('strategy') == 'pr' and context.get('allow_pr'):
+            repository = github.github_origin(Git(project['repo_path']))
+            if repository:
+                pr = ops.open_pr(project_id, project['repo_path'], repository, project['branch'],
+                                 context.get('base_branch') or 'main', project['title'],
+                                 f"Sol-83 {project.get('key') or ''}", f'{key}-pr')
+                result['pr_url'] = pr.get('pr_url')
+        return result
 
     def setup_view(self, project: dict) -> Optional[dict]:
         script = gitops.setup_script(project['worktree']) if project.get('worktree') else None
