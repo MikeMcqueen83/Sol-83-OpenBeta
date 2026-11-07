@@ -1,0 +1,223 @@
+diff --git a/duet.py b/duet.py
+index ccbc520..9fc8044 100755
+--- a/duet.py
++++ b/duet.py
+@@ -50,6 +50,7 @@ import contextlib
+ import dataclasses
+ import datetime as dt
+ import hashlib
++import importlib
+ import json
+ import math
+ import os
+@@ -278,6 +279,8 @@ EXTRACT_LATEST_PROMPT = (
+ # users can choose the common `xhigh` level directly while still getting useful
+ # aliases for backend-specific gaps (`minimal` for Codex, `max` for Claude).
+ REASONING_LEVELS = ["minimal", "low", "medium", "high", "xhigh", "max"]
++# Gemini fork: levels some Codex models accept, passed through unchanged.
++BACKEND_ONLY_LEVELS = ("none", "ultra")
+ 
+ # Claude Code exposes thinking control through `--effort`. We still add small
+ # prompt nudges for high/xhigh/max because they are useful natural-language
+@@ -363,7 +366,7 @@ GEMINI_APPROVAL_MODE_MAP = {
+ 
+ 
+ def validate_reasoning(value: Optional[str], context: str) -> None:
+-    if value is not None and value not in REASONING_LEVELS:
++    if value is not None and value not in (*REASONING_LEVELS, *BACKEND_ONLY_LEVELS):
+         choices = "|".join(REASONING_LEVELS)
+         raise SystemExit(f"bad reasoning value for {context}: {value!r}; expected {choices}")
+ 
+@@ -550,12 +553,21 @@ def _config_error(message: str,
+     raise SystemExit(message)
+ 
+ 
++def max_agents() -> int:
++    """Gemini fork: a turn scheduler picks every speaker, so it may lead a third agent."""
++    return 3 if os.environ.get("DUET_TURN_SCHEDULER") else 2
++
++
++def next_speaker_idx(idx: int, agents: list) -> int:
++    return (idx + 1) % len(agents)
++
++
+ def validate_config(cfg: DuetConfig,
+                     parser: Optional[argparse.ArgumentParser] = None) -> None:
+     """Validate final topology after CLI/YAML parsing and resume normalization."""
+-    if len(cfg.agents) != 2:
++    if not 2 <= len(cfg.agents) <= max_agents():
+         _config_error(f"duet expects exactly 2 agents, got {len(cfg.agents)}", parser)
+-    if cfg.start_speaker_idx not in (0, 1):
++    if not 0 <= cfg.start_speaker_idx < len(cfg.agents):
+         _config_error(
+             f"start_speaker_idx must be 0 or 1, got {cfg.start_speaker_idx}",
+             parser,
+@@ -4064,6 +4076,7 @@ def _execute_turn(cfg: DuetConfig, *, turn: int, speaker: Agent, last_msg: str,
+                   wt_path: Optional[pathlib.Path], wt_branch: Optional[str],
+                   last_verify_state: Optional[dict],
+                   timeout_may_continue: bool = False,
++                  failure_may_continue: bool = False,
+                   log: Callable[..., None]) -> _TurnResult:
+     """Run a single agent turn: invoke, verify, recap, persist transcript+state.
+ 
+@@ -4180,7 +4193,7 @@ def _execute_turn(cfg: DuetConfig, *, turn: int, speaker: Agent, last_msg: str,
+     # finished_reason — that would flip the phase to "finished" and make
+     # --status report a still-running run as terminal.
+     persisted_reason = failure_reason
+-    if failure_reason == FINISHED_TIMEOUT and timeout_may_continue:
++    if (failure_reason == FINISHED_TIMEOUT and timeout_may_continue) or failure_may_continue:
+         persisted_reason = None
+     turn_state = _build_run_state(
+         cfg, turns_used=turn, history=history, finished_reason=persisted_reason,
+@@ -4517,6 +4530,19 @@ def _print_worktree_notice(cfg: DuetConfig, wt_path: Optional[pathlib.Path],
+               f"git -C {cfg.cwd} branch -D {wt_branch}")
+ 
+ 
++def _load_turn_scheduler(cfg: DuetConfig, run_dir: pathlib.Path):
++    """Gemini fork: optional "module:factory" from $DUET_TURN_SCHEDULER.
++
++    The scheduler picks the speaker, may wait for a limit reset, and keeps the
++    run alive when a turn fails. Unset keeps upstream strict alternation.
++    """
++    spec = os.environ.get("DUET_TURN_SCHEDULER")
++    if not spec or cfg.dry_run:
++        return None
++    module, _, factory = spec.partition(":")
++    return getattr(importlib.import_module(module), factory)(cfg, run_dir)
++
++
+ def run_duet(cfg: DuetConfig) -> dict:
+     global RECAP_MODE
+     RECAP_MODE = cfg.recap
+@@ -4563,11 +4589,19 @@ def run_duet(cfg: DuetConfig) -> dict:
+     previous_convergence_proposal = False
+     previous_turn_timed_out = False
+     last_verify_state: Optional[dict] = None
++    scheduler = _load_turn_scheduler(cfg, run_dir)
+ 
+     for turn in range(1, cfg.max_turns + 1):
+         if stop.requested:
+             finished_reason = FINISHED_FORCE_STOP
+             break
++        if scheduler is not None:
++            plan = scheduler.before_turn(turn=turn, speaker_idx=speaker_idx,
++                                         message=last_msg, stop=stop)
++            if plan is None:
++                finished_reason = FINISHED_FORCE_STOP
++                break
++            speaker_idx, last_msg = plan
+         speaker = cfg.agents[speaker_idx]
+         may_continue = _timeout_may_continue(cfg, previous_turn_timed_out, turn)
+         result = _execute_turn(
+@@ -4577,7 +4611,8 @@ def run_duet(cfg: DuetConfig) -> dict:
+             history=history, seen_first_turn=seen_first_turn,
+             wt_path=wt_path, wt_branch=wt_branch,
+             last_verify_state=last_verify_state,
+-            timeout_may_continue=may_continue, log=log,
++            timeout_may_continue=may_continue,
++            failure_may_continue=scheduler is not None, log=log,
+         )
+         last_verify_state = result.last_verify_state
+         if cfg.recap:
+@@ -4585,10 +4620,23 @@ def run_duet(cfg: DuetConfig) -> dict:
+         else:
+             print(result.reply)
+ 
++        outcome = None
++        if scheduler is not None:
++            outcome = scheduler.after_turn(turn=turn, speaker_idx=speaker_idx,
++                                           result=result, history=history,
++                                           stopping=stop.requested)
+         if stop.requested and stop.reason == "SIGTERM":
+             finished_reason = FINISHED_FORCE_STOP
+             break
++        if outcome is not None and outcome.halt:
++            finished_reason = FINISHED_FORCE_STOP
++            break
+         if result.failure_reason is not None:
++            if outcome is not None and outcome.message is not None:
++                last_msg = outcome.message
++                previous_convergence_proposal = False
++                speaker_idx = next_speaker_idx(speaker_idx, cfg.agents)
++                continue
+             if _continue_after_timeout(result, may_continue, stop):
+                 print(f"[duet] turn {turn:02d} ({speaker.name}) timed out after "
+                       f"{cfg.per_turn_timeout}s — handing the timeout block to "
+@@ -4597,7 +4645,7 @@ def run_duet(cfg: DuetConfig) -> dict:
+                 last_msg = result.reply
+                 previous_convergence_proposal = False
+                 previous_turn_timed_out = True
+-                speaker_idx = 1 - speaker_idx
++                speaker_idx = next_speaker_idx(speaker_idx, cfg.agents)
+                 continue
+             finished_reason = result.failure_reason
+             break
+@@ -4605,12 +4653,15 @@ def run_duet(cfg: DuetConfig) -> dict:
+             finished_reason = FINISHED_FORCE_STOP
+             break
+         previous_turn_timed_out = False
+-        if result.convergence_hit and previous_convergence_proposal:
++        converged = result.convergence_hit and previous_convergence_proposal
++        if outcome is not None:
++            converged = outcome.converged
++        if converged:
+             finished_reason = FINISHED_CONVERGED
+             break
+         last_msg = result.reply
+         previous_convergence_proposal = result.convergence_hit
+-        speaker_idx = 1 - speaker_idx
++        speaker_idx = next_speaker_idx(speaker_idx, cfg.agents)
+     else:
+         finished_reason = FINISHED_MAX_TURNS
+ 
+@@ -4826,7 +4877,7 @@ def ask_force(cfg: DuetConfig, history: list, transcript_path: pathlib.Path,
+         if forced_reason is not None:
+             return forced_reason, last_verify_state
+         last_msg = result.reply
+-        speaker_idx = 1 - speaker_idx
++        speaker_idx = next_speaker_idx(speaker_idx, cfg.agents)
+         reason = FINISHED_FORCED_CONTINUATION
+         if result.convergence_hit:
+             return FINISHED_CONVERGED_AFTER_FORCE, last_verify_state
+@@ -6873,7 +6924,7 @@ def _agents_from_state(state: dict,
+                        parser: argparse.ArgumentParser,
+                        option_name: str) -> list[Agent]:
+     raw_agents = state.get("agents")
+-    if not isinstance(raw_agents, list) or len(raw_agents) != 2:
++    if not isinstance(raw_agents, list) or not 2 <= len(raw_agents) <= max_agents():
+         parser.error(f"{option_name}: state.json must contain exactly two agents")
+     agents: list[Agent] = []
+     for i, raw in enumerate(raw_agents):
+@@ -6910,7 +6961,7 @@ def _next_speaker_idx_from_state(agents: list[Agent], state: dict) -> int:
+             last_agent = item.get("agent")
+             for idx, agent in enumerate(agents):
+                 if agent.name == last_agent:
+-                    return 1 - idx
++                    return next_speaker_idx(idx, agents)
+     try:
+         turns_used = int(state.get("turns_used") or 0)
+     except (TypeError, ValueError):
+diff --git a/tests/test_duet.py b/tests/test_duet.py
+index c89d28a..cf48348 100644
+--- a/tests/test_duet.py
++++ b/tests/test_duet.py
+@@ -1026,7 +1026,18 @@ class TestReasoningHelpers(unittest.TestCase):
+ 
+     def test_validate_rejects_unknown(self) -> None:
+         with self.assertRaises(SystemExit):
+-            duet.validate_reasoning("ultra", "test")
++            duet.validate_reasoning("bogus", "test")
++
++    def test_scheduler_may_lead_a_third_agent(self) -> None:
++        agents = [duet.Agent(name=n, backend=b) for n, b in
++                  (("claude", "claude"), ("codex", "codex"), ("gemini", "gemini"))]
++        cfg = duet.DuetConfig(agents=agents, task="x", cwd=pathlib.Path("."))
++        with mock.patch.dict(duet.os.environ, {"DUET_TURN_SCHEDULER": ""}):
++            with self.assertRaises(SystemExit):
++                duet.validate_config(cfg)
++        with mock.patch.dict(duet.os.environ, {"DUET_TURN_SCHEDULER": "m:f"}):
++            duet.validate_config(cfg)
++        self.assertEqual([duet.next_speaker_idx(i, agents) for i in range(3)], [1, 2, 0])
+ 
+     def test_effective_uses_agent_override(self) -> None:
+         agent = duet.Agent(name="x", backend="claude", reasoning_effort="high")

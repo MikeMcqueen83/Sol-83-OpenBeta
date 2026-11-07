@@ -1,0 +1,33 @@
+#!/usr/bin/env python3
+"""Stand-in for the GitHub CLI: bare repositories under $FAKE_DIR/github/tester."""
+import json
+import os
+import pathlib
+import subprocess
+import sys
+
+ROOT = pathlib.Path(os.environ['FAKE_DIR']) / 'github'
+OWNER = 'tester'
+args = sys.argv[1:]
+if (ROOT.parent / 'gh_logged_out').exists():
+    sys.exit('You are not logged into any GitHub hosts.')
+if args[:2] == ['api', 'user']:
+    print(OWNER)
+elif args[:2] == ['repo', 'create']:
+    bare = ROOT / OWNER / f'{args[2]}.git'
+    if bare.exists():
+        sys.exit('GraphQL: Name already exists on this account')
+    subprocess.run(['git', 'init', '-q', '--bare', str(bare)], check=True)
+    (bare / 'visibility').write_text('PUBLIC' if '--public' in args else 'PRIVATE')
+    print(f'https://github.com/{OWNER}/{args[2]}')
+elif args[:2] == ['repo', 'list']:
+    print(json.dumps([{'nameWithOwner': f'{OWNER}/{path.stem}', 'description': '', 'url': '',
+                       'isPrivate': (path / 'visibility').read_text() == 'PRIVATE',
+                       'pushedAt': '2026-11-01T10:00:00Z'}
+                      for path in sorted((ROOT / OWNER).glob('*.git'))]))
+elif args[:2] == ['repo', 'clone']:
+    subprocess.run(['git', 'clone', '-q', f'file://{ROOT}/{args[2]}.git', args[3]], check=True)
+elif args[:2] == ['repo', 'view']:
+    print(json.dumps({'visibility': (ROOT / f'{args[2]}.git/visibility').read_text()}))
+elif args[:2] == ['repo', 'edit']:
+    (ROOT / f'{args[2]}.git/visibility').write_text(args[args.index('--visibility') + 1].upper())

@@ -1,0 +1,10 @@
+vendor/
+runs/
+worktrees/
+state/
+projects/
+demo/
+__pycache__/
+config/run-*.json
+reports/*.log
+.DS_Store

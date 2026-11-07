@@ -1,0 +1,5 @@
+#!/bin/sh
+BASE="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+export PATH="$BASE/bin:$HOME/.local/bin:$PATH"
+export DUET_METRICS=0
+exec python3 "$BASE/vendor/duet/duet.py" "$@"

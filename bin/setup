@@ -1,0 +1,14 @@
+#!/bin/sh
+# Fresh clone: fetch upstream Duet at the pinned commit and apply the Gemini patch.
+set -eu
+BASE="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+COMMIT="$(python3 -c "import json;print(json.load(open('$BASE/config/upstream.json'))['commit'])")"
+REPO="$(python3 -c "import json;print(json.load(open('$BASE/config/upstream.json'))['repository'])")"
+if [ -e "$BASE/vendor/duet" ]; then
+  echo "vendor/duet już istnieje"
+  exit 0
+fi
+git clone -q "$REPO" "$BASE/vendor/duet"
+git -C "$BASE/vendor/duet" checkout -q "$COMMIT"
+git -C "$BASE/vendor/duet" apply "$BASE/patches/duet-gemini.patch"
+echo "Duet gotowy"

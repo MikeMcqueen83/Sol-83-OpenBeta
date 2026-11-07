@@ -1,0 +1,35 @@
+#!/usr/bin/env python3
+"""Sol-83: the web panel and maintenance commands. Projects start only from the panel, through the
+coordinator: there is no second way to launch agents that would skip its rules."""
+import argparse
+import sys
+from pathlib import Path
+
+BASE = Path(__file__).resolve().parent
+sys.path.insert(0, str(BASE))
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(prog='sol83', description='Sol-83: lokalny koordynator agentów')
+    commands = parser.add_subparsers(dest='command', required=True)
+    commands.add_parser('doctor', help='sprawdź CLI, logowanie, piaskownicę i katalog danych')
+    serve = commands.add_parser('serve', help='uruchom panel na 127.0.0.1')
+    serve.add_argument('--port', type=int, default=8765)
+    migrate = commands.add_parser('migrate', help='przenieś dane starej instalacji do katalogu danych')
+    migrate.add_argument('rest', nargs=argparse.REMAINDER)
+    args = parser.parse_args()
+    if args.command == 'serve':
+        from gemini_app.server import serve as run_server
+        run_server(args.port)
+        return 0
+    if args.command == 'migrate':
+        from gemini_app import migrate as migration
+        return migration.main(args.rest)
+    if args.command == 'doctor':
+        from gemini_app import doctor
+        return doctor.main()
+    return 2
+
+
+if __name__ == '__main__':
+    sys.exit(main())

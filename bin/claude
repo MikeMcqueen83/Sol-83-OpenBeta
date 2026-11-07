@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+"""Claude Code adapter for Duet.
+
+Keeps the `claude -p --output-format json` contract while running stream-json,
+so limit events reach the coordinator during a turn. Adds the OS sandbox Codex
+already gets from workspace-write, and refuses paid overage usage.
+"""
+import json
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+BASE = Path(__file__).resolve().parent.parent
+SANDBOX = json.dumps({'sandbox': {'enabled': True, 'autoAllowBashIfSandboxed': True,
+                                  'allowUnsandboxedCommands': False}})
+
+
+def find_binary():
+    """GEMINI_CLAUDE_BIN, then `claude` on PATH (not this adapter), then the copy bundled with the
+    Claude desktop app on macOS."""
+    override = os.environ.get('GEMINI_CLAUDE_BIN')
+    if override:
+        return override
+    own = Path(__file__).resolve().parent
+    path = os.pathsep.join(part for part in os.environ.get('PATH', '').split(os.pathsep)
+                           if part and Path(part).resolve() != own)
+    found = shutil.which('claude', path=path)
+    if found:
+        return found
+    bundle = Path.home() / 'Library/Application Support/Claude/claude-code'
+    candidates = list(bundle.glob('*/**/claude.app/Contents/MacOS/claude')) if bundle.is_dir() else []
+    if not candidates:
+        sys.exit('Nie znaleziono Claude Code: brak polecenia claude w PATH i brak kopii z aplikacji Claude. '
+                 'Zainstaluj oficjalny CLI albo wskaż plik zmienną GEMINI_CLAUDE_BIN.')
+
+    def version(p):
+        try:
+            return tuple(int(x) for x in p.parts[p.parts.index('claude-code') + 1].split('.'))
+        except ValueError:
+            return (0,)
+    return str(max(candidates, key=version))
+
+
+def main():
+    binary = find_binary()
+    args = sys.argv[1:]
+    if '-p' not in args or '--output-format' not in args:
+        os.execv(binary, [binary, *args])
+    fmt = args.index('--output-format') + 1
+    if args[fmt] != 'json':
+        os.execv(binary, [binary, *args])
+    args[fmt] = 'stream-json'
+    args += ['--verbose', '--settings', SANDBOX]
+    if '--tools' not in args:
+        # Web search runs on Anthropic's side, outside the local sandbox, as it does for Codex.
+        args += ['--allowedTools', 'WebSearch']
+
+    sys.path.insert(0, str(BASE))
+    from gemini_app import limits
+
+    proc = subprocess.Popen([binary, *args], stdout=subprocess.PIPE, text=True,
+                            errors='replace')
+    result = None
+    for line in proc.stdout:
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        if event.get('type') == 'rate_limit_event':
+            info = event.get('rate_limit_info') or {}
+            limits.save_claude_event(info)
+            if info.get('isUsingOverage'):
+                proc.terminate()
+                proc.wait()
+                sys.exit('usage limit reached: Sol-83 nie korzysta z płatnego rozszerzenia limitu.')
+        elif event.get('type') == 'result':
+            result = event
+    rc = proc.wait()
+    if result is None:
+        sys.exit(rc or 1)
+    if os.environ.get('GEMINI_PROJECT_ID') and args[args.index('-p') + 1] != '/usage':
+        limits.save_tokens(os.environ['GEMINI_PROJECT_ID'], 'claude', result.get('usage'))
+    if result.get('is_error'):
+        print(result.get('result') or 'claude zwrócił błąd', file=sys.stderr)
+        sys.exit(rc or 1)
+    print(json.dumps(result))
+    sys.exit(rc)
+
+
+if __name__ == '__main__':
+    main()

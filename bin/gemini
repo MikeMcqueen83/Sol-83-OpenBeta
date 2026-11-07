@@ -1,0 +1,139 @@
+#!/usr/bin/env python3
+"""Antigravity adapter for Duet's Gemini backend.
+
+Duet speaks the Gemini CLI contract: `gemini -p ... --output-format json`, the reply in
+`response`, the session in `session_id`. Gemini CLI is no longer supported, so this runs
+Google's Antigravity CLI `agy` and answers in that contract. It keeps Sol-83's rules:
+the subscription's Google sign-in only, never an API key. A working turn runs the whole agy
+process inside the OS sandbox (gemini_app/sandbox.py): writes only in the project, the folders
+Duet adds and agy's own state, no reading of other logins. Only then may agy skip its own
+permission prompts; without an OS sandbox it keeps them.
+"""
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+BASE = Path(__file__).resolve().parent.parent
+VALUE_FLAGS = {'-p', '--resume', '--output-format', '--approval-mode', '--model', '--include-directories',
+               '--effort'}
+EFFORTS = ('low', 'medium', 'high', 'xhigh', 'max')
+_ESCAPES = re.compile(r'\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07]*\x07')
+
+
+def parse(args: list) -> tuple:
+    found, folders = {}, []
+    index = 0
+    while index < len(args):
+        if args[index] in VALUE_FLAGS and index + 1 < len(args):
+            if args[index] == '--include-directories':
+                folders.append(args[index + 1])
+            else:
+                found[args[index]] = args[index + 1]
+            index += 2
+        else:
+            index += 1
+    return found, folders
+
+
+def command(binary: str, found: dict, folders: list, sandboxed: bool = False) -> list:
+    cmd = [binary, '-p', found.get('-p', ''), '--output-format', 'json', '--add-dir', os.getcwd()]
+    for folder in folders:
+        cmd += ['--add-dir', folder]
+    if found.get('--resume'):
+        cmd += ['--conversation', found['--resume']]
+    if found.get('--model') not in (None, '', 'default'):
+        # Antigravity's model names carry their own level, such as gemini-4-argon-high.
+        cmd += ['--model', found['--model']]
+    elif (found.get('--effort') or os.environ.get('SOL83_GEMINI_EFFORT')) in EFFORTS:
+        cmd += ['--effort', found.get('--effort') or os.environ['SOL83_GEMINI_EFFORT']]
+    if found.get('--approval-mode') == 'plan':
+        return cmd + ['--mode', 'plan']
+    # A working turn. Tools may run without asking only when the whole agy process is inside the OS
+    # sandbox (writes limited to the project and agy's own folders); otherwise agy keeps asking, and
+    # a request it cannot ask in print mode fails the turn instead of running unchecked.
+    cmd += ['--mode', 'accept-edits', '--sandbox']
+    return cmd + ['--dangerously-skip-permissions'] if sandboxed else cmd
+
+
+AGY_STATE = ('.gemini', 'Library/Application Support/Antigravity', 'Library/Caches', 'Library/Logs',
+             '.cache', '.config/agy')
+
+
+def sandboxed_command(cmd: list, folders: list, temp: str):
+    """agy wrapped in the OS sandbox: it may write in the project, the folders Duet adds and its own
+    state, may use the network (it is a cloud model), and cannot read other logins or keys."""
+    from gemini_app import sandbox
+    home = Path.home()
+    own = [home / rel for rel in AGY_STATE]
+    keep = [*own, home / 'Library/Keychains']
+    return sandbox.wrap(cmd, [os.getcwd(), *folders, temp, *[p for p in own if p.exists()]], network=True,
+                        deny_read=sandbox.credential_paths(keep=keep))
+
+
+def with_terminal(cmd: list) -> list:
+    """Run under a pseudo-terminal: BSD and util-linux `script` take different arguments."""
+    if sys.platform == 'darwin':
+        return ['script', '-q', '/dev/null', *cmd]
+    import shlex
+    return ['script', '-q', '-c', shlex.join(cmd), '/dev/null']
+
+
+def envelope(text: str):
+    """agy's JSON reply. Under a pseudo-terminal it can carry escapes and line noise."""
+    text = _ESCAPES.sub('', text or '').replace('\r', '')
+    start, end = text.find('{'), text.rfind('}')
+    if start < 0 or end < start:
+        return None
+    try:
+        return json.loads(text[start:end + 1])
+    except ValueError:
+        return None
+
+
+def main():
+    sys.path.insert(0, str(BASE))
+    from gemini_app import limits
+
+    binary = limits.gemini_binary()
+    if not binary:
+        sys.exit('Nie znaleziono Antigravity CLI (agy). Zainstaluj: '
+                 'curl -fsSL https://antigravity.google/cli/install.sh | bash')
+    # Sol-83's own GEMINI_* settings mean nothing to agy, and a key would bypass the subscription.
+    env = {key: value for key, value in os.environ.items()
+           if key not in limits.GEMINI_KEY_ENV and not key.startswith('GEMINI_')}
+    args = sys.argv[1:]
+    if '-p' not in args:
+        os.execve(binary, [binary, *args], env)
+    from gemini_app import sandbox
+    found, folders = parse(args)
+    plan_turn = found.get('--approval-mode') == 'plan'
+    temp = tempfile.mkdtemp(prefix='sol83-agy-')
+    env['TMPDIR'] = temp
+    cmd = command(binary, found, folders, sandboxed=sandbox.backend() is not None and not plan_turn)
+    if sandbox.backend():
+        cmd = sandboxed_command(cmd, folders, temp)
+    done = subprocess.run(cmd, capture_output=True, text=True, errors='replace', env=env,
+                          stdin=subprocess.DEVNULL)
+    reply = envelope(done.stdout)
+    if done.returncode == 0 and reply is None and not done.stdout.strip():
+        # Some agy builds print nothing when stdout is not a terminal: give it one.
+        done = subprocess.run(with_terminal(cmd), capture_output=True, text=True,
+                              errors='replace', env=env, stdin=subprocess.DEVNULL)
+        reply = envelope(done.stdout)
+    if done.returncode or not reply or str(reply.get('status') or 'SUCCESS').upper() != 'SUCCESS':
+        print((done.stderr or done.stdout or 'agy nie zwrócił odpowiedzi').strip(), file=sys.stderr)
+        if reply:
+            print(json.dumps(reply, ensure_ascii=False)[:2000], file=sys.stderr)
+        sys.exit(done.returncode or 1)
+    if os.environ.get('GEMINI_PROJECT_ID'):
+        limits.save_tokens(os.environ['GEMINI_PROJECT_ID'], 'gemini', reply.get('usage'))
+    print(json.dumps({'session_id': reply.get('conversation_id'), 'response': reply.get('response') or '',
+                      'usage': reply.get('usage')}, ensure_ascii=False))
+
+
+if __name__ == '__main__':
+    main()
