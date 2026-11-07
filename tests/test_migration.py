@@ -11,7 +11,8 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 TEMP = pathlib.Path(tempfile.mkdtemp(prefix='sol83-mig-')).resolve()
-os.environ.update({'GEMINI_HOME': str(TEMP / 'home'), 'GEMINI_NOTIFY': '0'})
+os.environ.setdefault('GEMINI_HOME', str(TEMP / 'home'))
+os.environ['GEMINI_NOTIFY'] = '0'
 sys.path.insert(0, str(ROOT))
 
 from gemini_app import gitops, migrate  # noqa: E402

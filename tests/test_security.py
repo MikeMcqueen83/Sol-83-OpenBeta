@@ -17,7 +17,9 @@ from unittest import mock
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 TEMP = pathlib.Path(tempfile.mkdtemp(prefix='sol83-sec-'))
-os.environ.update({'GEMINI_HOME': str(TEMP), 'GEMINI_NOTIFY': '0'})
+# Keep the data folder of a test module imported earlier: engines it starts read the same store.
+os.environ.setdefault('GEMINI_HOME', str(TEMP))
+os.environ['GEMINI_NOTIFY'] = '0'
 sys.path.insert(0, str(ROOT))
 
 from gemini_app import github, gitops, monitor, sandbox, secretscan  # noqa: E402
@@ -206,7 +208,9 @@ class VerifyWrapper(unittest.TestCase):
         store.add_project(id='p1', title='t', task='t', status='running', worktree=str(work),
                           verify_cmd='touch ran.txt')
         elsewhere = pathlib.Path(tempfile.mkdtemp(dir=TEMP))
-        env = {**os.environ, 'GEMINI_PROJECT_ID': 'p1', 'PYTHONPATH': str(ROOT)}
+        from gemini_app import paths
+        # The store this process uses, whichever test module imported gemini_app first.
+        env = {**os.environ, 'GEMINI_PROJECT_ID': 'p1', 'PYTHONPATH': str(ROOT), 'GEMINI_HOME': str(paths.HOME)}
         done = subprocess.run([sys.executable, '-m', 'gemini_app.sandbox', 'verify'], cwd=elsewhere,
                               env=env, capture_output=True, text=True)
         self.assertEqual(done.returncode, sandbox.REFUSED_EXIT)

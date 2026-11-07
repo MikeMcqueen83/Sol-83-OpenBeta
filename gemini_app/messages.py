@@ -279,6 +279,24 @@ CATALOG.update({
     'err_bad_number': ('Niepoprawny numer w adresie.', 'Invalid number in the address.'),
 })
 
+# Queue, turns and plan (OpenBeta, stage 3).
+CATALOG.update({
+    'notes_requeued': ('{count} zleceń z przerwanej tury wróciło do kolejki.',
+                       '{count} requests from an interrupted turn went back to the queue.'),
+    'finish_reopened': ('Podczas zamykania projektu czekała nowa praca albo otwarta bramka odbioru: projekt wraca do kolejki zamiast się zamknąć.',
+                        'New work or an open acceptance gate was waiting while the project was closing: it goes back to the queue instead of closing.'),
+    'converge_deferred': ('Akceptacja dotyczyła stanu sprzed nowego zlecenia: praca trwa dalej, nowe zlecenie trafi do następnej tury.',
+                          'The acceptance was for the state before a new request: work continues, and the new request goes to the next turn.'),
+    'self_review_limit': ('Full Power: wyczerpano limit {count} przeglądów tym samym modelem pod rząd. Czekam na drugi model albo Twoją decyzję.',
+                          'Full Power: the limit of {count} reviews in a row by the same model is used up. Waiting for the second model or your decision.'),
+    'plan_revision': ('Plan: zapisano rewizję {revision}. Poprawki wartości: {corrections}.',
+                      'Plan: saved revision {revision}. Value corrections: {corrections}.'),
+    'plan_invalid': ('Plan w pliku jest błędny ({problems}); koordynator używa ostatniej poprawnej rewizji. Próba naprawy {attempt} z {limit}.',
+                     'The plan file is invalid ({problems}); the coordinator uses the last valid revision. Repair attempt {attempt} of {limit}.'),
+    'plan_restored': ('Plan nie został naprawiony po kolejnych próbach ({problems}). Przywrócono rewizję {revision}; błędna wersja jest w .sol83/plan.invalid.json.',
+                      'The plan was not repaired after repeated attempts ({problems}). Restored revision {revision}; the broken version is in .sol83/plan.invalid.json.'),
+})
+
 
 class Msg(str):
     """Polish text that also knows its English version."""

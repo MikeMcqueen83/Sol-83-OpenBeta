@@ -23,14 +23,20 @@ Testy „atrapa” używają skryptowanych CLI z `tests/fakes` (bez prawdziwych 
 | Brak starego CLI obok koordynatora | `sol83`: tylko `serve`, `doctor` | `Portability.test_legacy_commands_are_gone` | zrobione | |
 | Błędne liczby w adresach API → 400 | `server.py` | (do dopisania w testach serwera) | częściowo | |
 
+## Etap 3: odkryte i naprawione błędy
+
+- Stan projektu (`meta`) był zapisywany w całości przez serwer i silnik naraz: zapis ze starej kopii gubił zmiany drugiej strony (np. zlecenie przebudowy planu, zamówienie treści). Teraz zapis scala tylko zmienione klucze w jednej transakcji (`Store.save_meta`, `Store.update_meta`); test `MetaMerge`.
+- Polecenie przebudowy planu i pozycja zlecona z planu były zdejmowane ze stanu w chwili budowania promptu: gdy tura padła, polecenie przepadało. Teraz wynikają z zleceń w kolejce, które wracają do niej po przerwanej turze.
+- Nowe zlecenie dodane w trakcie ostatniej tury zostawało „pending” w zamkniętym projekcie. Teraz zamknięcie i dodanie są szeregowane w jednej transakcji.
+
 ## Wymagania specyfikacji
 
 | Punkt | Wymaganie | Implementacja | Test | Wynik | Ograniczenia |
 |---|---|---|---|---|---|
 | 0.1 | Kopia danych przed migracją | `~/Sol-83-backups/2026-11-07-przed-OpenBeta` | ręczne porównanie liczby plików | zrobione | worktrees jako klon APFS na tym samym dysku |
-| 1 | Kolejka zleceń i kończenie projektu | | | nie zrobione | |
-| 2 | Zmiana modeli i ról w trakcie | | | nie zrobione | |
-| 3 | Walidacja i naprawa planu | | | nie zrobione | |
+| 1 | Kolejka zleceń i kończenie projektu | `gemini_app/orders.py` (trwała kolejka w `notes`: id, czas, kolejność, priorytet, stan pending→delivered→answered→done, klucz idempotencji), `Supervisor.add_note` (zapis przed potwierdzeniem, status czytany w tej samej transakcji), `orders.finish` (zamknięcie atomowe z kolejką i bramkami), `scheduler.after_turn` (spóźniona akceptacja nie zamyka projektu), `orders.requeue_unanswered` (restart), pozycje planu jako `kind=item`, `state_kind` (rodzaj oczekiwania) | `tests/test_queue.py`: `DurableQueue` (duplikat, 8 równoczesnych żądań, zamknięcie z pracą w kolejce, praca tuż po zamknięciu, wyścig zamknięcie/dodanie ×20, przerwana tura, answered→done, pozycje planu); `tests/test_gemini.py`: `QueueFlow` (zlecenie w ostatniej turze, utrata silnika i wznowienie) | częściowo | Panel pokazuje stan kolejki tylko w istniejącym widoku wiadomości; pełny widok kolejki i `state_kind` w UI: etap interfejsu. Zlecenie jest „done” dopiero po zaakceptowanej wersji. |
+| 2 | Zmiana modeli i ról w trakcie | migawka konfiguracji tury w `live.config` i w zdarzeniu `turn_start`; `Supervisor.next_config`/`_turn_config`; przegląd w trybie jednego modelu w nowej sesji; limit 5 przeglądów Full Power z komunikatem | `QueueFlow.test_turn_keeps_its_configuration_snapshot`; istniejące testy ról i wyłączania modeli w `tests/test_gemini.py` | częściowo | UI nie pokazuje jeszcze obok siebie konfiguracji bieżącej i oczekującej. Full Power opisany w dokumentacji (etap dokumentacji). |
+| 3 | Walidacja i naprawa planu | `gemini_app/plan_contract.py` (kanoniczne wartości, jawne mapy PL/EN z logiem poprawek, nieznane = błąd, id, zależności, cykle, `deferred` ≠ done), `plan.record`/`plan.effective` (rewizje w `plan_revisions`, ostatni poprawny plan, maks. 3 próby naprawy, potem przywrócenie), kontrakt w prompcie | `tests/test_queue.py`: `PlanContract`, `PlanRevisions` | zrobione | Zgodność pozycji z zakresem zlecenia ocenia model, nie walidator. |
 | 4 | Logowanie i dostępność agentów | | | nie zrobione | |
 | 5 | Tokeny i zużycie abonamentów | | | nie zrobione | |
 | 6 | Auto: wybór modelu | | | nie zrobione | |

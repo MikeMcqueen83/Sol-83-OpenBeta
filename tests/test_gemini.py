@@ -1998,3 +1998,52 @@ class WebGuard(Base):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class QueueFlow(Base):
+    """Spec points 1 and 2 on the real engine with fake CLIs."""
+
+    def test_order_during_the_final_turn_is_not_lost_or_closed_over(self):
+        self.scenario(codex=[{'write': {'ok.txt': 'ok'}}, {'lgtm': True, 'sleep': 3}, {'lgtm': True}],
+                      claude=[{'lgtm': True}, {'lgtm': True}])
+        project_id = self.start()
+        # The third call has started (the fake records it before sleeping): its prompt is already built.
+        self.wait_for(lambda: len(self.calls()) >= 3, 30, 'tura 3 w toku')
+        added = self.supervisor.add_note(project_id, 'Dodaj jeszcze nagłówek', request_key='late-1')
+        self.supervisor.add_note(project_id, 'Dodaj jeszcze nagłówek', request_key='late-1')
+        self.wait_status(project_id, 'done', timeout=60)
+        note = next(n for n in self.store.notes(project_id) if n['id'] == added['id'])
+        self.assertEqual(len([n for n in self.store.notes(project_id) if n['text'] == note['text']]), 1)
+        self.assertEqual(note['status'], 'done')
+        self.assertGreater(note['delivered_turn'], 3)
+        self.assertTrue(any('Dodaj jeszcze nagłówek' in call['prompt'] for call in self.calls()))
+        kinds = [event['kind'] for event in self.store.events(project_id)]
+        self.assertIn('final', kinds)
+
+    def test_engine_lost_mid_turn_gives_the_note_back_after_restart(self):
+        self.scenario(codex=[{'write': {'ok.txt': 'ok'}, 'sleep': 6}, {'write': {'ok.txt': 'ok'}}, {'lgtm': True}],
+                      claude=[{'lgtm': True}, {'lgtm': True}])
+        project_id = self.start()
+        self.supervisor.add_note(project_id, 'Uwaga przed pierwszą turą')
+        self.wait_for(lambda: any(n['status'] == 'delivered' for n in self.store.notes(project_id)), 30, 'doręczona')
+        self.supervisor._kill_engines(project_id)
+        self.wait_status(project_id, 'attention', 'stopped')
+        self.assertEqual([n['status'] for n in self.store.notes(project_id)], ['pending'])
+        self.supervisor.resume(project_id)
+        self.wait_status(project_id, 'done', timeout=60)
+        self.assertEqual(self.store.notes(project_id)[0]['status'], 'done')
+
+    def test_turn_keeps_its_configuration_snapshot(self):
+        self.scenario(codex=[{'write': {'ok.txt': 'ok'}, 'sleep': 2}, {'lgtm': True}],
+                      claude=[{'lgtm': True}])
+        project_id = self.start()
+        self.wait_phase(project_id, 'turn_running')
+        snapshot = self.supervisor.detail(project_id)['turn_config']
+        self.supervisor.set_models(project_id, codex_reasoning='low')
+        detail = self.supervisor.detail(project_id)
+        self.assertEqual(detail['turn_config'], snapshot, 'the running turn keeps its snapshot')
+        self.assertEqual(detail['next_config']['codex']['effort'], 'low')
+        self.wait_status(project_id, 'done', timeout=60)
+        starts = [e for e in reversed(self.store.events(project_id)) if e['kind'] == 'turn_start']
+        self.assertEqual(starts[0]['data']['config']['agent'], 'codex')
+        self.assertIn('roles', starts[0]['data']['config'])

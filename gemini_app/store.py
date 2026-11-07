@@ -48,6 +48,13 @@ CREATE TABLE IF NOT EXISTS versions(
 CREATE TABLE IF NOT EXISTS blocks(
   provider TEXT PRIMARY KEY, until REAL, reason TEXT, reason_en TEXT, created_at REAL);
 CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT);
+CREATE TABLE IF NOT EXISTS plan_revisions(
+  project_id TEXT, revision INTEGER, created_at REAL, turn INTEGER, sha TEXT, data TEXT, corrections TEXT,
+  PRIMARY KEY(project_id, revision));
+"""
+# Indexes that need columns added by MIGRATIONS run after them.
+INDEXES = """
+CREATE UNIQUE INDEX IF NOT EXISTS notes_request ON notes(project_id, request_key) WHERE request_key IS NOT NULL;
 """
 PROJECT_FIELDS = {
     'title', 'status', 'status_detail', 'repo_path', 'worktree', 'branch', 'base_commit',
@@ -63,9 +70,17 @@ MIGRATIONS = {
                  'github_url', 'github_visibility', 'github_version', 'github_branch',
                  'github_auto', 'run_version', 'delivered_version', 'claude_role', 'codex_role',
                  'role_fallback', 'gemini_model', 'gemini_reasoning', 'gemini_role'),
-    'live': ('reason_en',), 'events': ('text_en', 'body'), 'versions': ('verify_summary_en', 'how_to_run'),
-    'notes': ('response', 'kind', 'reopened'),
+    'live': ('reason_en', 'config'), 'events': ('text_en', 'body'), 'versions': ('verify_summary_en', 'how_to_run'),
+    'notes': ('response', 'kind', 'reopened', 'request_key', 'priority', 'done_version', 'done_at', 'ref'),
     'blocks': ('reason_en',)}
+
+
+class Meta(dict):
+    """A project's meta as read, remembering the original so a save writes only what changed."""
+
+    def __init__(self, data):
+        super().__init__(data)
+        self.original = json.loads(json.dumps(data))
 
 
 class Store:
@@ -80,6 +95,7 @@ class Store:
                 for column in wanted:
                     if column not in columns:
                         db.execute(f'ALTER TABLE {table} ADD COLUMN {column}')
+            db.executescript(INDEXES)
 
     @contextlib.contextmanager
     def _db(self):
@@ -130,13 +146,59 @@ class Store:
             db.execute(f'UPDATE projects SET {assignments} WHERE id=?',
                        (*fields.values(), project_id))
 
+    @contextlib.contextmanager
+    def tx(self):
+        """An IMMEDIATE transaction: the write lock is taken first, so a read and the write that depends
+        on it cannot interleave with the server or an engine process doing the same."""
+        db = sqlite3.connect(self.path, timeout=30, isolation_level=None)
+        db.row_factory = sqlite3.Row
+        try:
+            db.execute('BEGIN IMMEDIATE')
+            try:
+                yield db
+            except BaseException:
+                db.execute('ROLLBACK')
+                raise
+            db.execute('COMMIT')
+        finally:
+            db.close()
+
     def meta(self, project_id: str) -> dict:
         row = self.project(project_id)
-        return json.loads((row or {}).get('meta') or '{}')
+        return Meta(json.loads((row or {}).get('meta') or '{}'))
 
     def save_meta(self, project_id: str, meta: dict) -> None:
-        with self._db() as db:
-            db.execute('UPDATE projects SET meta=? WHERE id=?', (json.dumps(meta), project_id))
+        """Write back only the keys this copy changed or removed, merged into the current value in one
+        transaction. The server and the engine both keep state here: a whole-blob write from a stale
+        copy used to drop the other side's changes."""
+        if isinstance(meta, Meta):
+            original = meta.original
+            changed = {key: value for key, value in meta.items()
+                       if key not in original or original[key] != value}
+            removed = [key for key in original if key not in meta]
+        else:
+            changed, removed = None, []
+        with self.tx() as db:
+            row = db.execute('SELECT meta FROM projects WHERE id=?', (project_id,)).fetchone()
+            current = json.loads((row['meta'] if row else None) or '{}')
+            if changed is None:
+                current = dict(meta)
+            else:
+                current.update(changed)
+                for key in removed:
+                    current.pop(key, None)
+            db.execute('UPDATE projects SET meta=? WHERE id=?', (json.dumps(current), project_id))
+        if isinstance(meta, Meta):
+            meta.original = json.loads(json.dumps(dict(meta)))
+
+    def update_meta(self, project_id: str, change):
+        """Apply `change(meta)` to the current value inside one transaction; returns what it returns."""
+        with self.tx() as db:
+            row = db.execute('SELECT meta FROM projects WHERE id=?', (project_id,)).fetchone()
+            current = json.loads((row['meta'] if row else None) or '{}')
+            result = change(current)
+            db.execute('UPDATE projects SET meta=? WHERE id=?', (json.dumps(current), project_id))
+        return result
 
     def event(self, project_id: str, kind: str, text: str, agent: Optional[str] = None,
               data: Optional[dict] = None, body: Optional[str] = None) -> None:
@@ -183,7 +245,7 @@ class Store:
     def delete_project(self, project_id: str) -> None:
         """Every record of a project, in one transaction."""
         with self._db() as db:
-            for table in ('live', 'events', 'notes', 'questions', 'versions', 'projects'):
+            for table in ('live', 'events', 'notes', 'questions', 'versions', 'plan_revisions', 'projects'):
                 column = 'id' if table == 'projects' else 'project_id'
                 db.execute(f'DELETE FROM {table} WHERE {column}=?', (project_id,))
 
@@ -213,7 +275,7 @@ class Store:
         """Hand pending notes to the agent starting this turn."""
         with self._db() as db:
             rows = [dict(r) for r in db.execute(
-                "SELECT * FROM notes WHERE project_id=? AND status='pending' ORDER BY id",
+                "SELECT * FROM notes WHERE project_id=? AND status='pending' ORDER BY priority DESC, id",
                 (project_id,))]
             db.execute("UPDATE notes SET status='delivered',delivered_to=?,delivered_turn=?,"
                        "delivered_at=? WHERE project_id=? AND status='pending'",
@@ -221,18 +283,41 @@ class Store:
         return rows
 
     def answer_notes(self, project_id: str, turn: int, response: str) -> bool:
-        """Attach the agent's reply to the notes it received this turn."""
+        """Attach the agent's reply to the notes it received this turn: they are answered, not yet done."""
         with self._db() as db:
-            cursor = db.execute('UPDATE notes SET response=? WHERE project_id=? AND delivered_turn=? '
-                                'AND response IS NULL', (response[:MAX_BODY], project_id, turn))
+            cursor = db.execute("UPDATE notes SET response=?, status='answered' WHERE project_id=? "
+                                "AND delivered_turn=? AND status='delivered' AND response IS NULL",
+                                (secretscan.redact(response[:MAX_BODY]), project_id, turn))
             return cursor.rowcount > 0
 
     def requeue_notes(self, project_id: str, turn: int) -> None:
         """The turn that received these notes died: give them to the next speaker."""
         with self._db() as db:
             db.execute("UPDATE notes SET status='pending',delivered_to=NULL,delivered_turn=NULL,"
-                       "delivered_at=NULL WHERE project_id=? AND delivered_turn=?",
+                       "delivered_at=NULL WHERE project_id=? AND delivered_turn=? AND status='delivered'",
                        (project_id, turn))
+
+    def plan_revision(self, project_id: str) -> Optional[dict]:
+        row = self._row('SELECT * FROM plan_revisions WHERE project_id=? ORDER BY revision DESC LIMIT 1',
+                        (project_id,))
+        if row:
+            row['data'] = json.loads(row['data'])
+            row['corrections'] = json.loads(row['corrections'] or '[]')
+        return row
+
+    def add_plan_revision(self, project_id: str, turn: Optional[int], sha: str, data: dict,
+                          corrections: list) -> Optional[int]:
+        """A new valid plan, numbered; None when it equals the latest one. One transaction."""
+        with self._db() as db:
+            last = db.execute('SELECT revision, sha FROM plan_revisions WHERE project_id=? ORDER BY revision '
+                              'DESC LIMIT 1', (project_id,)).fetchone()
+            if last and last['sha'] == sha:
+                return None
+            revision = (last['revision'] if last else 0) + 1
+            db.execute('INSERT INTO plan_revisions(project_id,revision,created_at,turn,sha,data,corrections) '
+                       'VALUES(?,?,?,?,?,?,?)', (project_id, revision, time.time(), turn, sha,
+                                                 json.dumps(data, ensure_ascii=False), json.dumps(corrections)))
+            return revision
 
     def add_question(self, project_id: str, question: str) -> int:
         with self._db() as db:

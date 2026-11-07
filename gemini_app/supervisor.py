@@ -17,6 +17,7 @@ from typing import Optional
 
 from . import assets as content
 from . import github, gitops, limits, livelog, monitor, sandbox
+from . import orders, plan_contract
 from . import plan as project_plan
 from . import roles as model_roles
 from .catalog import MODEL_OFF
@@ -106,6 +107,25 @@ def recommended_version(versions: list) -> Optional[dict]:
     usable = [version for version in versions if version.get('user_verdict') != 'bad']
     approved = [version for version in usable if version['level'] == 'approved']
     return (approved or usable or [None])[0]
+
+
+# What a project is doing or waiting for, as one value the panel can show without guessing.
+WAIT_KINDS = {'turn_running': 'working', 'starting': 'working', 'waiting_partner': 'executor',
+              'waiting_role': 'executor', 'waiting_limits': 'limit'}
+
+
+def state_kind(project: dict, live: Optional[dict], engine_alive: Optional[bool] = None) -> str:
+    """working | executor | limit | user | dependency | error | queued | stopped | done.
+    A project whose engine is gone is never shown as working."""
+    status = project['status']
+    if status in RUNNING:
+        if engine_alive is False:
+            return 'error'
+        return WAIT_KINDS.get((live or {}).get('phase'), 'working' if status == 'running' else 'stopped')
+    if status == 'attention':
+        # A stop rule (no progress, a dispute) waits for the user's decision; anything else is an error.
+        return 'user' if str(project.get('status_detail') or '').startswith('Wstrzymano') else 'error'
+    return {'queued': 'queued', 'stopped': 'stopped', 'done': 'done'}.get(status, 'error')
 
 
 def owns_repo(project: dict) -> bool:
@@ -251,25 +271,31 @@ class Supervisor:
         else:
             self.store.event(project['id'], 'models', Msg('engine_join_next', names=names))
 
-    def add_note(self, project_id: str, text: str, urgent: bool = False, order: bool = False) -> None:
-        """A note reaches the next turn. An order of new work also rebuilds the plan."""
-        project = self._require(project_id)
+    def add_note(self, project_id: str, text: str, urgent: bool = False, order: bool = False,
+                 request_key: str = '', kind: Optional[str] = None, ref: Optional[str] = None,
+                 priority: int = 0) -> dict:
+        """Work for the project, written to the durable queue before the request is acknowledged.
+        A repeated request (same key) changes nothing. An order of new work also rebuilds the plan:
+        the turn that takes it gets the instruction, and a turn that dies gives it back to the queue."""
+        self._require(project_id)
         text = text.strip()
         if not text:
             raise ValueError(Msg('err_note'))
-        if order:
-            meta = self.store.meta(project_id)
-            meta['replan'] = True
-            self.store.save_meta(project_id, meta)
-        note_id = self.store.add_note(project_id, text, urgent, 'order' if order else 'note')
+        added = orders.add(self.store, project_id, text, kind or ('order' if order else 'note'), urgent,
+                           request_key.strip()[:80] or None, priority, ref)
+        if not added['created']:
+            return added
         self.store.event(project_id, 'note', Msg('note_urgent' if urgent else 'note_next',
-                                                 preview=preview(text)), body=text)
-        if urgent and project['status'] == 'running':
+                                                 preview=preview(text)), body=text, data={'note': added['id']})
+        # The status was read in the same transaction as the insert: a project that closed just before
+        # is reopened, and one that closes just after sees this work in its own final check.
+        if urgent and added['status'] == 'running':
             self.store.update_project(project_id, resume_after_stop=1)
             self.stop(project_id, immediate=True)
-        elif project['status'] == 'done':
-            self.store.update_note(note_id, reopened='done')
+        elif added['status'] == 'done':
+            self.store.update_note(added['id'], reopened='done')
             self.resume(project_id)
+        return added
 
     def order_asset(self, project_id: str, kind: str, prompt: str, path: str, size: str = '',
                     style: str = '') -> None:
@@ -279,16 +305,14 @@ class Supervisor:
         prompt, path = prompt.strip(), path.strip().lstrip('/')
         if kind not in content.TYPES or not prompt or not path or '..' in Path(path).parts:
             raise ValueError(Msg('err_asset'))
-        meta = self.store.meta(project_id)
-        meta.setdefault('asset_orders', []).append(
-            {key: value for key, value in (('type', kind), ('prompt', prompt[:2000]), ('path', path),
-                                           ('size', size.strip()), ('style', style.strip())) if value})
-        self.store.save_meta(project_id, meta)
+        order = {key: value for key, value in (('type', kind), ('prompt', prompt[:2000]), ('path', path),
+                                               ('size', size.strip()), ('style', style.strip())) if value}
+        self.store.update_meta(project_id, lambda meta: meta.setdefault('asset_orders', []).append(order))
         if not any(model_roles.of(project, side) == model_roles.CONTENT
                    and project[f'{side}_model'] not in (None, MODEL_OFF) for side in SIDES):
             self.store.event(project_id, 'note', Msg('asset_no_creator'))
         self.add_note(project_id, f'Użytkownik zamówił treść ({kind}) do pliku {path}: {prompt[:300]}. '
-                                  'Zamówienie jest w .sol83/assets.json.')
+                                  'Zamówienie jest w .sol83/assets.json.', kind='asset')
 
     def asset_file(self, project_id: str, path: str) -> Path:
         project = self._require(project_id)
@@ -401,10 +425,6 @@ class Supervisor:
                 raise ValueError(Msg('err_withdraw'))
             self.store.update_note(note['id'], status='withdrawn')
             rest = [n for n in pending if n['id'] != note['id']]
-            if note['kind'] == 'order' and not any(n['kind'] == 'order' for n in rest):
-                meta = self.store.meta(project_id)
-                meta.pop('replan', None)
-                self.store.save_meta(project_id, meta)
             if note['reopened'] and project['status'] == 'queued' and not rest:
                 self.store.update_project(project_id, status=note['reopened'],
                                           finished_at=time.time() if note['reopened'] == 'done' else None)
@@ -412,19 +432,18 @@ class Supervisor:
                 self.store.update_project(project_id, resume_after_stop=0)
             self.store.event(project_id, 'note', Msg('note_withdrawn', preview=preview(note['text'])))
 
-    def start_item(self, project_id: str, item_id: str) -> None:
-        """The user picks a plan item, debt included: it goes first in the next turn."""
+    def start_item(self, project_id: str, item_id: str, request_key: str = '') -> None:
+        """The user picks a plan item, debt included: it enters the same queue, ahead of plain notes."""
         project = self._require(project_id)
-        plan, _ = project_plan.load(project['worktree']) if project.get('worktree') else (None, None)
+        plan, _ = project_plan.effective(self.store, project) if project.get('worktree') else (None, None)
         item = next((item for item in project_plan.items(plan) if item['id'] == item_id), None)
         if not item:
             raise ValueError(Msg('err_item'))
-        meta = self.store.meta(project_id)
-        meta['focus'] = item_id
-        self.store.save_meta(project_id, meta)
-        self.store.event(project_id, 'note', Msg('item_ordered', item=item_id, title=item['title']))
-        self.add_note(project_id, f"Użytkownik zleca pozycję planu {item_id}: {item['title']}. "
-                                  'Zrób ją teraz, przed innymi pozycjami, i zaktualizuj jej status w planie.')
+        added = self.add_note(project_id, f"Użytkownik zleca pozycję planu {item_id}: {item['title']}. "
+                                          'Zrób ją teraz, przed innymi pozycjami, i zaktualizuj jej status w planie.',
+                              request_key=request_key, kind='item', ref=item_id, priority=1)
+        if added['created']:
+            self.store.event(project_id, 'note', Msg('item_ordered', item=item_id, title=item['title']))
 
     def continue_after_interrupt(self, project_id: str) -> None:
         """An interrupting message turned out to be work: resume once the turn has stopped."""
@@ -475,12 +494,16 @@ class Supervisor:
             project = self._require(project_id)
             self.store.update_project(project_id, accepted_solo=1)
             self.store.event(project_id, 'accepted', Msg('accepted'))
+            latest = self.store.latest_version(project_id)
+            if latest:
+                orders.mark_done(self.store, project_id, latest['number'], latest['turn'] or 0)
             if project['status'] in RUNNING and self._alive(project):
                 self.stop(project_id)
             else:
                 self.store.update_project(project_id, status='done', finished_at=time.time())
 
-    def set_verdict(self, project_id: str, number: int, works: bool, comment: str = '') -> None:
+    def set_verdict(self, project_id: str, number: int, works: bool, comment: str = '',
+                    request_key: str = '') -> None:
         """The user's own test result. "Does not work" goes back to the agents."""
         project = self._require(project_id)
         version = self.store.version(project_id, number)
@@ -493,9 +516,10 @@ class Supervisor:
             return
         detail = comment.strip() or 'bez dodatkowego opisu'
         self.store.event(project_id, 'verdict', Msg('verdict_bad', number=number, detail=detail))
-        self.store.add_note(project_id, f'Użytkownik przetestował v{number} '
-                            f"(commit {version['commit_sha'][:7]}) i to NIE działa: {detail}")
-        if project['status'] not in (*RUNNING, 'queued'):
+        self.add_note(project_id, f'Użytkownik przetestował v{number} '
+                                  f"(commit {version['commit_sha'][:7]}) i to NIE działa: {detail}",
+                      kind='verdict', request_key=request_key)
+        if self.store.project(project_id)['status'] not in (*RUNNING, 'queued'):
             self.resume(project_id)
 
     def prepare_test_copy(self, project_id: str, number: int) -> str:
@@ -820,6 +844,13 @@ class Supervisor:
         self.store.update_project(project_id, status='attention', status_detail=detail)
         self.store.event(project_id, 'attention', detail)
 
+    def close_blockers(self, project_id: str) -> list:
+        """What must be settled before the agreed scope can be closed, besides queued work.
+        Later stages add mandatory gates here (open blocking questions, manual tests, content)."""
+        project = self.store.project(project_id)
+        plan, _ = project_plan.effective(self.store, project) if project.get('worktree') else (None, None)
+        return [f"must-deferred:{item['id']}" for item in plan_contract.must_deferred(plan)]
+
     def latest_run(self, project_id: str) -> Optional[Path]:
         root = RUNS / project_id
         runs = sorted(path for path in root.glob('*') if (path / 'state.json').exists()) \
@@ -859,6 +890,10 @@ class Supervisor:
                 state = {}
         reason = state.get('finished_reason')
         self.store.clear_live(project_id)
+        # Work handed to a turn that never finished goes back to the queue: nothing is lost on a crash.
+        requeued = orders.requeue_unanswered(self.store, project_id)
+        if requeued:
+            self.store.event(project_id, 'note', Msg('notes_requeued', count=requeued))
         latest = self.store.latest_version(project_id)
         if project['accepted_solo']:
             self.store.update_project(project_id, status='done', finished_at=time.time())
@@ -866,9 +901,13 @@ class Supervisor:
             self.store.update_project(project_id, status='queued', stop_requested=None,
                                       resume_after_stop=0)
         elif reason == 'converged':
-            self.store.update_project(project_id, status='done', finished_at=time.time())
-            self.store.event(project_id, 'done', Msg('done_version', number=latest['number'])
-                             if latest else Msg('done'))
+            # Checked and written in one transaction with the queue: work that arrived while the
+            # project was finishing keeps it open.
+            if orders.finish(self.store, project_id, self.close_blockers(project_id)) == 'done':
+                self.store.event(project_id, 'done', Msg('done_version', number=latest['number'])
+                                 if latest else Msg('done'))
+            else:
+                self.store.event(project_id, 'resumed', Msg('finish_reopened'))
         elif project['stop_requested']:
             self.store.update_project(project_id, status='stopped', stop_requested=None)
             self.store.event(project_id, 'stopped', Msg('stopped'))
@@ -932,6 +971,8 @@ class Supervisor:
                 'live': self.store.live(project_id),
                 'events': self.store.events(project_id), 'notes': self.store.notes(project_id),
                 'questions': self.store.questions(project_id), 'versions': versions,
+                'queue': orders.view(self.store, project_id),
+                'next_config': self.next_config(project), 'turn_config': self._turn_config(project_id),
                 'recommended': recommended_version(versions), 'confirmed': confirmed,
                 'work': self.work_state(project, versions),
                 'github_default_name': slugify(project['title']),
@@ -944,6 +985,20 @@ class Supervisor:
                 'paths': {'repo': project['repo_path'], 'work': project['worktree'],
                           'test': str(test_folder(project_id)) if project['test_version'] else None},
                 'test_path': str(test_folder(project_id)) if project['test_version'] else None}
+
+    def next_config(self, project: dict) -> dict:
+        """What the next turn will use: the settings as saved now."""
+        return {side: {'model': project[f'{side}_model'], 'effort': project[f'{side}_reasoning'],
+                       'role': model_roles.of(project, side)} for side in self.sides(project)}
+
+    def _turn_config(self, project_id: str) -> Optional[dict]:
+        """The snapshot the running (or last) turn started with."""
+        live = self.store.live(project_id) or {}
+        if live.get('config'):
+            return json.loads(live['config'])
+        last = self.store.last_event(project_id, 'turn_start')
+        data = json.loads(last['data']) if last and last['data'] else {}
+        return data.get('config')
 
     def setup_view(self, project: dict) -> Optional[dict]:
         script = gitops.setup_script(project['worktree']) if project.get('worktree') else None
@@ -989,9 +1044,13 @@ class Supervisor:
     def plan_view(self, project: dict) -> dict:
         if not project.get('worktree'):
             return {'exists': False}
-        plan, problem = project_plan.load(project['worktree'])
+        plan, problem = project_plan.effective(self.store, project)
+        revision = self.store.plan_revision(project['id'])
         turns = monitor.turn_records(self.store, project['id'])
         return {'exists': plan is not None, 'problem': problem,
+                'revision': revision['revision'] if revision else None,
+                'corrections': revision['corrections'] if revision else [],
+                'stale': bool(problem) and plan is not None,
                 'architecture': (plan or {}).get('architecture'), 'run': (plan or {}).get('run'),
                 'rows': project_plan.rows(plan, turns), 'breakdown': project_plan.breakdown(plan, turns),
                 'path': str(Path(project['worktree']) / project_plan.PLAN_FILE)}

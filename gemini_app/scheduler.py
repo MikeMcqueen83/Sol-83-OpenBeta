@@ -16,6 +16,7 @@ from typing import Optional
 
 from . import assets as content
 from . import limits, monitor, sandbox
+from . import orders
 from . import plan as project_plan
 from . import roles as model_roles
 from .catalog import MODEL_OFF
@@ -149,6 +150,7 @@ class GeminiScheduler:
         self.accepted_tree = store.meta(project_id).get('lgtm_tree')
         self.opened = last is not None
         self.verify_raw = self.project.get('verify_cmd') or None
+        self.inherited_instructed = False
 
     # ---- Availability -------------------------------------------------
 
@@ -170,7 +172,10 @@ class GeminiScheduler:
     def _work_kind(self, enabled: list, roles: list) -> str:
         """What this turn is for: the plan, a task from it, or a review of the last change."""
         plan, problem = project_plan.load(self.cfg.cwd)
-        if (plan is None and not problem) or self.store.meta(self.pid).get('replan'):
+        # New work waiting in the queue rebuilds the plan first; so does a plan inherited from an
+        # earlier project on the same repository.
+        if (plan is None and not problem) or self.store.meta(self.pid).get('replan') == 'inherited' \
+                or orders.pending_orders(self.store, self.pid):
             return 'plan'
         if model_roles.creates_content(roles, enabled) and self.last_work != 'content' \
                 and content.pending(self.cfg.cwd):
@@ -183,11 +188,13 @@ class GeminiScheduler:
 
     def _take_user_orders(self) -> None:
         """Orders the user placed in the panel go into the file between turns, when no agent writes it."""
-        meta = self.store.meta(self.pid)
-        orders = meta.pop('asset_orders', None)
-        if orders:
-            content.add(self.cfg.cwd, orders)
-            self.store.save_meta(self.pid, meta)
+        waiting = self.store.meta(self.pid).get('asset_orders') or []
+        if not waiting:
+            return
+        content.add(self.cfg.cwd, waiting)
+        # Remove exactly what was written: an order the server added meanwhile stays for the next turn.
+        self.store.update_meta(self.pid, lambda meta: meta.__setitem__(
+            'asset_orders', (meta.get('asset_orders') or [])[len(waiting):]))
 
     def _order(self, work: str, enabled: list, roles: list, hint: int, forced: bool) -> list:
         """Who should take this work, best first: a model with this very role, then a general
@@ -239,8 +246,17 @@ class GeminiScheduler:
         return cost
 
     def _may_self_review(self) -> bool:
-        return (self.store.full_power() and self.self_review_rounds < MAX_SELF_REVIEWS
-                and self.self_reviewed_tree != self.git.tree())
+        """Full Power lets the same model review in a new session while the partner is away, at most
+        MAX_SELF_REVIEWS times in a row. After that the project waits, and says why, once."""
+        if not self.store.full_power() or self.self_reviewed_tree == self.git.tree():
+            return False
+        if self.self_review_rounds >= MAX_SELF_REVIEWS:
+            if not getattr(self, 'self_review_limit_announced', False):
+                self.self_review_limit_announced = True
+                self.store.event(self.pid, 'attention', Msg('self_review_limit', count=MAX_SELF_REVIEWS))
+            return False
+        self.self_review_limit_announced = False
+        return True
 
     def _opening(self, order: list, roles: list) -> list:
         """The opening turn is the expensive one: among equally suited models with a limit
@@ -332,14 +348,28 @@ class GeminiScheduler:
         elif choice.mode == 'alternate':
             self.self_review_rounds = 0
             self.handoff_announced = False
+        if choice.mode == 'single' and self.work == 'review' and not self.rotated:
+            # One model only: the review runs in a new session, without the memory of the work it
+            # reviews. Its independence is still limited, and the version level says so.
+            self.cfg.agents[index].session_id = None
+            self.session_turns[name] = 1
         self.current_message = message
+        # The snapshot this turn keeps whatever the user changes meanwhile: changes apply from the next.
+        agent = self.cfg.agents[index]
+        config = {'agent': name, 'model': agent.model,
+                  'effort': (os.environ.get('SOL83_GEMINI_EFFORT') if agent.backend == 'gemini'
+                             else agent.reasoning_effort) or None,
+                  'role': roles[index], 'work': self.work, 'mode': choice.mode, 'selection': 'manual',
+                  'roles': {other: role for other, role, on in zip(self.names, roles, enabled) if on},
+                  'fresh_session': agent.session_id is None}
         self.store.set_live(self.pid, phase='turn_running', speaker=name, turn=turn,
                             mode=choice.mode, until=None, reason=choice.reason,
-                            started_at=time.time())
+                            started_at=time.time(), config=json.dumps(config))
         self.store.event(self.pid, 'turn_start',
                          Msg(TURN_START.get(choice.mode, 'turn_start'), turn=turn, who=label(name),
                              models=chosen),
-                         agent=name, data={'turn': turn, 'mode': choice.mode, 'work': self.work})
+                         agent=name, data={'turn': turn, 'mode': choice.mode, 'work': self.work,
+                                           'config': config})
         return index, self._compose(turn, index, message, choice)
 
     def after_turn(self, *, turn: int, speaker_idx: int, result, history: list,
@@ -384,11 +414,39 @@ class GeminiScheduler:
         if self.store.answer_notes(self.pid, turn, reply):
             self.store.event(self.pid, 'note_reply', Msg('note_reply', who=label(name)), agent=name,
                              body=reply)
+        if self.inherited_instructed:
+            self.inherited_instructed = False
+            self.store.update_meta(self.pid, lambda meta: meta.pop('replan', None))
+        self._record_plan(turn, checkpoint)
         outcome = self._on_success(turn, name, result, checkpoint, recap)
+        if outcome.converged and orders.open_work_count(self.store, self.pid):
+            # Work arrived during this turn: a late acceptance of the old state cannot close the project.
+            self.accepted.clear()
+            self.store.event(self.pid, 'note', Msg('converge_deferred'))
+            outcome = Outcome(converged=False)
         if outcome.converged:
+            latest = self.store.latest_version(self.pid)
+            if latest:
+                orders.mark_done(self.store, self.pid, latest['number'], turn)
             self.store.event(self.pid, 'final', Msg('final_answer', who=label(name)), agent=name,
                              body=section(_SUMMARY, result.reply))
         return outcome
+
+    def _record_plan(self, turn: int, checkpoint: Checkpoint) -> None:
+        """Keep the last valid plan as a revision; after too many failed repairs restore it."""
+        state = project_plan.record(self.store, self.pid, self.cfg.cwd, turn)
+        if state['state'] == 'valid' and state['revision']:
+            text = Msg('plan_revision', revision=state['revision'],
+                       corrections='; '.join(state['corrections'][:5]) or '-')
+            self.store.event(self.pid, 'plan', text, data={'revision': state['revision'],
+                                                           'corrections': state['corrections']})
+        elif state['state'] == 'invalid':
+            self.store.event(self.pid, 'plan', Msg('plan_invalid', problems='; '.join(state['problems'][:3]),
+                                                   attempt=state['repairs'], limit=project_plan.plan_contract.MAX_REPAIRS))
+        elif state['state'] == 'restored':
+            self.git.checkpoint(f"sol83: przywrócono poprawny plan (rewizja {state['revision']})")
+            self.store.event(self.pid, 'attention', Msg('plan_restored', revision=state['revision'],
+                                                        problems='; '.join(state['problems'][:3])))
 
     # ---- Turn results -------------------------------------------------
 
@@ -527,30 +585,37 @@ class GeminiScheduler:
                          data={'passed': passed, 'log': str(log_path)})
         return passed
 
-    def _plan_lines(self, meta: dict) -> list:
-        """Where the work stands in the plan, and what the agent must decide now."""
-        plan, problem = project_plan.load(self.cfg.cwd)
+    def _plan_lines(self, meta: dict, notes: list) -> list:
+        """Where the work stands in the plan, and what the agent must decide now. Instructions that
+        come from queued work (rebuild the plan, take an item first) follow the notes this turn took:
+        if the turn dies, the notes go back to the queue and the next turn gets them again."""
+        project = self.store.project(self.pid)
+        plan, problem = project_plan.effective(self.store, project)
+        file_plan, _ = project_plan.load(self.cfg.cwd)
         turns = monitor.turn_records(self.store, self.pid)
         self.asked_item = plan is not None
         if plan is None and not problem:
             return ['', project_plan.CREATE, project_plan.RULES]
         if meta.get('replan') == 'inherited':
             # A plan from an earlier project on this repository: no summary of it, a new plan first.
-            meta.pop('replan')
-            meta.pop('focus', None)
+            self.inherited_instructed = True
             return ['', project_plan.INHERITED, project_plan.RULES]
+        focus = next((note['ref'] for note in notes if note.get('kind') == 'item' and note.get('ref')), None)
         lines = ['']
         if plan is not None:
-            lines.append(project_plan.summary(plan, turns, meta.get('focus')))
+            lines.append(project_plan.summary(plan, turns, focus))
         if problem:
-            lines.append(f'Plan .sol83/plan.json ma błąd: {problem}. Popraw go w tej turze.')
+            repairs = meta.get('plan_repairs', 0)
+            lines.append(f'Plan .sol83/plan.json ma błąd: {problem}. Popraw go w tej turze '
+                         f'(próba {repairs + 1} z {project_plan.plan_contract.MAX_REPAIRS}; potem koordynator '
+                         'przywróci ostatni poprawny plan).' + (' Powyżej streszczenie ostatniego poprawnego planu.'
+                                                              if file_plan is None and plan is not None else ''))
         for item, used in project_plan.overruns(plan, turns):
             lines.append(f"Pozycja {item['id']} przekroczyła budżet ({used}/{project_plan.budget(item)} "
                          'tur). W tej turze zdecyduj: domknij ją minimalnie albo odłóż (status deferred, '
                          'w note co zostało) i przejdź do następnej pozycji must.')
-        if meta.pop('replan', False):
+        if any(note.get('kind') == 'order' for note in notes):
             lines.append(project_plan.REPLAN)
-        meta.pop('focus', None)
         lines.append(project_plan.RULES)
         return lines
 
@@ -761,8 +826,8 @@ class GeminiScheduler:
         status = self.git.dirty()
         if status:
             lines += ['Niezapisane pliki:', status]
-        lines += self._plan_lines(meta)
         notes = self.store.take_notes(self.pid, name, turn)
+        lines += self._plan_lines(meta, notes)
         if notes:
             self.accepted.clear()
             self.idle_agent = None

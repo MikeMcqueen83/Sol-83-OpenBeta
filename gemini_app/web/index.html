@@ -530,6 +530,8 @@ function setHTML(id, html){
   const el = document.getElementById(id);
   if(el && state.html[id] !== html){ el.innerHTML = html; state.html[id] = html; }
 }
+// One key per user action: a retransmitted request is recognised, a new click is new work.
+const requestKey = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
 async function api(path, body){
   const options = body === undefined ? {} : {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)};
   const response = await fetch(path, options);
@@ -1034,7 +1036,7 @@ document.addEventListener('click', async e => {
   const id = route(), n = Number(button.dataset.n), act = button.dataset.act;
   if(act === 'item'){
     button.disabled = true;
-    try{ await api(`/api/projects/${id}/start-item`, {item:button.dataset.item}); await poll(); }
+    try{ await api(`/api/projects/${id}/start-item`, {item:button.dataset.item, request_key:requestKey()}); await poll(); }
     catch(error){ alert(error.message); button.disabled = false; }
     return;
   }
@@ -1060,7 +1062,7 @@ document.addEventListener('click', async e => {
   if(act === 'order'){
     const q = state.detail.questions.find(x => x.id === Number(button.dataset.q));
     button.disabled = true;
-    try{ await api(`/api/projects/${id}/notes`, {text:q.question, order:true}); await poll(); }
+    try{ await api(`/api/projects/${id}/notes`, {text:q.question, order:true, request_key:'order-q' + q.id}); await poll(); }
     catch(error){ alert(error.message); button.disabled = false; }
     return;
   }
@@ -1178,12 +1180,16 @@ document.addEventListener('submit', async e => {
     const input = document.getElementById('note-text'), urgent = document.getElementById('note-urgent');
     if(!input.value.trim()) return;
     const text = input.value; input.value = '';
-    await api(`/api/projects/${route()}/notes`, {text, urgent:urgent.checked}); urgent.checked = false; poll();
+    // The same key until the server confirms: a retry after a lost answer cannot add the note twice.
+    state.noteKey = state.noteKey || requestKey();
+    try{ await api(`/api/projects/${route()}/notes`, {text, urgent:urgent.checked, request_key:state.noteKey}); state.noteKey = null; urgent.checked = false; }
+    catch(error){ input.value = text; alert(error.message); }
+    poll();
   }
 });
 document.getElementById('reject').addEventListener('close', async e => {
   if(e.target.returnValue !== 'send') return;
-  await api(`/api/projects/${route()}/verdict`, {number:state.rejecting, works:false, comment:document.getElementById('reject-text').value});
+  await api(`/api/projects/${route()}/verdict`, {number:state.rejecting, works:false, comment:document.getElementById('reject-text').value, request_key:requestKey()});
   poll();
 });
 document.getElementById('delete-dialog').addEventListener('close', async e => {

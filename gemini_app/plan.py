@@ -10,10 +10,12 @@ import json
 from pathlib import Path
 from typing import Optional
 
+from . import plan_contract
+
 PLAN_FILE = '.sol83/plan.json'
-KINDS = ('feature', 'task', 'debt')
-PRIORITIES = ('must', 'should', 'could')
-STATUSES = ('todo', 'doing', 'done', 'deferred')
+KINDS = plan_contract.KINDS
+PRIORITIES = plan_contract.PRIORITIES
+STATUSES = plan_contract.STATUSES
 CATEGORIES = ('bug', 'ui', 'perf', 'refactor', 'test', 'docs')
 DEFAULT_BUDGET = 2
 OPEN = ('todo', 'doing')
@@ -45,41 +47,67 @@ RULES = (
     'lub testy albo blokuje odbiór bieżącej pozycji, oraz to, co jest tańsze niż opisanie '
     '(kilka wierszy). Każdą inną usterkę dopisz do planu jako dług: kind "debt", parent: pozycja, '
     'której dotyczy, category: bug|ui|perf|refactor|test|docs, note: objaw i miejsce. Nie naprawiaj '
-    'jej teraz. Nowe pomysły też trafiają do planu, nie do kodu.')
+    'jej teraz. Nowe pomysły też trafiają do planu, nie do kodu. ' + plan_contract.PROMPT_RULES)
 
 
-def load(worktree) -> tuple[Optional[dict], Optional[str]]:
-    """The plan and a problem with it, if any. No plan at all is (None, None)."""
+def read(worktree) -> tuple:
+    """(normalized plan or None, problems, corrections) from the file. No file is (None, [], [])."""
     path = Path(worktree) / PLAN_FILE
     if not path.exists():
-        return None, None
+        return None, [], []
     try:
         data = json.loads(path.read_text())
     except (OSError, ValueError) as exc:
-        return None, f'niepoprawny JSON: {exc}'
-    problems = validate(data)
-    return data, '; '.join(problems[:3]) or None
+        return None, [f'niepoprawny JSON: {exc}'], []
+    plan, problems, corrections = plan_contract.normalize(data)
+    return (None if problems else plan), problems, corrections
+
+
+def load(worktree) -> tuple[Optional[dict], Optional[str]]:
+    """The plan as the file has it, normalized, and a problem with it, if any. An invalid plan is
+    (None, problem): its statuses must not count for anything. No plan at all is (None, None)."""
+    plan, problems, _ = read(worktree)
+    return plan, '; '.join(problems[:3]) or None
 
 
 def validate(data) -> list:
-    if not isinstance(data, dict) or not isinstance(data.get('items'), list):
-        return ['brak listy items']
-    problems = []
-    ids = set()
-    for item in data['items']:
-        if not isinstance(item, dict) or not item.get('id') or not item.get('title'):
-            problems.append('pozycja bez id albo title')
-            continue
-        if item['id'] in ids:
-            problems.append(f"powtórzone id {item['id']}")
-        ids.add(item['id'])
-        for field, allowed in (('kind', KINDS), ('priority', PRIORITIES), ('status', STATUSES)):
-            if item.get(field, allowed[0]) not in allowed:
-                problems.append(f"{item['id']}: {field} spoza {'/'.join(allowed)}")
-    for item in data['items']:
-        if isinstance(item, dict) and item.get('parent') and item['parent'] not in ids:
-            problems.append(f"{item.get('id')}: nieznany parent {item['parent']}")
-    return problems
+    return plan_contract.normalize(data)[1]
+
+
+def effective(store, project: dict) -> tuple[Optional[dict], Optional[str]]:
+    """The plan the coordinator works with: the file when it is valid, otherwise the last valid
+    revision it recorded. A broken update never replaces a good plan."""
+    plan, problem = load(project['worktree']) if project.get('worktree') else (None, None)
+    if plan is None and problem:
+        saved = store.plan_revision(project['id'])
+        return (saved['data'] if saved else None), problem
+    return plan, problem
+
+
+def record(store, project_id: str, worktree, turn: Optional[int]) -> dict:
+    """After a turn: keep a valid plan as a new revision, count invalid ones, and after too many
+    failed repairs put the last valid plan back (the broken file is kept next to it)."""
+    plan, problems, corrections = read(worktree)
+    if plan is not None:
+        revision = store.add_plan_revision(project_id, turn, plan_contract.fingerprint(plan), plan, corrections)
+        store.update_meta(project_id, lambda meta: meta.pop('plan_repairs', None))
+        return {'state': 'valid', 'revision': revision, 'corrections': corrections}
+    if not problems:
+        return {'state': 'missing'}
+    repairs = store.update_meta(project_id, lambda meta: meta.__setitem__(
+        'plan_repairs', meta.get('plan_repairs', 0) + 1) or meta['plan_repairs'])
+    saved = store.plan_revision(project_id)
+    if repairs < plan_contract.MAX_REPAIRS or not saved:
+        return {'state': 'invalid', 'problems': problems, 'repairs': repairs}
+    path = Path(worktree) / PLAN_FILE
+    broken = path.with_name('plan.invalid.json')
+    try:
+        broken.write_text(path.read_text())
+    except OSError:
+        pass
+    path.write_text(json.dumps(saved['data'], ensure_ascii=False, indent=2))
+    store.update_meta(project_id, lambda meta: meta.pop('plan_repairs', None))
+    return {'state': 'restored', 'problems': problems, 'revision': saved['revision']}
 
 
 def items(plan: Optional[dict]) -> list:

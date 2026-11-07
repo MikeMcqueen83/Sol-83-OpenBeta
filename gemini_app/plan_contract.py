@@ -19,7 +19,9 @@ MAX_REPAIRS = 3
 
 
 def _fold(value) -> str:
-    text = unicodedata.normalize('NFKD', str(value)).encode('ascii', 'ignore').decode()
+    # ł has no decomposition in Unicode: map it before stripping diacritics.
+    text = unicodedata.normalize('NFKD', str(value).translate(str.maketrans('łŁ', 'lL')))
+    text = text.encode('ascii', 'ignore').decode()
     return ' '.join(text.lower().replace('_', ' ').replace('-', ' ').split())
 
 

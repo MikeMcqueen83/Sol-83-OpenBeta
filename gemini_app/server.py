@@ -14,7 +14,7 @@ from .messages import Msg, en
 from .paths import WEB
 from .scheduler import AGENT_LABEL
 from .store import Store
-from .supervisor import Supervisor, preview
+from .supervisor import Supervisor, preview, state_kind
 
 MAX_BODY = 2_000_000
 PROVIDER_THRESHOLDS = {f'{kind}_{name}' for name in limits.PROVIDERS
@@ -26,7 +26,8 @@ def overview(supervisor: Supervisor) -> dict:
     projects = []
     for project in store.projects():
         versions = store.versions(project['id'])
-        projects.append({**project, 'task': None, 'live': store.live(project['id']),
+        live = store.live(project['id'])
+        projects.append({**project, 'task': None, 'live': live, 'state_kind': state_kind(project, live),
                          'monitor_level': monitor.assess(store, project, with_git=False)['level'],
                          'latest_version': versions[0]['number'] if versions else None,
                          'versions_count': len(versions)})
@@ -167,8 +168,9 @@ class Handler(BaseHTTPRequestHandler):
     def _project_action(self, project_id: str, action: str, body: dict) -> dict:
         supervisor = self.supervisor
         if action == 'notes':
-            supervisor.add_note(project_id, str(body.get('text') or ''), bool(body.get('urgent')),
-                                order=bool(body.get('order')))
+            added = supervisor.add_note(project_id, str(body.get('text') or ''), bool(body.get('urgent')),
+                                        order=bool(body.get('order')), request_key=str(body.get('request_key') or ''))
+            return {'ok': True, 'note': added['id'], 'duplicate': not added['created']}
         elif action == 'stop':
             supervisor.stop(project_id, immediate=bool(body.get('immediate')))
         elif action == 'resume':
@@ -188,7 +190,7 @@ class Handler(BaseHTTPRequestHandler):
         elif action == 'withdraw':
             supervisor.withdraw_note(project_id, int(body.get('question') or 0))
         elif action == 'start-item':
-            supervisor.start_item(project_id, str(body.get('item') or ''))
+            supervisor.start_item(project_id, str(body.get('item') or ''), str(body.get('request_key') or ''))
         elif action == 'message':
             text = str(body.get('text') or '').strip()
             if not text:
@@ -216,7 +218,7 @@ class Handler(BaseHTTPRequestHandler):
                                    'en' if body.get('lang') == 'en' else 'pl')).start()
         elif action == 'verdict':
             supervisor.set_verdict(project_id, int(body['number']), bool(body.get('works')),
-                                   str(body.get('comment') or ''))
+                                   str(body.get('comment') or ''), str(body.get('request_key') or ''))
         elif action == 'test-copy':
             return {'path': supervisor.prepare_test_copy(project_id, int(body['number']))}
         elif action == 'github':
