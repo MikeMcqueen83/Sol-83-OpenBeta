@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import unittest.mock
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 TEMP = pathlib.Path(tempfile.mkdtemp(prefix='sol83-mig-')).resolve()
@@ -104,6 +105,11 @@ class Migration(unittest.TestCase):
     def test_rewrite_only_whole_components(self):
         pairs = [('/a/Sol', '/b/data')]
         self.assertEqual(migrate.rewrite('/a/Sol/x and /a/Solar/y', pairs), '/b/data/x and /a/Solar/y')
+
+    def test_a_shell_mentioning_duet_is_not_an_engine(self):
+        fake = f"123 /bin/zsh -c pgrep -f duet.py | grep {self.old}\n456 /usr/bin/python3 /x/vendor/duet/duet.py --config {self.old}/config/run-p1.json\n"
+        with unittest.mock.patch.object(migrate.subprocess, 'run', return_value=unittest.mock.Mock(stdout=fake)):
+            self.assertEqual(len(migrate.engines_running(self.old)), 1)
 
     def test_command_line(self):
         done = subprocess.run([sys.executable, str(ROOT / 'sol83'), 'migrate', '--from', str(self.old), '--to',

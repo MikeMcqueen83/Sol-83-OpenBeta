@@ -70,7 +70,13 @@ def _clone(source: Path, target: Path) -> None:
 def engines_running(source: Path) -> list:
     out = subprocess.run(['ps', '-axo', 'pid=,command='], capture_output=True, text=True,
                          env={**os.environ, 'LC_ALL': 'C'}).stdout
-    return [line.strip() for line in out.splitlines() if 'duet.py' in line and str(source) in line]
+    found = []
+    for line in out.splitlines():
+        parts = line.split()
+        # An engine runs duet.py as its script (argv[1]); a shell whose text mentions it is not one.
+        if len(parts) > 2 and parts[2].endswith('duet.py') and str(source) in line:
+            found.append(line.strip())
+    return found
 
 
 def _copy_database(source: Path, target: Path) -> None:
