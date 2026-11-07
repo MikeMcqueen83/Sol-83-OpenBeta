@@ -1,0 +1,84 @@
+# Sol-83 user guide
+
+Installation from scratch: [INSTALL.md](INSTALL.md). The status and limits of every requirement are in [../TRACEABILITY.md](../TRACEABILITY.md) (Polish).
+
+## 1. What Sol-83 is
+
+A local coordinator that makes several coding agents take turns on one repository: Claude Code, Codex and optionally Gemini through Antigravity. The coordinator is a plain program, not a model: it decides who works next, saves a Git checkpoint after every turn, runs the tests in a sandbox and numbers a version only when they pass. It uses subscriptions, not API keys; when one agent runs out of limit, the other takes over.
+
+It does not publish anything without your decision, never uses paid credits, never guesses a sign-in and does not replace your acceptance.
+
+## 2. Projects, the queue and turns
+
+Every request (the task, a note, new work, a plan item, a rejected version, an answer) is written to a durable queue **before** the panel acknowledges it, with an id, time, order and state: *pending → delivered to a turn → answered → done* (done = an accepted version exists after the answer). A double click or a retransmitted request creates no second entry. Closing a project and adding work happen in one database transaction, so work that arrives while a project finishes is always handled, and a late acceptance of the old state never closes a project with new work. Work handed to a turn that died (a restart, a crash) goes back to the queue. The project state says what it waits for: a turn, an executor, a limit, your decision or test, or an error.
+
+## 3. Models, roles and selection modes
+
+Per provider: **Manual**, **Auto — economy** (a sufficient model, escalating after failures) or **Auto — power** (a stronger model from the allowed pool, watching limits). Auto decides before each turn by kind of work, results and remaining limit, and records the reason with the policy and catalog versions. A provider's **top model** (today Claude Fable 5.1, GPT-6-Astra, Gemini 4 Argon) is never chosen automatically, not as a fallback and not as an escalation; a manual choice of it needs confirmation of that exact model. Unclassified models stay outside Auto; with no allowed model the side waits and says why.
+
+Changes apply from the next turn; the running turn keeps its configuration snapshot, shown next to the next turn's settings. A model change gives the agent a new session with the state handed over.
+
+**Roles** (several per model): General (plan, implementation, review), Architect, Implementer, Tester, Analyst, Content creator. General does not make ordered content. Coverage of every kind of work is checked after each change. With **one model only**, reviews run in a new session and versions are marked as of limited independence.
+
+**Full Power**: while the other model waits for a limit reset, the same model reviews and fixes in a new session without memory of its own work. Handoff thresholds stop applying, so it uses limits fast. At most 5 such reviews in a row, then the project waits and says so. It does not bypass model limits, permissions, payments or acceptance gates, and it is not the "Auto — power" selection mode.
+
+## 4. The model catalog
+
+For each model: provider facts with source and check date, a tier (economy, standard, strong, top) and whether Auto may use it; availability on your account comes from the CLIs, and observations from your own projects are kept apart. Once a month (first a month after installation) the coordinator may ask an allowed model to propose an update; validation keeps top models out of Auto, leaves new models unclassified and holds tier changes for your decision. A failure keeps the previous catalog. The update can be disabled, deferred or rolled back.
+
+## 5. Limits, tokens and comparisons
+
+**Accounts and sign-in** shows each CLI's installation, sign-in, account and plan (only when the CLI reports them: Claude and Codex do, Antigravity does not), read time and staleness. **Check connection** calls no model. Failures are classified (not signed in, expired session, wrong account, no model access, plan limit, rate limit, network, outage, unknown). A reset the provider states in its error is used as stated.
+
+**Tokens** are per-turn increases of the same session's counter: Claude reports a turn, Codex and Antigravity the whole session. Codex reports only a total, so input and output are "no data", not zero. Cache is shown apart. Providers' categories are not directly comparable. **Limit share** sums how the account's readings moved during the project's turns, per provider (250% of the 5 h window = 2.5 windows), as an estimate that includes other work on the account; turns without a reading and turns shared with another project are shown. It is not the current balance.
+
+## 6. Plan, progress and debt
+
+Canonical plan statuses are `todo`, `doing`, `done`, `deferred`, whatever the language; clear variants are normalized and logged, unknown values are errors, never "done". A broken plan never replaces the last valid one: numbered revisions are kept, and after 3 failed repairs the last valid one is restored. **Net progress** = max(0, functional − debt in percentage points), both on the same weighted basis (must 3, should 2, could 1). Deferred is not done. **Acceptance gates** are separate: a deferred must item, an unanswered blocking question, a mandatory test without a pass for the current version, missing mandatory content. Closing without a gate needs your recorded scope decision.
+
+## 7. Questions and tests for you
+
+Agents record questions, decisions and manual tests in `.sol83/requests.json`; Sol-83 keeps them as durable records. You answer in **Questions and tests**. Answers are saved before work resumes and reach the agents through the queue. Test results: works, does not work, partly, cannot run it; a negative result opens one bug per test and version. No answer is not consent: dependent work waits, independent work goes on; when nothing can move, the project pauses and resumes after your answer. Late answers (to superseded questions, or for another version) stay in the history and are not applied automatically. "What to check in this version" is that version's manual test record.
+
+## 8. Content orders
+
+A model without the Content creator role may propose an order; the Content creator makes it only after you approve that exact order (approval grants no role). Your own orders are approved at once. Duplicates are rejected. Size and style are hints; the real image size is shown afterwards. Rejecting or deferring a mandatory order does not remove it from scope.
+
+## 9. Versions, testing and RUN
+
+**Versions** shows for each version: date, summary, automatic tests, manual test, review, commit and tag, recommendation, the real folder (or "tag only" with a prepare button), how to run it and what to check. **RUN** starts a version from the user folder, never the agents' worktree, with a plan stored per version (commit + manifest hash). Only plain commands of known tools run, without a shell, in the sandbox; never `sudo`, `curl | sh` or administrator installs. Ports 8800–8899, never 8765 or a busy one; processes are recognised by start time; foreign processes are never killed; a second click shows the running instance. Libraries get an explanation instead.
+
+## 10. Project language
+
+Fixed at creation from the page language (PL or EN): every instruction to the agents, the plan, questions and summaries follow it; switching the page language changes only the interface. Older projects got a language read from their task; when unclear, the panel asks once.
+
+## 11. Project Git
+
+Agents work on their own branch `gemini/<id>` in a separate folder. Settings hold the project's Git context: remote, base branch, delivery (local, push the branch, push and PR) and separate permissions for push and PR. The real state is read before every operation; no force push, reset, stash or history rewrite, no change to branch protection or visibility. Every operation is recorded; after a restart or a lost answer the remote is checked first, so no second commit or PR appears. Sol-83's own repository is never a project target. Publishing a version to GitHub scans for secrets before every push, private ones too.
+
+## 12. Project license
+
+Standard (MIT, Apache-2.0, BSD-3-Clause, MPL-2.0, GPL-3.0-only, AGPL-3.0-only, unmodified texts), your own (e.g. source-available) or none. An existing LICENSE is never overwritten without a deliberate choice. It does not relicense dependencies; no license does not mean free use. Sol-83's own license is separate.
+
+## 13. Security, data and updates
+
+See [../../SECURITY.md](../../SECURITY.md) and [UPDATES.md](UPDATES.md).
+
+## 14. Troubleshooting
+
+| Symptom | What to do |
+|---|---|
+| `doctor`: no sandbox | Linux: install `bubblewrap`. Without it tests and RUN do not run. |
+| Project needs attention, sign-in | Sign the CLI in again and click Resume. |
+| Antigravity "Individual quota reached… Resets in …" | The Google account's weekly limit: Gemini waits until the stated reset; the other models work. |
+| Tests pass for you but not in Sol-83 | Sandboxed tests have no network and write only in the project folder. Allow network for tests in Security, or adapt the tests. |
+| `.gemini-setup` did not run | Read and approve it in the project Settings. |
+| RUN: "unknown program" / "missing programs" | Install the tool (no administrator rights needed) or add run instructions to the project README. |
+
+## 15. Architecture and tests
+
+See the module table in [../pl/PRZEWODNIK.md](../pl/PRZEWODNIK.md#16-architektura-i-testy). Tests use fake CLIs speaking the real tools' formats and use no subscription:
+
+```bash
+python3 -m unittest discover -s tests
+```

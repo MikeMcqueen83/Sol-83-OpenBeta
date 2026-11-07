@@ -1,3 +1,5 @@
+> Dokument historyczny z 1 listopada 2026, sprzed wersji OpenBeta. Opisuje stan z tamtego dnia.
+
 # Rzeczywisty test Duet — 1 listopada 2026
 
 Wynik: **converged**, dwóch różnych providerów i niezależne testy końcowe.
@@ -9,11 +11,7 @@ Wynik: **converged**, dwóch różnych providerów i niezależne testy końcowe.
 5. Claude uruchomił testy i zaakceptował rozwiązanie; Codex następnie potwierdził wynik. Duet wykonał polecenie kontrolne po obu akceptacjach: 6/6 testów OK.
 6. Git potwierdza zmianę wyłącznie calculator.py; testy i instrukcje zachowane.
 
-[Przebieg przed pauzą](/Users/evvil/AplikacjeLokalne/ProjectGemini/runs/20261101-215852/transcript.md)
-
-[Przebieg po wznowieniu](/Users/evvil/AplikacjeLokalne/ProjectGemini/worktrees/1c2d1e16bbf4/.duet/runs/20261101-220004/transcript.md)
-
-[Poprawiony kod](/Users/evvil/AplikacjeLokalne/ProjectGemini/worktrees/1c2d1e16bbf4/calculator.py)
+Zapisy przebiegów (transcript.md) i poprawiony kod były w lokalnym katalogu danych autora; nie są częścią repozytorium.
 
 Naprawiono też lokalizację logów przyszłych wznowień: trafiają do ProjectGemini/runs. Kontrola dry-run tej poprawki jest w resume-path-check.log. Kod upstream Duet pozostaje niezmieniony.
 

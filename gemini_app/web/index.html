@@ -266,6 +266,11 @@ select:focus-visible{outline:2px solid var(--codex);outline-offset:1px}
     <section>
       <div class="eyebrow"><span data-t="limits"></span><button class="linkbtn" id="refresh" data-t="refresh"></button></div>
       <div id="limits"></div>
+      <details class="thresholds" id="security-box"><summary data-t="securityTitle"></summary>
+        <p class="hint" id="sandbox-state"></p>
+        <label class="check"><input type="checkbox" id="sec-network"> <span data-t="secNetwork"></span></label>
+        <label class="check"><input type="checkbox" id="sec-unsandboxed"> <span data-t="secUnsandboxed"></span></label>
+      </details>
       <details class="thresholds" id="providers-box"><summary data-t="accounts"></summary>
         <div id="providers"></div>
         <button class="btn small" id="check-providers" data-t="checkConnection"></button>
@@ -449,6 +454,7 @@ pl:{
   accounts:'Konta i logowanie', checkConnection:'Sprawdź połączenie', checkHint:'Sprawdza CLI i logowanie bez wywołania modelu: nie zużywa limitów.', cliVersion:'CLI', authState:'Logowanie', account:'Konto', planLabel:'Abonament', stale:'dane nieaktualne', loginWith:'Zaloguj', authOk:'zalogowany', authNotLogged:'brak logowania', authExpired:'sesja wygasła', authWrongAccount:'niewłaściwe konto', authNoModel:'brak dostępu do modelu', authPlanLimit:'limit abonamentu', authRateLimit:'ograniczenie częstotliwości', authNetwork:'błąd sieci', authOutage:'awaria dostawcy', authUnknown:'przyczyna nieustalona', authNoCli:'brak CLI', authApiKey:'klucz API (nieużywany przez Sol-83)',
   selection:'Wybór modelu', sel_manual:'Ręczny', sel_auto_economy:'Auto — ekonomiczny', sel_auto_power:'Auto — power', topShort:'najwyższy', topWarning:'Najwyższy model dostawcy: może bardzo szybko zużyć limity abonamentu. Auto nigdy go nie wybiera; ręczny wybór wymaga potwierdzenia.', autoHint:'Auto wybiera model tego dostawcy przed każdą turą według rodzaju pracy, wyników i limitów, nigdy najwyższy ani niesklasyfikowany. Decyzja z powodem jest w Activity.', aboutModel:'O modelu', usesLabel:'Zastosowania', autoLabel:'Auto', autoManualOnly:'tylko ręcznie', autoAllowed:'dopuszczony', autoUnclassified:'model niesklasyfikowany: poza Auto',
   licTitle:'Licencja projektu', licNow:l=>`Obecnie: ${l}.`, licKind:'Rodzaj', lic_standard:'standardowa open source', lic_custom:'własna / source-available', lic_none:'brak zadeklarowanej licencji', licStandard:'Licencja standardowa', licHolder:'Właściciel praw (do pliku LICENSE)', licOverwrite:'zastąp istniejący plik LICENSE (świadoma decyzja)', licCustom:'Treść licencji własnej', licHint:'Teksty standardowe są niezmienione (identyfikatory SPDX). Wybór nie zmienia licencji zależności ani cudzego kodu. Brak licencji nie oznacza prawa do dowolnego użycia. Licencja Sol-83 jest od tego niezależna.',
+  securityTitle:'Bezpieczeństwo', secNetwork:'Testy z dostępem do sieci', secUnsandboxed:'Uruchamianie bez piaskownicy (niezalecane)', secUnsandboxedWarn:'Kod napisany przez agentów (testy, .gemini-setup, RUN) będzie działał z pełnymi uprawnieniami Twojego konta. Na pewno?', sandboxOn:k=>`Piaskownica systemu: ${k}.`, sandboxOff:'Brak piaskownicy systemu: kod z repozytoriów nie jest uruchamiany.', turnConfigNow:'Bieżąca (ostatnia) tura', turnConfigHint:'Zmiany poniżej obowiązują od następnej tury; bieżąca tura zachowuje swoją konfigurację.',
   notAvailable:'brak danych', usageByModel:'Zużycie tokenów według dostawcy i modelu', colTurns:'Tury', colCache:'Cache (odczyt)', colProvider:'Dostawca', col5h:'Okno 5 h', colEquiv:'Pełne okna', colWeek:'Tydzień', colGaps:'Tury bez odczytu', sharedTurns:'wspólne z innym projektem', modelUnconfirmed:'model niepotwierdzony przez CLI',
   usageHelp:'Wartości na turę: przyrost licznika tej samej sesji. Claude podaje turę, Codex i Antigravity sumę całej sesji, z której koordynator liczy przyrost. Codex podaje tylko sumę, więc wejście i wyjście są niedostępne. „brak danych” nie znaczy zero. Kategorii różnych dostawców nie należy porównywać wprost.',
   windowsTitle:'Udział projektu w limitach abonamentów', windowsHelp:'Szacunek z ruchu odczytów limitów konta w czasie tur projektu: obejmuje też inną pracę na tym koncie. 250% okna 5 h to 2,5 pełnego okna, a nie bieżące saldo. Dostawców nie sumuje się. Antigravity nie udostępnia odczytów, więc brak danych.',
@@ -568,6 +574,7 @@ en:{
   accounts:'Accounts and sign-in', checkConnection:'Check connection', checkHint:'Checks the CLI and sign-in without calling a model: no limit is used.', cliVersion:'CLI', authState:'Sign-in', account:'Account', planLabel:'Plan', stale:'data out of date', loginWith:'Sign in with', authOk:'signed in', authNotLogged:'not signed in', authExpired:'session expired', authWrongAccount:'wrong account', authNoModel:'no access to the model', authPlanLimit:'subscription limit', authRateLimit:'rate limited', authNetwork:'network error', authOutage:'provider outage', authUnknown:'cause unknown', authNoCli:'no CLI', authApiKey:'API key (not used by Sol-83)',
   selection:'Model choice', sel_manual:'Manual', sel_auto_economy:'Auto — economy', sel_auto_power:'Auto — power', topShort:'top', topWarning:'The provider\'s top model: it can use up subscription limits very fast. Auto never picks it; a manual choice needs confirmation.', autoHint:'Auto picks this provider\'s model before every turn by kind of work, results and limits, never the top or an unclassified one. The decision and its reason are in Activity.', aboutModel:'About the model', usesLabel:'Uses', autoLabel:'Auto', autoManualOnly:'manual only', autoAllowed:'allowed', autoUnclassified:'unclassified model: not used by Auto',
   licTitle:'Project license', licNow:l=>`Now: ${l}.`, licKind:'Kind', lic_standard:'standard open source', lic_custom:'own / source-available', lic_none:'no declared license', licStandard:'Standard license', licHolder:'Copyright holder (for LICENSE)', licOverwrite:'replace the existing LICENSE file (a deliberate decision)', licCustom:'Text of your own license', licHint:'Standard texts are unmodified (SPDX ids). The choice does not change the license of dependencies or anyone else\'s code. No license does not mean free use. Sol-83\'s own license is separate.',
+  securityTitle:'Security', secNetwork:'Tests may use the network', secUnsandboxed:'Run without the sandbox (not recommended)', secUnsandboxedWarn:'Code written by the agents (tests, .gemini-setup, RUN) will run with your account\'s full rights. Are you sure?', sandboxOn:k=>`OS sandbox: ${k}.`, sandboxOff:'No OS sandbox: code from repositories is not run.', turnConfigNow:'Current (last) turn', turnConfigHint:'Changes below apply from the next turn; the current turn keeps its configuration.',
   notAvailable:'no data', usageByModel:'Token usage by provider and model', colTurns:'Turns', colCache:'Cache (read)', colProvider:'Provider', col5h:'5 h window', colEquiv:'Full windows', colWeek:'Week', colGaps:'Turns without a reading', sharedTurns:'shared with another project', modelUnconfirmed:'model not confirmed by the CLI',
   usageHelp:'Per-turn values: the increase of the same session\'s counter. Claude reports the turn, Codex and Antigravity the total of the whole session, from which the coordinator takes the increase. Codex reports only a total, so input and output are unavailable. "no data" does not mean zero. Categories of different providers are not directly comparable.',
   windowsTitle:'Project share of subscription limits', windowsHelp:'An estimate from how the account\'s limit readings moved during the project\'s turns: other work on the same account is included. 250% of the 5 h window means 2.5 full windows, not the current balance. Providers are never added together. Antigravity offers no readings, so there is no data.',
@@ -1006,9 +1013,9 @@ function setupSection(s){
 function renderTab(d){
   if(state.renderedTab !== state.tab){
     state.renderedTab = state.tab; state.ghKey = null;
-    delete state.html['tab-inner']; delete state.html['models']; delete state.html['coordinator']; delete state.html['assets-list']; delete state.html['monitor'];
+    delete state.html['tab-inner']; delete state.html['models']; delete state.html['turn-config']; delete state.html['coordinator']; delete state.html['assets-list']; delete state.html['monitor'];
     document.getElementById('tab-body').innerHTML = state.tab === 'ustawienia'
-      ? `<section><h3>${esc(t('modelsTitle'))}</h3><div class="models" id="models"></div><p class="hint" style="margin-top:8px">${esc(t('modelsHint'))} ${esc(t('rolesHint'))}</p></section>
+      ? `<section><h3>${esc(t('modelsTitle'))}</h3><div id="turn-config"></div><div class="models" id="models"></div><p class="hint" style="margin-top:8px">${esc(t('modelsHint'))} ${esc(t('rolesHint'))}</p></section>
          <section style="margin-top:18px"><h3>${esc(t('fVerify'))}</h3><form id="verify-form" class="row" style="flex-wrap:nowrap">
            <input id="verify-cmd" type="text" value="${esc(d.project.verify_cmd || '')}" placeholder="${esc(t('fVerifyPlaceholder'))}"><button class="btn">${esc(t('save'))}</button></form>
            <p class="hint" style="margin-top:6px">${esc(t('verifyHint'))}</p></section>
@@ -1024,6 +1031,8 @@ function renderTab(d){
   }
   const p = d.project;
   if(state.tab === 'ustawienia'){
+    const tc = d.turn_config;
+    setHTML('turn-config', tc ? `<div class="box"><b>${esc(t('turnConfigNow'))}</b>: ${esc(NAME[tc.agent]||tc.agent)} · ${esc(tc.model||'')}${tc.effort ? ' · '+esc(tc.effort) : ''} · ${esc((tc.role||[]).join ? tc.role.join(', ') : tc.role || '')} · ${esc(t('work_'+(tc.work||'implement')))}${tc.selection && tc.selection !== 'manual' ? ' · '+esc(t('sel_'+tc.selection)) : ''}<br><span class="hint">${esc(t('turnConfigHint'))}</span></div>` : '');
     setHTML('models', SIDES.map(s => sideControls(s, p[s+'_model'] || 'none', p[s+'_reasoning'], p[s+'_role'], p[s+'_selection'])).join('')
       + fallbackControl(p.role_fallback) + (d.sides.includes('gemini') ? '' : `<p class="hint">${esc(t('gOldProject'))}</p>`));
     setHTML('coordinator', coordinatorControl(state.overview?.coordinator));
@@ -1259,6 +1268,7 @@ async function poll(){
     state.overview = await api('/api/overview');
     renderLimits(state.overview.limits);
     renderPower(state.overview.full_power);
+    renderSecurity(state.overview.security);
     renderProjects(state.overview.projects);
     renderRepos();
     const id = route();
@@ -1404,6 +1414,19 @@ document.getElementById('repo-filter').addEventListener('input', renderRepos);
 document.getElementById('providers-box').addEventListener('toggle', async e => {
   if(e.target.open && !state.providers){ try{ state.providers = await api('/api/providers'); renderProviders(state.providers); }catch(error){} }
 });
+for(const [id, key] of [['sec-network','test_network'],['sec-unsandboxed','allow_unsandboxed']]){
+  document.getElementById(id).addEventListener('change', async e => {
+    if(key === 'allow_unsandboxed' && e.target.checked && !confirm(t('secUnsandboxedWarn'))){ e.target.checked = false; return; }
+    try{ await api('/api/settings', {[key]:e.target.checked}); }catch(error){ alert(error.message); }
+  });
+}
+function renderSecurity(s){
+  if(!s) return;
+  const net = document.getElementById('sec-network'), raw = document.getElementById('sec-unsandboxed');
+  if(document.activeElement !== net) net.checked = s.test_network;
+  if(document.activeElement !== raw) raw.checked = s.allow_unsandboxed;
+  document.getElementById('sandbox-state').textContent = s.sandbox ? t('sandboxOn', s.sandbox) : t('sandboxOff');
+}
 document.getElementById('check-providers').addEventListener('click', async e => {
   e.target.disabled = true;
   try{ const r = await api('/api/providers/check', {}); state.providers = r.providers; renderProviders(r.providers); renderLimits(r.limits); }

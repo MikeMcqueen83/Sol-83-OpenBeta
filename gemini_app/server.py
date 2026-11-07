@@ -9,7 +9,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import assets as content
-from . import catalog, github, licenses, limits, model_catalog, monitor, observer, plan, providers
+from . import catalog, github, licenses, limits, model_catalog, monitor, observer, plan, providers, sandbox
 from .messages import Msg, en
 from .paths import WEB
 from .scheduler import AGENT_LABEL
@@ -45,6 +45,8 @@ def overview(supervisor: Supervisor) -> dict:
                          'latest_version': versions[0]['number'] if versions else None,
                          'versions_count': len(versions)})
     return {'now': time.time(), 'limits': supervisor.limits_view(), 'projects': projects,
+            'security': {'sandbox': sandbox.backend(), 'test_network': bool(store.setting('test_network', 0)),
+                         'allow_unsandboxed': bool(store.setting('allow_unsandboxed', 0))},
             'agents': AGENT_LABEL, 'full_power': store.full_power(),
             'coordinator': observer.coordinator_view(store)}
 
@@ -194,6 +196,9 @@ class Handler(BaseHTTPRequestHandler):
                     supervisor.store.set_setting(key, float(value))
             if 'full_power' in body:
                 supervisor.store.set_setting('full_power', 1 if body['full_power'] else 0)
+            for key in ('test_network', 'allow_unsandboxed'):
+                if key in body:
+                    supervisor.store.set_setting(key, 1 if body[key] else 0)
             if 'coordinator' in body:
                 if body['coordinator'] not in observer.COORDINATORS:
                     raise ValueError(Msg('err_coordinator'))
