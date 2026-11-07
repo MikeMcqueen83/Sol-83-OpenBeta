@@ -157,7 +157,8 @@ class Handler(BaseHTTPRequestHandler):
                 gemini_reasoning=str(body.get('gemini_reasoning') or ''),
                 gemini_role=str(body.get('gemini_role') or ''),
                 selections={side: str(body.get(f'{side}_selection') or '') for side in ('claude', 'codex', 'gemini')},
-                confirm_top=str(body.get('confirm_top') or ''))
+                confirm_top=str(body.get('confirm_top') or ''),
+                language='en' if body.get('lang') == 'en' else 'pl')
             return {'id': project['id']}
         if path == ['api', 'limits', 'refresh']:
             return {'limits': supervisor.limits_view(force=True)}
@@ -212,6 +213,21 @@ class Handler(BaseHTTPRequestHandler):
             supervisor.order_asset(project_id, str(body.get('type') or ''), str(body.get('prompt') or ''),
                                    str(body.get('path') or ''), str(body.get('size') or ''),
                                    str(body.get('style') or ''))
+        elif action == 'answer':
+            return supervisor.answer_interaction(
+                project_id, int(body.get('interaction') or 0), str(body.get('value') or ''), str(body.get('comment') or ''),
+                str(body.get('request_key') or ''), body.get('result') or None, str(body.get('evidence') or 'declaration'))
+        elif action == 'interaction-state':
+            supervisor.interaction_state(project_id, int(body.get('interaction') or 0), str(body.get('state') or ''))
+        elif action == 'asset-decision':
+            supervisor.decide_asset(project_id, str(body.get('id') or ''), str(body.get('decision') or ''),
+                                    str(body.get('note') or ''))
+        elif action == 'language':
+            supervisor.set_language(project_id, str(body.get('language') or ''))
+        elif action == 'rename':
+            supervisor.rename(project_id, str(body.get('title') or ''))
+        elif action == 'scope':
+            supervisor.decide_scope(project_id, str(body.get('blocker') or ''), str(body.get('note') or ''))
         elif action == 'withdraw':
             supervisor.withdraw_note(project_id, int(body.get('question') or 0))
         elif action == 'start-item':

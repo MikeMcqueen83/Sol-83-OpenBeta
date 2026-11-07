@@ -194,7 +194,8 @@ class PlanRevisions(QueueBase):
         plan.record(self.store, self.pid, self.worktree, 1)
         blockers = self.supervisor.close_blockers(self.pid)
         self.assertEqual(blockers, ['must-deferred:F1'])
-        self.assertEqual(orders.finish(self.store, self.pid, blockers), 'queued')
+        # A gate only the user can settle: the project waits for them, it is not relaunched in a loop.
+        self.assertEqual(orders.finish(self.store, self.pid, blockers), 'attention')
 
 
 if __name__ == '__main__':

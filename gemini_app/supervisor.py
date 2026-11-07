@@ -17,7 +17,7 @@ from typing import Optional
 
 from . import assets as content
 from . import github, gitops, limits, livelog, monitor, sandbox
-from . import model_catalog, orders, plan_contract
+from . import interactions, model_catalog, orders, plan_contract, prompts
 from . import plan as project_plan
 from . import roles as model_roles
 from .catalog import MODEL_OFF
@@ -53,19 +53,7 @@ DEFAULT_TURN_TIMEOUT = 3600
 TICK_S = 2.0
 REPOS_CACHE_S = 60
 RUNNING = ('running', 'stopping')
-ROLE_PROMPT = """Pracujesz na zmianę z innymi modelami nad zadaniem użytkownika. Koordynator decyduje, kto ma turę, i zapisuje checkpoint Git po każdej turze. Nie uruchamiaj innych modeli i nie twórz commitów. Użytkownik nie odpowiada w trakcie pracy: decyzje podejmuj sam, a wynik przekazuj innym modelom do sprawdzenia, nie użytkownikowi.
-
-W każdej turze:
-1. Przeczytaj blok GEMINI na początku wiadomości. Uwagi użytkownika mają pierwszeństwo przed wszystkim innym.
-2. Sprawdź sam kod, diff i wyniki. Raport partnera to wskazówka, nie dowód.
-3. Wykonaj jeden spójny krok: zbuduj, napraw albo przetestuj i opisz usterki. Trzymaj turę w granicach kilkunastu minut pracy.
-4. Uruchom testy i podaj ich rzeczywisty wynik.
-
-Nie osłabiaj testów, aby przeszły. Nie zmieniaj zadania ani instrukcji. Nie odwracaj decyzji partnera z powodów stylistycznych. Odpowiadaj po polsku.
-
-Zakończ odpowiedź sekcją CO TESTOWAĆ: z krótką listą kroków, które człowiek może sprawdzić w tej wersji.
-Jeśli sprawdziłeś pracę partnera, nic nie zmieniłeś, działa, ale cel nie jest jeszcze spełniony, napisz w osobnej linii: WERSJA OK.
-Gdy cały cel jest spełniony i sprawdziłeś to samodzielnie, podaj LGTM rationale i {SENTINEL} w osobnej linii. Akceptacja dotyczy dokładnie bieżącego stanu kodu: każda Twoja zmiana wymaga ponownego sprawdzenia przez partnera."""
+ROLE_PROMPT = prompts.text('pl', 'role_prompt')  # kept for reference; engines get the project's language
 
 
 def slugify(text: str) -> str:
@@ -153,6 +141,24 @@ def catalog_runner(prompt: str, timeout: float) -> str:
         shutil.rmtree(folder, ignore_errors=True)
 
 
+_PL_WORDS = {'i', 'oraz', 'jest', 'się', 'nie', 'na', 'do', 'że', 'dla', 'jak', 'zrób', 'dodaj', 'proszę', 'aplikacja',
+             'projekt', 'który', 'która', 'które', 'użytkownik', 'zadanie', 'w', 'z', 'ze', 'od', 'po', 'przez'}
+_EN_WORDS = {'the', 'and', 'is', 'are', 'to', 'of', 'for', 'with', 'build', 'add', 'please', 'app', 'project', 'that',
+             'which', 'user', 'task', 'should', 'make', 'in', 'on', 'from', 'by'}
+
+
+def detect_language(text: str) -> str:
+    """'pl' or 'en' when the task text says so clearly, 'unknown' otherwise (the user decides once)."""
+    words = [word.strip('.,:;!?()[]"\'').lower() for word in (text or '').split()]
+    polish = sum(word in _PL_WORDS for word in words) + 3 * sum(ch in 'ąćęłńóśźż' for ch in (text or '').lower())
+    english = sum(word in _EN_WORDS for word in words)
+    if polish >= 3 and polish >= 2 * english:
+        return 'pl'
+    if english >= 3 and english >= 2 * polish:
+        return 'en'
+    return 'unknown'
+
+
 def owns_repo(project: dict) -> bool:
     """Sol-83 created this repository: its main may follow the versions. A user's own
     repository, given as a folder or cloned from GitHub, keeps its main untouched."""
@@ -173,6 +179,7 @@ def test_folder(project_id: str) -> Path:
 class Supervisor:
     def __init__(self, store: Optional[Store] = None):
         self.store = store or Store()
+        self._migrate_projects()
         self.procs: dict = {}
         self.reader = limits.Reader(ttl=float(os.environ.get('GEMINI_LIMITS_TTL', 60)))
         self.lock = threading.RLock()
@@ -184,6 +191,31 @@ class Supervisor:
         self.watched: dict = {}
         self.run_steps_cache: dict = {}
 
+    def _migrate_projects(self) -> None:
+        """Data from older versions: display keys for projects without one, and a language read from
+        each project's own data; when the data does not settle it, the user chooses once."""
+        self.store.assign_missing_keys()
+        for project in self.store.projects():
+            if not project.get('language'):
+                self.store.update_project(project['id'], language=detect_language(project['task']))
+
+    def set_language(self, project_id: str, language: str) -> None:
+        """A one-time choice for a project whose language could not be read from its data."""
+        project = self._require(project_id)
+        if language not in prompts.LANGS:
+            raise ValueError(Msg('err_language'))
+        if project.get('language') in prompts.LANGS and project['language'] != language and project.get('run_dir'):
+            raise ValueError(Msg('err_language_fixed'))
+        self.store.update_project(project_id, language=language)
+
+    def rename(self, project_id: str, title: str) -> None:
+        """The name changes; the id, key, folders and history do not."""
+        self._require(project_id)
+        title = title.strip()[:200]
+        if not title:
+            raise ValueError(Msg('err_title'))
+        self.store.update_project(project_id, title=title)
+
     # ---- Commands from the web interface ------------------------------
 
     def create_project(self, task: str, title: str = '', repo_path: str = '', verify_cmd: str = '',
@@ -193,7 +225,7 @@ class Supervisor:
                        github_repo: str = '', claude_role: str = '', codex_role: str = '',
                        role_fallback: str = '', gemini_model: str = '', gemini_reasoning: str = '',
                        gemini_role: str = '', selections: Optional[dict] = None,
-                       confirm_top: str = '') -> dict:
+                       confirm_top: str = '', language: str = 'pl') -> dict:
         self._validate_models(claude_model, codex_model, claude_reasoning, codex_reasoning, gemini_model,
                               gemini_reasoning)
         selections = {f'{side}_selection': (selections or {}).get(side) or 'manual' for side in SIDES}
@@ -231,7 +263,9 @@ class Supervisor:
             claude_reasoning=claude_reasoning.strip() or DEFAULT_CLAUDE_REASONING,
             codex_reasoning=codex_reasoning.strip() or DEFAULT_CODEX_REASONING,
             gemini_model=team['gemini_model'], gemini_reasoning=gemini_reasoning.strip() or DEFAULT_GEMINI_REASONING,
-            meta=json.dumps({'agents': list(SIDES)}), **{key: team[key] for key in ROLE_CHOICES}, **selections)
+            meta=json.dumps({'agents': list(SIDES)}), **{key: team[key] for key in ROLE_CHOICES}, **selections,
+            # The project keeps the language of the interface it was created in (spec 9).
+            language=language if language in prompts.LANGS else 'pl')
         self.store.event(project_id, 'created', Msg('created'))
         for side, model in top:
             self.store.event(project_id, 'models', Msg('top_confirmed', model=model, who=AGENT_NAMES[side]),
@@ -265,11 +299,12 @@ class Supervisor:
 
     def _validate_team(self, team: dict, sides) -> dict:
         """At least one model on, known roles, and every kind of work taken by someone."""
-        team = {**team, **{f'{side}_role': team.get(f'{side}_role') or model_roles.GENERAL for side in SIDES},
-                'role_fallback': team.get('role_fallback') or 'general'}
-        if any(team[f'{side}_role'] not in model_roles.ROLES for side in SIDES) \
-                or team['role_fallback'] not in model_roles.FALLBACKS:
+        if any(not model_roles.valid(team.get(f'{side}_role')) for side in SIDES) \
+                or (team.get('role_fallback') or 'general') not in model_roles.FALLBACKS:
             raise ValueError(Msg('err_role'))
+        # Several roles per model are allowed; stored as a list, an old single value is a list of one.
+        team = {**team, **{f'{side}_role': model_roles.serialize(team.get(f'{side}_role')) for side in SIDES},
+                'role_fallback': team.get('role_fallback') or 'general'}
         enabled = [team.get(f'{side}_model') not in (None, MODEL_OFF) if side == 'gemini'
                    else team.get(f'{side}_model') != MODEL_OFF for side in sides]
         if not any(enabled):
@@ -286,10 +321,11 @@ class Supervisor:
         sides = list(SIDES)
         chosen = {key: value.strip() for key, value in choices.items()
                   if key in (*MODEL_CHOICES, *ROLE_CHOICES) and value.strip()}
-        self._validate_models(*chosen.values())
+        self._validate_models(*(value for key, value in chosen.items() if key not in ROLE_CHOICES))
         if any(chosen.get(f'{side}_selection', 'manual') not in model_catalog.MODES for side in SIDES):
             raise ValueError(Msg('err_selection'))
-        self._validate_team({**project, **chosen}, sides)
+        team = self._validate_team({**project, **chosen}, sides)
+        chosen.update({key: team[key] for key in ROLE_CHOICES if key in chosen})
         top = self._check_top(chosen, project, confirm_top)
         self.store.update_project(project_id, **chosen)
         for side, model in top:
@@ -303,7 +339,7 @@ class Supervisor:
         if any(model_roles.of(before, side) != model_roles.of(project, side) for side in sides) \
                 or (before['role_fallback'] or 'general') != (project['role_fallback'] or 'general'):
             self.store.event(project_id, 'models', Msg(
-                'roles_changed', roles=listing(lambda side: Msg(f'role_{model_roles.of(project, side)}')),
+                'roles_changed', roles=listing(lambda side: model_roles.label(model_roles.of(project, side))),
                 fallback=Msg(f"fallback_{project['role_fallback'] or 'general'}")))
         if any(key in MODEL_CHOICES for key in chosen):
             self.store.event(project_id, 'models', Msg('models_changed', models=listing(
@@ -367,11 +403,11 @@ class Supervisor:
         order = {key: value for key, value in (('type', kind), ('prompt', prompt[:2000]), ('path', path),
                                                ('size', size.strip()), ('style', style.strip())) if value}
         self.store.update_meta(project_id, lambda meta: meta.setdefault('asset_orders', []).append(order))
-        if not any(model_roles.of(project, side) == model_roles.CONTENT
+        if not any(model_roles.CONTENT in model_roles.of(project, side)
                    and project[f'{side}_model'] not in (None, MODEL_OFF) for side in SIDES):
             self.store.event(project_id, 'note', Msg('asset_no_creator'))
-        self.add_note(project_id, f'Użytkownik zamówił treść ({kind}) do pliku {path}: {prompt[:300]}. '
-                                  'Zamówienie jest w .sol83/assets.json.', kind='asset')
+        self.add_note(project_id, prompts.text(prompts.language(project), 'asset_ordered', kind=kind, path=path,
+                                               prompt=prompt[:300]), kind='asset')
 
     def asset_file(self, project_id: str, path: str) -> Path:
         project = self._require(project_id)
@@ -498,8 +534,8 @@ class Supervisor:
         item = next((item for item in project_plan.items(plan) if item['id'] == item_id), None)
         if not item:
             raise ValueError(Msg('err_item'))
-        added = self.add_note(project_id, f"Użytkownik zleca pozycję planu {item_id}: {item['title']}. "
-                                          'Zrób ją teraz, przed innymi pozycjami, i zaktualizuj jej status w planie.',
+        added = self.add_note(project_id, prompts.text(prompts.language(project), 'item_ordered', item=item_id,
+                                                       title=item['title']),
                               request_key=request_key, kind='item', ref=item_id, priority=1)
         if added['created']:
             self.store.event(project_id, 'note', Msg('item_ordered', item=item_id, title=item['title']))
@@ -570,14 +606,19 @@ class Supervisor:
             raise ValueError(Msg('err_version'))
         self.store.update_version(project_id, number, user_verdict='ok' if works else 'bad',
                                   user_verdict_at=time.time())
+        check = next((row for row in interactions.listing(self.store, project_id) if row['author'] == 'version'
+                      and row['version_number'] == number and row['type'] == 'manual_test'), None)
+        if check:
+            interactions.answer(self.store, check['id'], comment=comment.strip(), request_key=request_key,
+                                result='works' if works else 'fails', version=number)
         if works:
             self.store.event(project_id, 'verdict', Msg('verdict_ok', number=number))
             return
-        detail = comment.strip() or 'bez dodatkowego opisu'
+        lang = prompts.language(project)
+        detail = comment.strip() or prompts.text(lang, 'no_detail')
         self.store.event(project_id, 'verdict', Msg('verdict_bad', number=number, detail=detail))
-        self.add_note(project_id, f'Użytkownik przetestował v{number} '
-                                  f"(commit {version['commit_sha'][:7]}) i to NIE działa: {detail}",
-                      kind='verdict', request_key=request_key)
+        self.add_note(project_id, prompts.text(lang, 'version_bad', number=number, sha=version['commit_sha'][:7],
+                                               detail=detail), kind='verdict', request_key=request_key)
         if self.store.project(project_id)['status'] not in (*RUNNING, 'queued'):
             self.resume(project_id)
 
@@ -831,7 +872,7 @@ class Supervisor:
 
     def _write_config(self, project: dict) -> Path:
         agents = [{'name': side, 'backend': BACKENDS[side], 'role': 'coder',
-                   'model': project[f'{side}_model'], 'role_prompt': ROLE_PROMPT}
+                   'model': project[f'{side}_model'], 'role_prompt': prompts.text(prompts.language(project), 'role_prompt')}
                   for side in self.sides(project)]
         config = {'cwd': project['worktree'], 'task': project['task'],
                   'max_turns': project['max_turns'], 'per_turn_timeout': project['turn_timeout'],
@@ -874,7 +915,7 @@ class Supervisor:
             runs.mkdir(parents=True, exist_ok=True)
             if resuming:
                 command = ['--continue', project['run_dir'], '--runs-dir', str(runs), '--task',
-                           'Wznowienie przez koordynatora. Sprawdź stan i kontynuuj.', '--turns',
+                           prompts.text(prompts.language(project), 'resume_task'), '--turns',
                            str(project['max_turns']), '--timeout', str(project['turn_timeout']),
                            '--no-metrics']
                 # Always the sandboxed wrapper: otherwise Duet would trust the raw command saved in
@@ -904,11 +945,87 @@ class Supervisor:
         self.store.event(project_id, 'attention', detail)
 
     def close_blockers(self, project_id: str) -> list:
-        """What must be settled before the agreed scope can be closed, besides queued work.
-        Later stages add mandatory gates here (open blocking questions, manual tests, content)."""
+        """What must be settled before the agreed scope can be closed, besides queued work: a deferred must
+        item, an open blocking question, a mandatory test without a pass for the current version, mandatory
+        content not made. A high progress figure does not replace any of them."""
         project = self.store.project(project_id)
         plan, _ = project_plan.effective(self.store, project) if project.get('worktree') else (None, None)
-        return [f"must-deferred:{item['id']}" for item in plan_contract.must_deferred(plan)]
+        decided = set(self.store.meta(project_id).get('scope_decisions') or [])
+        found = [f"must-deferred:{item['id']}" for item in plan_contract.must_deferred(plan)]
+        latest = self.store.latest_version(project_id)
+        found += interactions.blockers(self.store, project_id, latest['number'] if latest else None)
+        if project.get('worktree'):
+            found += [f"content:{item['id']}" for item in content.missing_mandatory(project['worktree'])]
+        return [item for item in found if item not in decided]
+
+    # ---- Questions, tests and content decisions (spec 8 and 21) ------------------------------
+
+    def answer_interaction(self, project_id: str, interaction_id: int, value: str = '', comment: str = '',
+                           request_key: str = '', result: Optional[str] = None, evidence: str = 'declaration') -> dict:
+        """Save the answer first, then hand it to the agents through the queue at the next turn boundary.
+        A failed or partial test creates one bug report for that test and version, not one per click."""
+        self._require(project_id)
+        row = interactions.get(self.store, interaction_id)
+        if not row or row['project_id'] != project_id:
+            raise LookupError(Msg('err_not_found'))
+        latest = self.store.latest_version(project_id)
+        version = row['version_number'] if row['type'] != 'manual_test' else (latest['number'] if latest else None)
+        saved = interactions.answer(self.store, interaction_id, value.strip(), comment.strip(), request_key, result,
+                                    evidence, version if row['type'] == 'manual_test' else None)
+        if saved['duplicate']:
+            return saved
+        lang = prompts.language(self.store.project(project_id))
+        self.store.event(project_id, 'interaction', Msg('interaction_answered', ref=row['ref'],
+                                                        late=Msg('late_note') if saved['late'] else ''),
+                         data={'interaction': interaction_id, 'late': saved['late']})
+        if saved['late']:
+            return saved
+        if row['type'] == 'manual_test':
+            text = prompts.text(lang, 'test_result_note', id=row['ref'], title=row['text'][:120], version=version or '-',
+                                result=result or value or '-', comment=comment or '')
+            kind = 'verdict' if result in ('fails', 'partial') else 'answer'
+        else:
+            text = prompts.text(lang, 'answer_note', id=row['ref'], question=row['text'][:200], answer=value or comment)
+            kind = 'answer'
+        self.add_note(project_id, text, kind=kind, ref=row['ref'], priority=1,
+                      request_key=f"{row['ref']}-{version}-{result}" if kind == 'verdict' else request_key)
+        project = self.store.project(project_id)
+        if project['status'] in ('attention', 'stopped') and str(project.get('status_detail') or '').startswith('Wstrzymano'):
+            self.resume(project_id)
+        return saved
+
+    def interaction_state(self, project_id: str, interaction_id: int, state: str) -> None:
+        row = interactions.get(self.store, interaction_id)
+        if not row or row['project_id'] != project_id or state not in ('deferred', 'cancelled', 'open'):
+            raise ValueError(Msg('err_not_found'))
+        interactions.set_state(self.store, interaction_id, state)
+        self.store.event(project_id, 'interaction', Msg(f'interaction_{state}', ref=row['ref']))
+
+    def decide_asset(self, project_id: str, asset_id: str, decision: str, note: str = '') -> None:
+        """Approve, reject or defer one exact content order. Approval covers that order only and gives no
+        lasting role. Rejecting or deferring does not drop a mandatory item from the scope."""
+        project = self._require(project_id)
+        if decision not in content.DECISIONS or not any(row['id'] == asset_id for row in
+                                                        content.view(project['worktree'] or '')):
+            raise ValueError(Msg('err_asset'))
+        entry = {'id': asset_id, 'decision': decision, 'note': note.strip()[:500], 'ts': time.time()}
+        self.store.update_meta(project_id, lambda meta: meta.setdefault('asset_decisions', []).append(entry))
+        self.store.event(project_id, 'asset', Msg(f'asset_{decision}', id=asset_id), data=entry)
+        if decision == 'approve':
+            lang = prompts.language(project)
+            self.add_note(project_id, prompts.text(lang, 'asset_ordered', kind='content', path=asset_id,
+                                                   prompt=note or asset_id), kind='asset', ref=asset_id,
+                          request_key=f'asset-{asset_id}-approve')
+
+    def decide_scope(self, project_id: str, blocker: str, note: str) -> None:
+        """An explicit, recorded decision to close the scope without one gate (a limited release)."""
+        self._require(project_id)
+        if not note.strip():
+            raise ValueError(Msg('err_note'))
+        self.store.update_meta(project_id, lambda meta: meta.__setitem__(
+            'scope_decisions', sorted({*(meta.get('scope_decisions') or []), blocker})))
+        self.store.event(project_id, 'scope', Msg('scope_decided', blocker=blocker, note=note.strip()[:500]),
+                         data={'blocker': blocker, 'note': note.strip()[:2000]})
 
     def latest_run(self, project_id: str) -> Optional[Path]:
         root = RUNS / project_id
@@ -962,9 +1079,14 @@ class Supervisor:
         elif reason == 'converged':
             # Checked and written in one transaction with the queue: work that arrived while the
             # project was finishing keeps it open.
-            if orders.finish(self.store, project_id, self.close_blockers(project_id)) == 'done':
+            blockers = self.close_blockers(project_id)
+            detail = Msg('halted_detail', reason=Msg('gates_open', items=', '.join(blockers[:6]))) if blockers else None
+            closed = orders.finish(self.store, project_id, blockers, detail)
+            if closed == 'done':
                 self.store.event(project_id, 'done', Msg('done_version', number=latest['number'])
                                  if latest else Msg('done'))
+            elif closed == 'attention':
+                self.store.event(project_id, 'attention', detail, data={'blockers': blockers})
             else:
                 self.store.event(project_id, 'resumed', Msg('finish_reopened'))
         elif project['stop_requested']:
@@ -1052,6 +1174,8 @@ class Supervisor:
                 'events': self.store.events(project_id), 'notes': self.store.notes(project_id),
                 'questions': self.store.questions(project_id), 'versions': versions,
                 'queue': orders.view(self.store, project_id),
+                'interactions': interactions.listing(self.store, project_id),
+                'blockers': self.close_blockers(project_id),
                 'next_config': self.next_config(project), 'turn_config': self._turn_config(project_id),
                 'recommended': recommended_version(versions), 'confirmed': confirmed,
                 'work': self.work_state(project, versions),
@@ -1070,7 +1194,7 @@ class Supervisor:
         """What the next turn will use: the settings as saved now."""
         return {side: {'model': project[f'{side}_model'], 'effort': project[f'{side}_reasoning'],
                        'selection': project.get(f'{side}_selection') or 'manual',
-                       'role': model_roles.of(project, side)} for side in self.sides(project)}
+                       'role': list(model_roles.of(project, side))} for side in self.sides(project)}
 
     def _turn_config(self, project_id: str) -> Optional[dict]:
         """The snapshot the running (or last) turn started with."""

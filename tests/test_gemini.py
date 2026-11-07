@@ -627,21 +627,31 @@ class ContentCreator(Base):
     def orders(self, *items):
         return json.dumps({'items': list(items)})
 
-    def test_content_creator_makes_what_the_others_order(self):
+    def test_content_creator_makes_what_the_others_order_after_the_user_approves(self):
+        # Spec 8.3: a model without the content role may propose an order, never approve or make it.
         order = {'id': 'A1', 'type': 'image', 'prompt': 'Logo z latarnią', 'path': 'assets/logo.png',
-                 'size': '256x256', 'status': 'requested'}
+                 'size': '256x256', 'status': 'requested', 'why': 'ekran startowy'}
         self.scenario(codex=[{'write': {'.sol83/plan.json': self.PLAN, 'ok.txt': 'ok',
                                         '.sol83/assets.json': self.orders(order)}, 'lgtm': True},
-                             {'lgtm': True}],
+                             {'lgtm': True}, {'lgtm': True}],
                       gemini=[{'write': {'assets/logo.png': 'PNG',
                                          '.sol83/assets.json': self.orders({**order, 'status': 'done'})}}])
         project_id = self.supervisor.create_project(
             task='Zbuduj ok.txt', repo_path=str(self.repo), verify_cmd=VERIFY, claude_model='none',
             gemini_model='default', gemini_role='content')['id']
         self.wait_status(project_id, 'done')
-        self.assertEqual([call['agent'] for call in self.calls()], ['codex', 'gemini', 'codex'])
+        self.assertNotIn('gemini', [call['agent'] for call in self.calls()])
         self.assertIn('zamawiaj w .sol83/assets.json', self.calls()[0]['prompt'])
-        gemini = self.calls()[1]['prompt']
+        view = self.supervisor.detail(project_id)['assets']
+        self.assertEqual([(row['id'], row['status'], row['by']) for row in view], [('A1', 'proposed', 'codex')])
+        self.assertTrue(any(e['kind'] == 'asset' and 'A1' in e['text'] for e in self.store.events(project_id)))
+        with self.assertRaises(ValueError):
+            self.supervisor.decide_asset(project_id, 'A9', 'approve')
+        self.supervisor.decide_asset(project_id, 'A1', 'approve')
+        self.wait_status(project_id, 'done', timeout=60)
+        agents = [call['agent'] for call in self.calls()]
+        self.assertIn('gemini', agents)
+        gemini = next(call['prompt'] for call in self.calls() if call['agent'] == 'gemini')
         self.assertIn('Twoja rola: Twórca treści', gemini)
         self.assertIn('generate_image', gemini)
         self.assertIn('A1 (image): Logo z latarnią -> assets/logo.png, 256x256', gemini)
@@ -651,6 +661,17 @@ class ContentCreator(Base):
         for bad in ('../check.py', 'ok.txt', '/etc/hosts'):
             with self.assertRaises(LookupError):
                 self.supervisor.asset_file(project_id, bad)
+
+    def test_mandatory_content_keeps_the_scope_open(self):
+        order = {'id': 'A1', 'type': 'text', 'prompt': 'Fabuła', 'path': 'story.md', 'status': 'requested',
+                 'mandatory': True}
+        self.scenario(codex=[{'write': {'ok.txt': 'ok', '.sol83/assets.json': self.orders(order)}, 'lgtm': True}],
+                      claude=[{'lgtm': True}])
+        project_id = self.start()
+        self.wait_status(project_id, 'attention', timeout=60)
+        self.assertIn('content:A1', self.supervisor.close_blockers(project_id))
+        self.supervisor.decide_scope(project_id, 'content:A1', 'wydanie bez fabuły, uzgodnione')
+        self.assertEqual(self.supervisor.close_blockers(project_id), [])
 
     def test_user_orders_content_in_the_panel(self):
         self.scenario(codex=[{'write': {'.sol83/plan.json': self.PLAN, 'ok.txt': 'ok'}}, {'lgtm': True}],
@@ -2077,3 +2098,54 @@ class QueueFlow(Base):
         self.supervisor.stop(project_id, immediate=True)
         self.wait_status(project_id, 'stopped', 'attention')
         self.assertFalse([c for c in self.calls() if c['agent'] == 'codex'], 'Codex never ran with an unclassified model')
+
+
+class UserInteractions(Base):
+    """Spec 21 and 9 on the real engine with fake CLIs."""
+    QUESTION = json.dumps({'items': [{'id': 'Q1', 'type': 'decision', 'text': 'Który format eksportu: CSV czy JSON?',
+                                      'options': ['CSV', 'JSON'], 'recommendation': 'CSV', 'blocks': ['F2'],
+                                      'why': 'zmienia format pliku'}]})
+
+    def test_blocking_question_pauses_and_the_answer_resumes_the_work(self):
+        self.scenario(codex=[{'write': {'ok.txt': 'ok', '.sol83/requests.json': self.QUESTION}}, {'write': {}}],
+                      claude=[{'write': {}}, {'lgtm': True}], )
+        project_id = self.start()
+        self.wait_status(project_id, 'attention', timeout=60)
+        project = self.store.project(project_id)
+        self.assertIn('oczekiwanie na odpowiedź', project['status_detail'])
+        from gemini_app.supervisor import state_kind
+        self.assertEqual(state_kind(project, None), 'user')
+        rows = self.supervisor.detail(project_id)['interactions']
+        question = next(row for row in rows if row['type'] == 'decision')
+        self.assertEqual((question['local_id'], question['author'], question['state']), ('Q1', 'codex', 'open'))
+        before = len(self.calls())
+        self.scenario(codex=[{'lgtm': True}], claude=[{'lgtm': True}])
+        self.supervisor.answer_interaction(project_id, question['id'], 'CSV', request_key='a1')
+        self.wait_status(project_id, 'done', timeout=60)
+        prompt = self.calls()[before]['prompt']
+        self.assertIn('Odpowiedź użytkownika na pytanie', prompt)
+        self.assertIn('CSV', prompt)
+        self.assertEqual(next(row for row in self.supervisor.detail(project_id)['interactions']
+                              if row['id'] == question['id'])['state'], 'applied')
+
+    def test_english_project_gets_english_instructions(self):
+        self.scenario(codex=[{'write': {'ok.txt': 'ok'}}, {'lgtm': True}], claude=[{'lgtm': True}])
+        project_id = self.supervisor.create_project(task='Build ok.txt', repo_path=str(self.repo), verify_cmd=VERIFY,
+                                                    language='en')['id']
+        self.wait_status(project_id, 'done', timeout=60)
+        prompt = self.calls()[0]['prompt']
+        self.assertIn('[GEMINI: context from the coordinator, turn 1]', prompt)
+        self.assertIn('There is no project plan yet', prompt)
+        self.assertIn('WHAT TO TEST', json.loads((TEMP / f"config/run-{project_id}.json").read_text())['agents'][0]['role_prompt'])
+        self.assertNotIn('Zadanie użytkownika', prompt)
+
+    def test_version_check_is_a_manual_test_record(self):
+        self.scenario(codex=[{'write': {'ok.txt': 'ok'}, 'what_to_test': 'Otwórz ok.txt i sprawdź treść.'}, {'lgtm': True}],
+                      claude=[{'lgtm': True}])
+        project_id = self.start()
+        self.wait_status(project_id, 'done', timeout=60)
+        check = next(row for row in self.supervisor.detail(project_id)['interactions'] if row['author'] == 'version')
+        self.assertEqual((check['type'], check['version_number']), ('manual_test', 1))
+        self.supervisor.set_verdict(project_id, 1, True, 'działa', request_key='v1-ok')
+        check = next(row for row in self.supervisor.detail(project_id)['interactions'] if row['author'] == 'version')
+        self.assertEqual(check['answers'][-1]['result'], 'works')

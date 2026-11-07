@@ -54,6 +54,13 @@ CREATE TABLE IF NOT EXISTS usage(
   input INTEGER, cache_read INTEGER, cache_write INTEGER, output INTEGER, reasoning INTEGER, total INTEGER,
   d_input INTEGER, d_cache_read INTEGER, d_cache_write INTEGER, d_output INTEGER, d_reasoning INTEGER,
   d_total INTEGER, note TEXT, UNIQUE(project_id, turn, agent));
+CREATE TABLE IF NOT EXISTS interactions(
+  id INTEGER PRIMARY KEY, project_id TEXT, key TEXT, type TEXT, text TEXT, author TEXT, model TEXT, role TEXT,
+  local_id TEXT, options TEXT, recommendation TEXT, why TEXT, blocks TEXT, independent TEXT, steps TEXT,
+  environment TEXT, minutes REAL, mandatory INTEGER DEFAULT 0, version_number INTEGER, commit_sha TEXT,
+  plan_revision INTEGER, item TEXT, order_note INTEGER, created_at REAL, updated_at REAL, state TEXT,
+  answers TEXT DEFAULT '[]', lang TEXT);
+CREATE TABLE IF NOT EXISTS project_keys(year INTEGER PRIMARY KEY, last INTEGER);
 CREATE TABLE IF NOT EXISTS catalog_versions(
   version TEXT PRIMARY KEY, created_at REAL, source TEXT, status TEXT, data TEXT, note TEXT);
 CREATE TABLE IF NOT EXISTS plan_revisions(
@@ -71,17 +78,27 @@ PROJECT_FIELDS = {
     'codex_model', 'claude_reasoning', 'codex_reasoning', 'status_detail_en', 'github_repo',
     'turn_timeout', 'github_url', 'github_visibility', 'github_version', 'github_branch', 'github_auto',
     'run_version', 'delivered_version', 'claude_role', 'codex_role', 'role_fallback',
-    'gemini_model', 'gemini_reasoning', 'gemini_role', 'claude_selection', 'codex_selection', 'gemini_selection'}
+    'gemini_model', 'gemini_reasoning', 'gemini_role', 'claude_selection', 'codex_selection', 'gemini_selection',
+    'language', 'key', 'license', 'git_context'}
 MAX_BODY = 40000
 MIGRATIONS = {
     'projects': ('claude_reasoning', 'codex_reasoning', 'status_detail_en', 'github_repo',
                  'github_url', 'github_visibility', 'github_version', 'github_branch',
                  'github_auto', 'run_version', 'delivered_version', 'claude_role', 'codex_role',
                  'role_fallback', 'gemini_model', 'gemini_reasoning', 'gemini_role',
-                 'claude_selection', 'codex_selection', 'gemini_selection'),
+                 'claude_selection', 'codex_selection', 'gemini_selection', 'language', 'key', 'license',
+                 'git_context'),
     'live': ('reason_en', 'config'), 'events': ('text_en', 'body'), 'versions': ('verify_summary_en', 'how_to_run'),
     'notes': ('response', 'kind', 'reopened', 'request_key', 'priority', 'done_version', 'done_at', 'ref'),
     'blocks': ('reason_en',)}
+
+
+def next_key(db, moment: float) -> str:
+    year = time.localtime(moment).tm_year
+    row = db.execute('SELECT last FROM project_keys WHERE year=?', (year,)).fetchone()
+    number = (row['last'] if row else 0) + 1
+    db.execute('INSERT OR REPLACE INTO project_keys(year, last) VALUES(?, ?)', (year, number))
+    return f'PR{number}/{year % 100:02d}'
 
 
 class Meta(dict):
@@ -125,13 +142,26 @@ class Store:
         return rows[0] if rows else None
 
     def add_project(self, **fields) -> dict:
+        """Insert a project with its display key (PRn/yy) taken in the same transaction: numbering is
+        global per year of creation, never reused after a deletion, and safe under concurrent creation."""
         now = time.time()
         fields.update(created_at=now, updated_at=now)
-        names = ','.join(fields)
-        marks = ','.join('?' * len(fields))
-        with self._db() as db:
+        with self.tx() as db:
+            if not fields.get('key'):
+                fields['key'] = next_key(db, now)
+            names = ','.join(fields)
+            marks = ','.join('?' * len(fields))
             db.execute(f'INSERT INTO projects({names}) VALUES({marks})', tuple(fields.values()))
         return self.project(fields['id'])
+
+    def assign_missing_keys(self) -> int:
+        """Existing projects without a key get one, in order of creation, in their year."""
+        with self.tx() as db:
+            rows = db.execute("SELECT id, created_at FROM projects WHERE key IS NULL OR key='' "
+                              'ORDER BY created_at').fetchall()
+            for row in rows:
+                db.execute('UPDATE projects SET key=? WHERE id=?', (next_key(db, row['created_at']), row['id']))
+        return len(rows)
 
     def project(self, project_id: str) -> Optional[dict]:
         return self._row('SELECT * FROM projects WHERE id=?', (project_id,))
@@ -254,7 +284,8 @@ class Store:
     def delete_project(self, project_id: str) -> None:
         """Every record of a project, in one transaction."""
         with self._db() as db:
-            for table in ('live', 'events', 'notes', 'questions', 'versions', 'plan_revisions', 'usage', 'projects'):
+            for table in ('live', 'events', 'notes', 'questions', 'versions', 'plan_revisions', 'usage', 'interactions',
+                          'projects'):
                 column = 'id' if table == 'projects' else 'project_id'
                 db.execute(f'DELETE FROM {table} WHERE {column}=?', (project_id,))
 

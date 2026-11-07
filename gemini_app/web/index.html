@@ -1023,7 +1023,7 @@ function renderForm(){
     const value = id => document.getElementById(id).value;
     const pick = (side, kind) => document.querySelector(`#form-models [data-side=${side}][data-kind=${kind}]`).value;
     try{
-      const {id} = await withTopConfirm('/api/projects', {task:value('task'),
+      const {id} = await withTopConfirm('/api/projects', {task:value('task'), lang:state.lang,
         claude_selection:pick('claude','selection'), codex_selection:pick('codex','selection'), gemini_selection:document.querySelector('#form-models [data-side=gemini][data-kind=selection]')?.value || 'manual', title:value('title'), verify_cmd:value('verify'), repo_path:repo ? '' : value('repo'), github_repo:repo,
         max_turns:Number(value('turns')), claude_model:pick('claude','model'), claude_reasoning:pick('claude','reasoning'),
         codex_model:pick('codex','model'), codex_reasoning:pick('codex','reasoning'),

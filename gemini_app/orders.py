@@ -59,14 +59,17 @@ def pending_orders(store, project_id: str) -> list:
                        (project_id,))
 
 
-def finish(store, project_id: str, blockers: Optional[list] = None) -> str:
-    """Close a converged project atomically. Returns 'done', or 'queued' when work arrived meanwhile
-    or a gate still blocks: then the project goes back to the queue instead of being closed."""
+def finish(store, project_id: str, blockers: Optional[list] = None, detail: Optional[str] = None) -> str:
+    """Close a converged project atomically. Returns 'done'; 'queued' when work arrived meanwhile (the
+    agents take it); 'attention' when a gate only the user can settle is still open (an unanswered
+    blocking question, a mandatory test or content, a deferred must item): then nothing is relaunched
+    until the user acts, so the agents do not loop on a goal they cannot close."""
     with transaction(store) as db:
         waiting = open_work(db, project_id)
-        status = 'queued' if waiting or blockers else 'done'
-        db.execute('UPDATE projects SET status=?, finished_at=?, stop_requested=NULL, updated_at=? WHERE id=?',
-                   (status, time.time() if status == 'done' else None, time.time(), project_id))
+        status = 'queued' if waiting else 'attention' if blockers else 'done'
+        db.execute('UPDATE projects SET status=?, finished_at=?, stop_requested=NULL, status_detail=?, '
+                   'updated_at=? WHERE id=?', (status, time.time() if status == 'done' else None,
+                                               detail if status == 'attention' else None, time.time(), project_id))
         return status
 
 

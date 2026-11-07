@@ -50,6 +50,56 @@ RULES = (
     'jej teraz. Nowe pomysły też trafiają do planu, nie do kodu. ' + plan_contract.PROMPT_RULES)
 
 
+TEXTS = {
+    'create': {'pl': CREATE, 'en': (
+        'There is no project plan yet. In this turn first create the file .sol83/plan.json, then start the '
+        'first item. Format: {"architecture": "3-6 sentences: modules and how they connect", "run": "how to run '
+        'and test the application, concrete commands", "items": [{"id": "F1", "title": "...", "kind": "feature", '
+        '"parent": null, "priority": "must", "status": "todo"}, {"id": "F1.1", "title": "...", "kind": "task", '
+        '"parent": "F1", "priority": "must", "status": "todo", "budget": 2}]}. 5-12 features, under them tasks '
+        'of 1-3 turns of work; budget is the number of turns. Priority must: without it the goal is not met; '
+        'should: clearly better; could: an extra. Do not split too finely: merge a task smaller than half a turn '
+        'with its neighbour.')},
+    'replan': {'pl': REPLAN, 'en': (
+        'The user ordered new work. First rebuild .sol83/plan.json: add the new features, connect them with the '
+        'existing items and debt, and set priorities again. Done items stay done. Then start the most important '
+        'open must item.')},
+    'inherited': {'pl': INHERITED, 'en': (
+        'The repository has .sol83/plan.json from an earlier project. It is not the plan of this task. In this '
+        'turn build the plan anew for the user\'s task above: describe the architecture and how to run it from '
+        'the current code, and carry over from the old plan only the items and debt that concern the new task. '
+        'Then start the most important must item.')},
+    'rules': {'pl': RULES, 'en': (
+        'Working with the plan: in every turn you work on one item and name it in a line "WORK: <id>". Update '
+        'its status in the plan. Fix at once only what breaks the build or tests or blocks acceptance of the '
+        'current item, and what is cheaper than describing (a few lines). Add any other defect to the plan as '
+        'debt: kind "debt", parent: the item it concerns, category: bug|ui|perf|refactor|test|docs, note: symptom '
+        'and place. Do not fix it now. New ideas also go into the plan, not into the code. '
+        + plan_contract.PROMPT_RULES_EN)},
+    'problem': {'pl': 'Plan .sol83/plan.json ma błąd: {problem}. Popraw go w tej turze (próba {attempt} z {limit}; potem '
+                      'koordynator przywróci ostatni poprawny plan).',
+                'en': 'The plan .sol83/plan.json has an error: {problem}. Fix it in this turn (attempt {attempt} of '
+                      '{limit}; after that the coordinator restores the last valid plan).'},
+    'stale': {'pl': ' Powyżej streszczenie ostatniego poprawnego planu.', 'en': ' Above is a summary of the last valid plan.'},
+    'overrun': {'pl': 'Pozycja {item} przekroczyła budżet ({used}/{budget} tur). W tej turze zdecyduj: domknij ją '
+                      'minimalnie albo odłóż (status deferred, w note co zostało) i przejdź do następnej pozycji must.',
+                'en': 'Item {item} went over its budget ({used}/{budget} turns). In this turn decide: close it minimally '
+                      'or defer it (status deferred, what is left in note) and move on to the next must item.'},
+    'summary_head': {'pl': 'Plan: {done}/{total} zadań gotowych, dług: {debt} otwartych pozycji. Pełny plan: .sol83/plan.json.',
+                     'en': 'Plan: {done}/{total} tasks done, debt: {debt} open items. Full plan: .sol83/plan.json.'},
+    'architecture': {'pl': 'Architektura: {text}', 'en': 'Architecture: {text}'},
+    'focus': {'pl': 'Priorytet użytkownika: pozycja {item}.', 'en': "The user's priority: item {item}."},
+    'item_line': {'pl': '- {id} {title} [{status}, {used}/{budget} tur]', 'en': '- {id} {title} [{status}, {used}/{budget} turns]'},
+    'all_must_done': {'pl': 'Wszystkie zadania must są zamknięte: domknij odbiór albo zajmij się should.',
+                      'en': 'All must tasks are closed: finish acceptance or move on to should.'},
+}
+
+
+def text(lang: str, key: str, **values) -> str:
+    template = TEXTS[key].get(lang) or TEXTS[key]['pl']
+    return template.format(**values) if values else template
+
+
 def read(worktree) -> tuple:
     """(normalized plan or None, problems, corrections) from the file. No file is (None, [], [])."""
     path = Path(worktree) / PLAN_FILE
@@ -175,25 +225,24 @@ def breakdown(plan: Optional[dict], turns: list) -> dict:
     return {group: round(value) for group, value in shares.items()}
 
 
-def summary(plan: dict, turns: list, focus: Optional[str] = None) -> str:
+def summary(plan: dict, turns: list, focus: Optional[str] = None, lang: str = 'pl') -> str:
     """A few lines for the handoff: enough to keep the agents on course, cheap in tokens."""
     all_items = items(plan)
     tasks = [item for item in all_items if item.get('kind') != 'feature']
     done = sum(1 for item in tasks if item.get('status') == 'done')
     spent = spend(turns)
-    lines = [f'Plan: {done}/{len(tasks)} zadań gotowych, dług: '
-             f"{sum(1 for item in all_items if item.get('kind') == 'debt' and item.get('status') in OPEN)} "
-             'otwartych pozycji. Pełny plan: .sol83/plan.json.']
+    debt = sum(1 for item in all_items if item.get('kind') == 'debt' and item.get('status') in OPEN)
+    lines = [text(lang, 'summary_head', done=done, total=len(tasks), debt=debt)]
     if plan.get('architecture'):
-        lines.append(f"Architektura: {str(plan['architecture'])[:500]}")
+        lines.append(text(lang, 'architecture', text=str(plan['architecture'])[:500]))
     open_must = [item for item in tasks if item.get('priority') == 'must' and item.get('kind') != 'debt'
                  and item.get('status', 'todo') in OPEN]
     if focus:
-        lines.append(f'Priorytet użytkownika: pozycja {focus}.')
+        lines.append(text(lang, 'focus', item=focus))
     for item in open_must[:4]:
         used = spent.get(item['id'], {}).get('turns', 0)
-        lines.append(f"- {item['id']} {item['title']} [{item.get('status', 'todo')}, "
-                     f"{used}/{budget(item)} tur]")
+        lines.append(text(lang, 'item_line', id=item['id'], title=item['title'], status=item.get('status', 'todo'),
+                          used=used, budget=budget(item)))
     if not open_must:
-        lines.append('Wszystkie zadania must są zamknięte: domknij odbiór albo zajmij się should.')
+        lines.append(text(lang, 'all_must_done'))
     return '\n'.join(lines)

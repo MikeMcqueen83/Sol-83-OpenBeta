@@ -16,13 +16,13 @@ from typing import Optional
 
 from . import assets as content
 from . import limits, monitor, providers, sandbox
-from . import orders, usage
+from . import interactions, orders, prompts, usage
 from . import plan as project_plan
 from . import roles as model_roles
 from . import catalog, model_catalog
 from .catalog import MODEL_OFF
 from .gitops import Checkpoint, Git
-from .messages import Msg
+from .messages import Msg, in_language
 from .store import Store
 
 MAX_IDLE_TURNS = 6
@@ -41,18 +41,21 @@ FAILURE_BLOCK_S = 600
 AGENT_LABEL = {'claude': 'Claude', 'codex': 'Codex', 'gemini': 'Gemini', 'local': 'Lokalny LLM'}
 TURN_START = {'solo': 'turn_start_solo', 'self_review': 'turn_start_review', 'single': 'turn_start_single'}
 _RECAP = re.compile(r'^RECAP:\s*(.+)$', re.M)
-_LABELS_AFTER = (r'(?=^[#*\s]*(?:LGTM|<<<|\[duet\]|---|WERSJA OK|CEL\s*:|OCENA POPRZEDNIEGO|PRACA\s*:'
-                 r'|PODSUMOWANIE|ODPOWIED|CO TESTOWA|JAK URUCHOM)|\Z)')
-_WHAT_TO_TEST = re.compile(r'^[#*\s]*CO TESTOWA[ĆC][*\s]*:?[*\s]*(.*?)' + _LABELS_AFTER, re.M | re.S | re.I)
-_HOW_TO_RUN = re.compile(r'^[#*\s]*JAK URUCHOMI[ĆC][*\s]*:?[*\s]*(.*?)' + _LABELS_AFTER, re.M | re.S | re.I)
-_VERSION_OK = re.compile(r'^\s*WERSJA OK\b', re.M)
+# Reply markers in Polish and English (prompts.MARKERS); the parsers accept both in any project.
+_LABELS_AFTER = (r'(?=^[#*\s]*(?:LGTM|<<<|\[duet\]|---|WERSJA OK|VERSION OK|CEL\s*:|GOAL\s*:|OCENA POPRZEDNIEGO'
+                 r'|PREVIOUS STEP|PRACA\s*:|WORK\s*:|PODSUMOWANIE|SUMMARY|ODPOWIED|REPLY TO NOTES|CO TESTOWA'
+                 r'|WHAT TO TEST|JAK URUCHOM|HOW TO RUN)|\Z)')
+_WHAT_TO_TEST = re.compile(r'^[#*\s]*(?:CO TESTOWA[ĆC]|WHAT TO TEST)[*\s]*:?[*\s]*(.*?)' + _LABELS_AFTER, re.M | re.S | re.I)
+_HOW_TO_RUN = re.compile(r'^[#*\s]*(?:JAK URUCHOMI[ĆC]|HOW TO RUN)[*\s]*:?[*\s]*(.*?)' + _LABELS_AFTER, re.M | re.S | re.I)
+_VERSION_OK = re.compile(r'^\s*(?:WERSJA OK|VERSION OK)\b', re.M)
 _CODEX_MODEL = re.compile(r'^model:\s*(\S+)', re.M)
 _REQUESTS_CHANGES = re.compile(r'^STATUS:\s*requesting-changes', re.M)
-_GOAL = re.compile(r'^[#*\s]*CEL[*\s]*:[*\s]*(\d+)\s*/\s*(\d+)', re.M | re.I)
-_ITEM = re.compile(r'^[#*\s]*PRACA[*\s]*:[*\s]*([\w.\-]+)', re.M | re.I)
-_VERDICT = re.compile(r'^[#*\s]*OCENA POPRZEDNIEGO KROKU[*\s]*:[*\s]*(nie przybli\w*|przybli\w*|cofn\w*|brak)',
-                      re.M | re.I)
-VERDICTS = {'przybli': 'closer', 'nie przybli': 'not_closer', 'cofn': 'back', 'brak': None}
+_GOAL = re.compile(r'^[#*\s]*(?:CEL|GOAL)[*\s]*:[*\s]*(\d+)\s*/\s*(\d+)', re.M | re.I)
+_ITEM = re.compile(r'^[#*\s]*(?:PRACA|WORK)[*\s]*:[*\s]*([\w.\-]+)', re.M | re.I)
+_VERDICT = re.compile(r'^[#*\s]*(?:OCENA POPRZEDNIEGO KROKU|PREVIOUS STEP)[*\s]*:[*\s]*'
+                      r'(nie przybli\w*|przybli\w*|cofn\w*|brak|not closer|closer|back|none)', re.M | re.I)
+VERDICTS = {'przybli': 'closer', 'nie przybli': 'not_closer', 'cofn': 'back', 'brak': None,
+            'closer': 'closer', 'not closer': 'not_closer', 'back': 'back', 'none': None}
 
 
 def goal_report(reply: str) -> dict:
@@ -68,12 +71,14 @@ def goal_report(reply: str) -> dict:
     if verdict:
         word = verdict[1].lower()
         report['verdict'] = next(value for key, value in VERDICTS.items()
-                                 if word.startswith(key) and not (key == 'przybli' and word.startswith('nie')))
+                                 if word.startswith(key) and not (key == 'przybli' and word.startswith('nie'))
+                                 and not (key == 'closer' and word.startswith('not')))
     return report
-_SECTION_END = r'(?=^\s*(?:LGTM|<<<|\[duet\]|WERSJA OK|CO TESTOWA|JAK URUCHOM|PODSUMOWANIE|ODPOWIED)|\Z)'
+_SECTION_END = (r'(?=^\s*(?:LGTM|<<<|\[duet\]|WERSJA OK|VERSION OK|CO TESTOWA|WHAT TO TEST|JAK URUCHOM|HOW TO RUN'
+                r'|PODSUMOWANIE|SUMMARY|ODPOWIED|REPLY TO NOTES)|\Z)')
 _LABEL_END = r'[* \t]*:?[* \t]*\n?'
-_NOTE_REPLY = re.compile(r'^[#* \t]*ODPOWIED[ŹZ] NA UWAGI' + _LABEL_END + r'(.*?)' + _SECTION_END, re.M | re.S | re.I)
-_SUMMARY = re.compile(r'^[#* \t]*PODSUMOWANIE' + _LABEL_END + r'(.*?)' + _SECTION_END, re.M | re.S | re.I)
+_NOTE_REPLY = re.compile(r'^[#* \t]*(?:ODPOWIED[ŹZ] NA UWAGI|REPLY TO NOTES)' + _LABEL_END + r'(.*?)' + _SECTION_END, re.M | re.S | re.I)
+_SUMMARY = re.compile(r'^[#* \t]*(?:PODSUMOWANIE|SUMMARY)' + _LABEL_END + r'(.*?)' + _SECTION_END, re.M | re.S | re.I)
 
 
 @dataclasses.dataclass
@@ -144,13 +149,14 @@ class GeminiScheduler:
         self.last_changed = bool(data.get('changed'))
         self.last_work = data.get('work')
         self.work = 'implement'
-        self.roles = [model_roles.GENERAL] * len(self.names)
+        self.roles = [(model_roles.GENERAL,)] * len(self.names)
         self.spoke = {record['agent']: record.get('turn', 0)
                       for record in monitor.turn_records(store, project_id)}
         self.accepted = set(store.meta(project_id).get('lgtm', []))
         self.accepted_tree = store.meta(project_id).get('lgtm_tree')
         self.opened = last is not None
         self.reset_source = None
+        self.lang = prompts.language(self.project)
         self.decision = None
         self.verify_raw = self.project.get('verify_cmd') or None
         self.inherited_instructed = False
@@ -190,7 +196,13 @@ class GeminiScheduler:
         return 'implement'
 
     def _take_user_orders(self) -> None:
-        """Orders the user placed in the panel go into the file between turns, when no agent writes it."""
+        """Orders the user placed in the panel, and decisions on the agents' proposals, go into the file
+        between turns, when no agent writes it."""
+        decisions = self.store.meta(self.pid).get('asset_decisions') or []
+        if decisions:
+            content.apply_decisions(self.cfg.cwd, decisions)
+            self.store.update_meta(self.pid, lambda meta: meta.__setitem__(
+                'asset_decisions', (meta.get('asset_decisions') or [])[len(decisions):]))
         waiting = self.store.meta(self.pid).get('asset_orders') or []
         if not waiting:
             return
@@ -204,7 +216,7 @@ class GeminiScheduler:
         one; among equals, whoever worked least recently, so a review goes to someone else."""
         able = [i for i, (on, role) in enumerate(zip(enabled, roles))
                 if on and model_roles.covers(role, work)]
-        experts = [i for i in able if roles[i] != model_roles.GENERAL]
+        experts = [i for i in able if not model_roles.is_general(roles[i])]
         if experts and (self.store.project(self.pid).get('role_fallback') or 'general') == 'wait':
             able = experts
         return sorted(able, key=lambda i: (forced and i != hint, i not in experts,
@@ -320,7 +332,7 @@ class GeminiScheduler:
         if not order:
             return order
         snapshots = self.reader.read()
-        tier = [i for i in order if (roles[i] == model_roles.GENERAL) == (roles[order[0]] == model_roles.GENERAL)
+        tier = [i for i in order if model_roles.is_general(roles[i]) == model_roles.is_general(roles[order[0]])
                 and snapshots.get(self.names[i])]
         if len(tier) < 2:
             return order
@@ -384,7 +396,7 @@ class GeminiScheduler:
         chosen = self._apply_models(index)
         limits.take_tokens(self.pid)
         if model_roles.specialized(roles):
-            chosen = Msg('models_role', models=chosen, role=Msg(f'role_{roles[index]}'),
+            chosen = Msg('models_role', models=chosen, role=model_roles.label(roles[index]),
                          work=Msg(f'work_{self.work}'))
         self.roles = roles
         self.usage_before = self._usage(name)
@@ -415,10 +427,10 @@ class GeminiScheduler:
         config = {'agent': name, 'model': agent.model,
                   'effort': (os.environ.get('SOL83_GEMINI_EFFORT') if agent.backend == 'gemini'
                              else agent.reasoning_effort) or None,
-                  'role': roles[index], 'work': self.work, 'mode': choice.mode,
+                  'role': list(roles[index]), 'work': self.work, 'mode': choice.mode,
                   'selection': self.decision['mode'] if self.decision else 'manual',
                   'decision': self.decision,
-                  'roles': {other: role for other, role, on in zip(self.names, roles, enabled) if on},
+                  'roles': {other: list(role) for other, role, on in zip(self.names, roles, enabled) if on},
                   'fresh_session': agent.session_id is None}
         self.store.set_live(self.pid, phase='turn_running', speaker=name, turn=turn,
                             mode=choice.mode, until=None, reason=choice.reason,
@@ -478,6 +490,7 @@ class GeminiScheduler:
             self.inherited_instructed = False
             self.store.update_meta(self.pid, lambda meta: meta.pop('replan', None))
         self._record_plan(turn, checkpoint)
+        self._take_requests(turn, name, speaker_idx)
         outcome = self._on_success(turn, name, result, checkpoint, recap)
         if outcome.converged and orders.open_work_count(self.store, self.pid):
             # Work arrived during this turn: a late acceptance of the old state cannot close the project.
@@ -491,6 +504,34 @@ class GeminiScheduler:
             self.store.event(self.pid, 'final', Msg('final_answer', who=label(name)), agent=name,
                              body=section(_SUMMARY, result.reply))
         return outcome
+
+    def _take_requests(self, turn: int, name: str, index: int) -> None:
+        """What the turn asked of the user: content proposals and questions or tests. Answers this
+        turn received are now applied."""
+        known = set(self.store.meta(self.pid).get('asset_known') or [])
+        proposed = content.review_new(self.cfg.cwd, known, name)
+        if proposed:
+            self.store.update_meta(self.pid, lambda meta: meta.__setitem__(
+                'asset_known', sorted({*(meta.get('asset_known') or []), *(item['id'] for item in proposed)})))
+            for item in proposed:
+                self.store.event(self.pid, 'asset', Msg('asset_proposed', who=label(name), id=item['id'],
+                                                        path=item.get('path') or '?', status=item.get('status')),
+                                 agent=name, data={'asset': item['id']})
+        latest = self.store.latest_version(self.pid)
+        revision = self.store.plan_revision(self.pid)
+        context = {'model': self.cfg.agents[index].model, 'role': ','.join(self.roles[index]),
+                   'version_number': latest['number'] if latest else None,
+                   'commit_sha': self.git.head(), 'plan_revision': revision['revision'] if revision else None,
+                   'lang': self.lang}
+        for row in interactions.ingest(self.store, self.pid, self.cfg.cwd, name, context):
+            self.store.event(self.pid, 'interaction', Msg(f"interaction_{row['type']}", who=label(name),
+                                                          ref=row['ref'], text=row['text'][:160]),
+                             agent=name, data={'interaction': row['id']})
+        applied = [int(note['ref'][1:]) for note in self.store.notes(self.pid)
+                   if note['kind'] == 'answer' and note['delivered_turn'] == turn and note['status'] == 'answered'
+                   and str(note.get('ref') or '').startswith('I')]
+        if applied:
+            interactions.mark_applied(self.store, self.pid, applied)
 
     def _record_plan(self, turn: int, checkpoint: Checkpoint) -> None:
         """Keep the last valid plan as a revision; after too many failed repairs restore it."""
@@ -607,6 +648,12 @@ class GeminiScheduler:
         self.store.event(self.pid, 'version', Msg('version_new', number=version['number'],
                                                   sha=checkpoint.head[:7], summary=summary),
                          agent=name, data={'number': version['number']})
+        # "What to check in this version" is a manual test record of this version (spec 13.6 and 21).
+        if version.get('what_to_test'):
+            interactions.supersede_version_checks(self.store, self.pid, version['number'])
+            interactions.add(self.store, self.pid, 'manual_test', version['what_to_test'], 'version',
+                             version_number=version['number'], commit_sha=checkpoint.head, lang=self.lang,
+                             why=f"v{version['number']}")
         return version
 
     def _add_reviewer(self, version: dict, name: str) -> None:
@@ -668,28 +715,26 @@ class GeminiScheduler:
         turns = monitor.turn_records(self.store, self.pid)
         self.asked_item = plan is not None
         if plan is None and not problem:
-            return ['', project_plan.CREATE, project_plan.RULES]
+            return ['', project_plan.text(self.lang, 'create'), project_plan.text(self.lang, 'rules')]
         if meta.get('replan') == 'inherited':
             # A plan from an earlier project on this repository: no summary of it, a new plan first.
             self.inherited_instructed = True
-            return ['', project_plan.INHERITED, project_plan.RULES]
+            return ['', project_plan.text(self.lang, 'inherited'), project_plan.text(self.lang, 'rules')]
         focus = next((note['ref'] for note in notes if note.get('kind') == 'item' and note.get('ref')), None)
         lines = ['']
         if plan is not None:
-            lines.append(project_plan.summary(plan, turns, focus))
+            lines.append(project_plan.summary(plan, turns, focus, self.lang))
         if problem:
             repairs = meta.get('plan_repairs', 0)
-            lines.append(f'Plan .sol83/plan.json ma błąd: {problem}. Popraw go w tej turze '
-                         f'(próba {repairs + 1} z {project_plan.plan_contract.MAX_REPAIRS}; potem koordynator '
-                         'przywróci ostatni poprawny plan).' + (' Powyżej streszczenie ostatniego poprawnego planu.'
-                                                              if file_plan is None and plan is not None else ''))
+            lines.append(project_plan.text(self.lang, 'problem', problem=problem, attempt=repairs + 1,
+                                           limit=project_plan.plan_contract.MAX_REPAIRS)
+                         + (project_plan.text(self.lang, 'stale') if file_plan is None and plan is not None else ''))
         for item, used in project_plan.overruns(plan, turns):
-            lines.append(f"Pozycja {item['id']} przekroczyła budżet ({used}/{project_plan.budget(item)} "
-                         'tur). W tej turze zdecyduj: domknij ją minimalnie albo odłóż (status deferred, '
-                         'w note co zostało) i przejdź do następnej pozycji must.')
+            lines.append(project_plan.text(self.lang, 'overrun', item=item['id'], used=used,
+                                           budget=project_plan.budget(item)))
         if any(note.get('kind') == 'order' for note in notes):
-            lines.append(project_plan.REPLAN)
-        lines.append(project_plan.RULES)
+            lines.append(project_plan.text(self.lang, 'replan'))
+        lines.append(project_plan.text(self.lang, 'rules'))
         return lines
 
     def _item_over_halt(self):
@@ -719,7 +764,12 @@ class GeminiScheduler:
         since_version = sum(1 for event in self.store.events(self.pid, 500)
                             if event['kind'] == 'turn_end'
                             and (event['data'] or {}).get('turn', 0) > (latest['turn'] if latest else 0))
-        if self.idle_turns >= MAX_IDLE_TURNS:
+        waiting_user = [row for row in interactions.open_items(self.store, self.pid)
+                        if row['state'] == 'open' and (row['blocks'] or row['mandatory'])]
+        if not checkpoint.changed and waiting_user:
+            # Nothing moved and the work waits for the user: no more turns just to repeat the question.
+            reason = Msg('stall_waiting_user', items=', '.join(row['ref'] for row in waiting_user[:6]))
+        elif self.idle_turns >= MAX_IDLE_TURNS:
             reason = Msg('stall_idle', count=MAX_IDLE_TURNS)
         elif self.verify_raw and since_version >= NO_VERSION_HALT:
             reason = Msg('stall_no_version', count=since_version)
@@ -809,12 +859,11 @@ class GeminiScheduler:
         return until
 
     def _takeover_message(self, turn: int, name: str, kind: str, checkpoint: Checkpoint) -> str:
-        saved = (f'Jego niedokończone zmiany zapisano w commicie {checkpoint.head[:7]}.'
-                 if checkpoint.changed else 'Nie zostawił żadnych zmian w plikach.')
-        return (f"{label(name)} stracił dostęp w trakcie tury {turn} ({Msg(f'fail_{kind}')}) "
-                f'i nie zdążył przekazać pracy. {saved} Nie zakładaj, że cokolwiek z tej tury jest '
-                'ukończone ani poprawne. Najpierw odtwórz stan: przejrzyj git log i diff, uruchom '
-                'testy. Potem przejmij inicjatywę i kontynuuj zadanie.')
+        lang = self.lang
+        saved = (prompts.text(lang, 'takeover_saved', sha=checkpoint.head[:7]) if checkpoint.changed
+                 else prompts.text(lang, 'takeover_nothing'))
+        return prompts.text(lang, 'takeover', who=label(name), turn=turn,
+                            reason=in_language(Msg(f'fail_{kind}'), lang), saved=saved)
 
     # ---- Handoff packet -----------------------------------------------
 
@@ -841,102 +890,85 @@ class GeminiScheduler:
         snapshots = self.reader.read()
         for name in self.names:
             if name not in limits.PROVIDERS:
-                parts.append(f"{label(name)}: {Msg('no_reading')}")
+                parts.append(f"{label(name)}: {in_language(Msg('no_reading'), self.lang)}")
                 continue
             windows = (snapshots.get(name) or {}).get('windows') or {}
             read = ', '.join(f"{limits.window_label(key)} {value.get('used', 0):.0f}%"
                              for key, value in windows.items())
-            parts.append(f"{label(name)}: {read or 'brak odczytu'}")
+            parts.append(f"{label(name)}: {read or prompts.text(self.lang, 'no_reading')}")
         return '; '.join(parts)
 
     def _compose(self, turn: int, index: int, message: str, choice: limits.Choice) -> str:
+        """The coordinator's context block for this turn, in the project's language."""
+        lang = self.lang
+        T = lambda key, **values: prompts.text(lang, key, **values)  # noqa: E731
         name = self.names[index]
         enabled = self._enabled()
         others = [label(other) for i, other in enumerate(self.names) if i != index and enabled[i]]
-        partner = ' i '.join(others) if others else 'drugi model'
+        partner = T('and').join(others) if others else T('other_model')
         meta = self.store.meta(self.pid)
         seen = meta.setdefault('seen', {})
         if choice.mode == 'single':
-            team = 'Pozostałe modele są wyłączone przez użytkownika: pracujesz sam.'
+            team = T('team_single')
         else:
-            team = f"{'Partner' if len(others) == 1 else 'Pozostałe modele'}: {partner}."
-        lines = [f'[GEMINI: kontekst od koordynatora, tura {turn}]', f'Pracujesz jako {label(name)}. {team}']
+            team = T('team_partner' if len(others) == 1 else 'team_others', names=partner)
+        lines = [T('header', turn=turn), T('you_are', who=label(name), team=team)]
+        if lang != 'pl':
+            lines.append(T('language_rule'))
         if model_roles.specialized(self.roles):
-            roles = ', '.join(f'{label(other)}: {Msg(f"role_{role}")}' for other, role, on
+            roles = ', '.join(f'{label(other)}: {in_language(model_roles.label(role), lang)}' for other, role, on
                               in zip(self.names, self.roles, enabled) if on)
-            lines += [model_roles.PROMPTS[self.roles[index]], f'Role w zespole: {roles}.',
-                      model_roles.WORK_LINES[self.work]]
+            lines += [model_roles.prompt(self.roles[index], lang), T('team_roles', roles=roles),
+                      model_roles.WORK_LINES[self.work][lang]]
         if model_roles.creates_content(self.roles, enabled):
             if self.work == 'content':
-                lines += ['Zamówienia do zrobienia teraz:', content.summary(content.pending(self.cfg.cwd))]
-            elif self.roles[index] != model_roles.CONTENT:
-                lines.append(content.RULES)
+                lines += [T('content_now'), content.summary(content.pending(self.cfg.cwd))]
+            elif model_roles.CONTENT not in self.roles[index]:
+                lines.append(content.rules(lang))
         fresh = choice.mode == 'self_review' or self.rotated
         if name not in seen or fresh:
-            lines += ['', 'Zadanie użytkownika:', self.cfg.task or self.project['task'], '']
+            lines += ['', T('task'), self.cfg.task or self.project['task'], '', T('requests_rules')]
         if self.rotated:
-            lines.append('Nowa sesja: koordynator co kilka tur zaczyna świeżą sesję, żeby nie czytać '
-                         'całej historii. Kontekst masz w zadaniu, w planie .sol83/plan.json, w zmianach '
-                         'od startu projektu i w repozytorium.')
+            lines.append(T('rotated'))
         if choice.mode == 'self_review':
-            lines.append(f'Tryb Full Power: {partner} jest niedostępny ({choice.reason}), '
-                         'więc przegląd robisz Ty, w nowej sesji, bez pamięci tej pracy. Traktuj kod '
-                         'jak cudzy: przeczytaj diff, uruchom testy, szukaj błędów i brakujących '
-                         'przypadków względem zadania. Popraw to, co uzasadnione. Jeśli nic nie '
-                         'wymaga zmian, zgłoś LGTM.')
+            lines.append(T('self_review', partner=partner, reason=in_language(choice.reason, lang)))
         if choice.mode == 'single':
-            lines.append('Tryb jednego modelu: nikt inny nie sprawdzi tej pracy, więc sprawdzaj ją sam: '
-                         'czytaj diff i uruchamiaj testy. Gdy cel jest spełniony i sprawdzony, zgłoś LGTM: '
-                         'to kończy projekt. Nie powtarzaj sprawdzeń bez zmian w kodzie, bo to marnuje limit.')
+            lines.append(T('single'))
         if choice.mode == 'solo':
-            lines.append(f'Tryb solo: {partner} jest niedostępny ({choice.reason}). Pracuj '
-                         'dalej, a gdy cel jest spełniony, od razu zgłoś LGTM. Koordynator wstrzyma '
-                         'wtedy pracę i przekaże całość partnerowi po jego powrocie. Nie powtarzaj '
-                         'sprawdzeń bez zmian w kodzie, bo to marnuje limit.')
-        lines.append(f'Limity: {self._limits_line()}.')
+            lines.append(T('solo', partner=partner, reason=in_language(choice.reason, lang)))
+        lines.append(T('limits', line=self._limits_line()))
         latest = self.store.latest_version(self.pid)
         if latest:
-            lines.append(f"Ostatnia działająca wersja: v{latest['number']} "
-                         f"(commit {latest['commit_sha'][:7]}, tura {latest['turn']}).")
-        lines.append(f'Testy koordynatora: {self.last_verify}.')
+            lines.append(T('latest', number=latest['number'], sha=latest['commit_sha'][:7], turn=latest['turn']))
+        lines.append(T('tests', result=self.last_verify))
         head = self.git.head()
         changes = self.git.changes_since(
             self.project['base_commit'] if fresh else seen.get(name) or self.project['base_commit'])
         if changes:
-            lines += ['Zmiany od Twojej ostatniej tury:', changes]
+            lines += [T('changes'), changes]
         status = self.git.dirty()
         if status:
-            lines += ['Niezapisane pliki:', status]
+            lines += [T('unsaved'), status]
         notes = self.store.take_notes(self.pid, name, turn)
         lines += self._plan_lines(meta, notes)
+        lines += interactions.prompt_lines(self.store, self.pid, lang)
         if notes:
             self.accepted.clear()
             self.idle_agent = None
-            lines += ['', 'Uwagi użytkownika, obowiązują przed wszystkim innym:']
+            lines += ['', T('notes')]
             lines += [f"- {note['text']}" for note in notes]
-            lines.append('Użytkownik czeka na odpowiedź: w tej turze dodaj sekcję ODPOWIEDŹ NA UWAGI: '
-                         'co zrobiłeś z każdą uwagą albo dlaczego nie.')
+            lines.append(T('notes_reply'))
             self.store.event(self.pid, 'note_delivered',
                              Msg('note_delivered', who=label(name), count=len(notes)), agent=name)
-        lines.append('Zgłaszając LGTM, dodaj sekcję PODSUMOWANIE: co powstało względem zadania '
-                     'i uwag użytkownika oraz co nadal nie działa. To zobaczy użytkownik. Dodaj też '
-                     'sekcję JAK URUCHOMIĆ: polecenia od zera, w świeżo pobranym folderze projektu, '
-                     'które instalują, co trzeba, i uruchamiają gotowy projekt.')
-        lines.append('Ocena celu, w każdej turze, dwie linie na końcu odpowiedzi:\n'
-                     'CEL: <spełnione kryteria odbioru>/<wszystkie> - <najważniejsza brakująca rzecz>\n'
-                     'OCENA POPRZEDNIEGO KROKU: przybliżył | nie przybliżył | cofnął | brak - <jedno zdanie>\n'
-                     'Oceniaj poprzedni krok surowo, względem kryteriów odbioru, a nie jakości kodu. '
-                     'Poprawka potrzebna, ale nieprzybliżająca do celu, też jest „nie przybliżył”. '
-                     'Takie poprawki odkładaj i zajmij się tym, co realnie zbliża do odbioru: '
-                     'koordynator wstrzyma pracę, gdy kroki przestaną przybliżać do celu.')
-        lines.append('[koniec kontekstu]')
+        lines.append(T('summary_rule'))
+        lines.append(T('goal_rule'))
+        lines.append(T('end'))
         seen[name] = head
         self.store.save_meta(self.pid, meta)
         if choice.mode == 'self_review':
-            message = 'Zacznij przegląd od stanu kodu, nie od czyichś raportów.'
+            message = T('start_review')
         elif self.last_speaker == name:
-            message = ('Kontynuujesz po własnej turze. Wykonaj kolejny najmniejszy sensowny krok '
-                       'albo, jeśli cel jest spełniony, zgłoś to zgodnie z zasadami.')
+            message = T('continue_own')
         return '\n'.join(lines) + '\n\n' + message
 
 
