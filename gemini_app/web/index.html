@@ -410,6 +410,7 @@ details.pgroup > summary:hover{background:var(--surface-2)}
 <script>
 const TEXT = {
 pl:{
+  geminiDefaultWarn:'„Domyślny w Antigravity” oznacza, że model wybiera agy, a może to być droższy Gemini 4 Argon. Limit Antigravity schodzi według cen API, więc Flash wystarcza na wielokrotnie więcej pracy. Wybierz Gemini 3.8 Flash albo tryb Auto.',
   runNext:'Uruchom jako następny', queuePos:n=>n === 1 ? 'Ruszy jako następny, gdy zwolni się miejsce.' : `W kolejce: ${n}. miejsce.`,
   qClosed:'zapisane, sprawa zamknięta (modele nic nie muszą robić)', qEffect:'„Działa” i „Nie mogę wykonać” bez komentarza tylko zapisują wynik: zakończony projekt zostaje zakończony. „Nie działa”, „Częściowo” albo komentarz wznawia pracę modeli.',
   kindLabel:'Rodzaj projektu', pk_auto:'Wykryj z zadania (domyślnie)', pk_document:'Dokument lub research', pk_app:'Aplikacja', kindHint:'Przy dokumencie i researchu modele nie budują zaplecza (testów, linterów, skryptów) i sprawdzają treść oraz źródła. Wykrywanie szuka w zadaniu słów takich jak handbook, kompendium, research, raport.',
@@ -552,6 +553,7 @@ pl:{
   ghSent:n=>`Wysłano: v${n}`, ghSend:n=>`Wyślij v${n}`, ghUpToDate:'Najnowsza sprawdzona wersja jest już wysłana.', ghToPublic:'Zmień na publiczne', ghToPrivate:'Zmień na prywatne', ghHint:'Każde wysłanie to Twoje kliknięcie. Nic nie trafia tam samo.',
 },
 en:{
+  geminiDefaultWarn:'"Antigravity default" lets agy pick the model, possibly the dearer Gemini 4 Argon. The Antigravity quota is drawn by API prices, so Flash does many times more work. Choose Gemini 3.8 Flash or Auto.',
   runNext:'Run next', queuePos:n=>n === 1 ? 'Starts next, when a slot is free.' : `Queued: position ${n}.`,
   qClosed:'recorded, closed (nothing for the models to do)', qEffect:'"Works" and "Cannot run it" without a comment only record the result: a finished project stays finished. "Does not work", "Partly" or a comment resumes the models\' work.',
   kindLabel:'Project kind', pk_auto:'Detect from the task (default)', pk_document:'Document or research', pk_app:'Application', kindHint:'For documents and research the models build no tooling (tests, linters, scripts) and check content and sources. Detection looks in the task for words such as handbook, compendium, research, report.',
@@ -705,7 +707,8 @@ const NAME = {claude:'Claude', codex:'Codex', gemini:'Gemini', local:'Lokalny LL
 const SIDES = ['codex','claude','gemini'];
 const others = (p, speaker) => SIDES.filter(s => s !== speaker && p[s+'_model'] && p[s+'_model'] !== 'none').map(s => NAME[s]).join(', ');
 const MAJOR = new Set(['monitor','handoff','takeover','version','done','attention','waiting','github','note','note_reply','question','answer','final','deliver']);
-const DEFAULT_MODELS = {claude:['opus','xhigh'], codex:['gpt-6.1-sol','high'], gemini:['default','high']};
+// Gemini: Flash by default. Antigravity draws its quota by API prices, and its "default" may be the far dearer Argon.
+const DEFAULT_MODELS = {claude:['opus','xhigh'], codex:['gpt-6.1-sol','high'], gemini:['gemini-3.8-flash-medium','medium']};
 const state = {overview:null, detail:null, tab:'przebieg', html:{}, transcript:'', rejecting:null, lang:'pl', github:null, ghKey:null, pendingPublic:null, open:new Set(), bodies:{}};
 
 function loadLang(){
@@ -904,6 +907,7 @@ function selectionControl(side, selection){
 }
 function modelNote(side, model, selection){
   if(selection && selection !== 'manual') return `<p class="hint">${esc(t('autoHint'))}</p>`;
+  if(side === 'gemini' && model === 'default') return `<p class="alert warn">${esc(t('geminiDefaultWarn'))}</p>`;
   const entry = catalogEntry(side, model);
   const top = isTop(side, model) ? `<p class="alert">${esc(t('topWarning'))}</p>` : '';
   const facts = entry ? `<details class="hint"><summary>${esc(t('aboutModel'))}</summary>${esc(entry.facts?.[state.lang] || '')}<br>${esc(t('usesLabel'))}: ${esc(entry.uses?.[state.lang] || '')} (${esc(entry.uses_basis || '')})<br>${esc(t('autoLabel'))}: ${esc(entry.tier === 'top' ? t('autoManualOnly') : entry.tier ? t('autoAllowed') : t('autoUnclassified'))}<br>${(entry.sources || []).map(s => esc(s.url) + ' · ' + esc(s.checked)).join('<br>')}</details>` : `<p class="hint">${esc(t('autoUnclassified'))}</p>`;

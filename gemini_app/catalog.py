@@ -16,7 +16,7 @@ CLAUDE_MODELS = [{'id': model, 'label': label, 'efforts': CLAUDE_EFFORTS}
                  for model, label in (('fable', 'Fable 5.1'), ('opus', 'Opus 5.5'),
                                       ('sonnet', 'Sonnet 5.5'), ('haiku', 'Haiku 5.5'))]
 GEMINI_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
-GEMINI_DEFAULT = {'id': 'default', 'label': 'Domyślny w Antigravity', 'efforts': GEMINI_EFFORTS}
+GEMINI_DEFAULT = {'id': 'default', 'label': 'Domyślny w Antigravity (model wybiera agy, może być droższy)', 'efforts': GEMINI_EFFORTS}
 _SLUG = re.compile(r'^[a-z][\w.\-:/]+$')
 CACHE_S = 600
 _cache: dict = {'at': 0.0, 'codex': [], 'gemini': [GEMINI_DEFAULT]}

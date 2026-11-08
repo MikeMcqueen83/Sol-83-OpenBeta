@@ -7,6 +7,7 @@ Wycieki tokenów znalezione w audycie projektów po wersji 0.7.4 (PR15–PR21).
 - Wznowiony projekt nie wraca do starych sesji: pierwsza tura każdego modelu po restarcie silnika zaczyna nową sesję (PR15: Claude z kontekstem 441 tys.; PR17: Gemini 4,3 mln tokenów w czterech turach).
 - Przegląd dostaje zmiany (diff od ostatniej tury recenzenta, do 30 000 znaków) i instrukcję, by nie otwierać całych plików bez potrzeby (przeglądy czytały pliki przez cat: 37–64% kosztu Claude).
 - Zlecenie przy poprawnym planie trafia do najbliższej tury pracy jako nowe pozycje planu; osobna tura planu (w Auto: najwyższy dozwolony model) tylko bez planu albo z dedykowanym architektem (PR18: 6 tur planu na 17).
+- Antigravity (agy): każde uruchomienie z `useG1Credits: false` (bez płatnych kredytów, niezależnie od ustawień użytkownika) i limitem czasu tury 20 min (`SOL83_GEMINI_TURN_TIMEOUT`); nowy projekt domyślnie z Gemini 3.8 Flash, a „Domyślny w Antigravity” ma ostrzeżenie (limit schodzi według cen API, a domyślny model może być droższy).
 - Projekt dokumentowy w Auto: pisze Gemini, a przegląd, który najwięcej czyta, przypada partnerowi (przegląd Gemini kosztował ok. 1,2 mln tokenów, PR21).
 
 ## OpenBeta 0.7.4 — 2026-11-08

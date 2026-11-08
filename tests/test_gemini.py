@@ -745,6 +745,9 @@ class ThreeModels(Base):
         self.assertNotIn('--effort', turn['argv'])
         self.assertIn('--sandbox', turn['argv'])
         self.assertIn('--dangerously-skip-permissions', turn['argv'])
+        # Subscription quota only, and a cap on a runaway turn (2026-11-08 research on Antigravity quotas).
+        self.assertEqual(json.loads(self.flag(turn, '--settings')), {'useG1Credits': False})
+        self.assertEqual(self.flag(turn, '--print-timeout'), '1200s')
         _, resumed = self.adapter('-p', 'dalej', '--output-format', 'json', '--approval-mode', 'auto_edit',
                                   '--resume', reply['session_id'], '--model', 'default', '--effort', 'xhigh')
         self.assertEqual(self.flag(resumed, '--conversation'), reply['session_id'])

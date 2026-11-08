@@ -39,8 +39,17 @@ def parse(args: list) -> tuple:
     return found, folders
 
 
+# Paid AI credits stay off in every Sol-83 run, whatever the user's agy settings say: subscription quota only.
+# agy 1.5.3 takes a boolean here (the docs show on/off, which it rejects).
+NO_CREDITS = json.dumps({'useG1Credits': False})
+# A turn that runs longer than this is cut (its partial work is still checkpointed): a rare runaway agent loop
+# re-reads its context on every step (2026-11-08: one Gemini turn read 5.2M cached tokens).
+TURN_TIMEOUT = os.environ.get('SOL83_GEMINI_TURN_TIMEOUT', '1200s')
+
+
 def command(binary: str, found: dict, folders: list, sandboxed: bool = False) -> list:
-    cmd = [binary, '-p', found.get('-p', ''), '--output-format', 'json', '--add-dir', os.getcwd()]
+    cmd = [binary, '-p', found.get('-p', ''), '--output-format', 'json', '--add-dir', os.getcwd(),
+           '--settings', NO_CREDITS, '--print-timeout', TURN_TIMEOUT]
     for folder in folders:
         cmd += ['--add-dir', folder]
     if found.get('--resume'):
