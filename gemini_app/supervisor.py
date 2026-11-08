@@ -103,12 +103,18 @@ def _program(line: str) -> str:
     return words[0] if words else ''
 
 
+REVIEWED_LEVELS = ('approved', 'tested', 'single', 'self_reviewed')
+
+
 def recommended_version(versions: list) -> Optional[dict]:
-    """What the user should test: the newest version both models checked,
-    otherwise the newest one the coordinator saw passing. Never one they rejected."""
+    """What the user should test and run: the newest version that was checked (by both models, by the
+    coordinator's tests, or by the only model switched on), otherwise the newest one. Never one the user
+    rejected. Before 2026-11-08 an older two-model version beat every newer one: PR17 finished at v6 (with the
+    fixes the user asked for, accepted by Claude alone while Gemini's quota was out), yet RUN and the test
+    folder stayed on v3."""
     usable = [version for version in versions if version.get('user_verdict') != 'bad']
-    approved = [version for version in usable if version['level'] == 'approved']
-    return (approved or usable or [None])[0]
+    checked = [version for version in usable if version['level'] in REVIEWED_LEVELS]
+    return (checked or usable or [None])[0]
 
 
 # What a project is doing or waiting for, as one value the panel can show without guessing.
@@ -1201,7 +1207,8 @@ class Supervisor:
             detail = Msg('halted_detail', reason=Msg('gates_open', items=', '.join(blockers[:6]))) if blockers else None
             closed = orders.finish(self.store, project_id, blockers, detail)
             if closed == 'done':
-                self.store.event(project_id, 'done', Msg('done_version', number=latest['number'])
+                self.store.event(project_id, 'done', Msg('done_version_single' if latest and latest['level'] == 'single'
+                                                         else 'done_version', number=latest['number'])
                                  if latest else Msg('done'))
                 self._final_check(project_id)
             elif closed == 'attention':

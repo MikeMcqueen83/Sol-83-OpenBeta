@@ -236,6 +236,8 @@ CATALOG = {
                          'main in {path} has commits outside the versions, so it is left alone'),
     'engine_started': ('Silnik uruchomiony.', 'Engine started.'),
     'done': ('Oba modele zaakceptowały ten sam kod.', 'Both models accepted the same code.'),
+    'done_version_single': ('Zakończono: jedyny pracujący model zaakceptował kod. Wersja końcowa: v{number}.',
+                            'Finished: the only working model accepted the code. Final version: v{number}.'),
     'done_version': ('Oba modele zaakceptowały ten sam kod. Wersja końcowa: v{number}.',
                      'Both models accepted the same code. Final version: v{number}.'),
     'stopped': ('Zatrzymano. Praca jest zachowana.', 'Stopped. The work is saved.'),

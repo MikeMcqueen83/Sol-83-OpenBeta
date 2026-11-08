@@ -107,6 +107,16 @@ class Queue(Base):
         self.assertEqual((rows[second], rows[third], rows[self.pid]), (1, 2, 3))
 
 
+class Recommended(Base):
+    def test_newest_checked_version_wins_over_an_older_two_model_one(self):
+        # PR17/26: v3 approved by both models, v6 accepted by Claude alone at the end: RUN must offer v6.
+        from gemini_app.supervisor import recommended_version
+        rows = [{'number': 6, 'level': 'single'}, {'number': 5, 'level': 'proposed'}, {'number': 3, 'level': 'approved'}]
+        self.assertEqual(recommended_version(rows)['number'], 6)
+        self.assertEqual(recommended_version(rows[1:])['number'], 3, 'an unchecked claim does not beat a checked version')
+        self.assertEqual(recommended_version([{'number': 6, 'level': 'single', 'user_verdict': 'bad'}] + rows[1:])['number'], 3)
+
+
 class Interactions(Base):
     def test_same_open_question_is_not_asked_twice(self):
         first = interactions.add(self.store, self.pid, 'clarification', 'Jaki serwer?', 'codex')
