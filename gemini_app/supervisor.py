@@ -973,8 +973,26 @@ class Supervisor:
         path.write_text(json.dumps(config, ensure_ascii=False, indent=2))
         return path
 
+    def queue_order(self) -> list:
+        """Queued projects in the order they will start: those the user marked "run next" first (the latest
+        click first), then the rest by the time they were queued."""
+        queued = self.store.projects('queued')
+        return sorted(queued, key=lambda project: -(project.get('queue_priority') or 0))
+
+    def run_next(self, project_id: str) -> None:
+        """The user picks the project that starts when the running one stops (2026-11-08: stopping PR18 to
+        switch to PR21 started PR17, the oldest in the queue). A stopped or finished project is queued too."""
+        project = self._require(project_id)
+        if project['status'] in RUNNING:
+            return
+        if project['status'] != 'queued':
+            self.resume(project_id)
+        self.store.update_project(project_id, queue_priority=time.time())
+        self.store.event(project_id, 'note', Msg('queue_next'))
+
     def _launch(self, project: dict) -> None:
         project_id = project['id']
+        self.store.update_project(project_id, queue_priority=None)
         running = engine_pids(project_id)
         if running:
             # Never a second engine on one worktree: adopt the one that is already there.
@@ -1246,7 +1264,7 @@ class Supervisor:
             if any((self.store.live(project['id']) or {}).get('phase') not in ('waiting_partner', 'waiting_role')
                    for project in self.store.projects(*RUNNING)):
                 return
-            queued = self.store.projects('queued')
+            queued = self.queue_order()
             if queued:
                 self._launch(queued[0])
 

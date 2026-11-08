@@ -25,6 +25,7 @@ PROVIDER_THRESHOLDS = {f'{kind}_{name}' for name in limits.PROVIDERS
 def overview(supervisor: Supervisor) -> dict:
     store = supervisor.store
     projects = []
+    queue = {project['id']: index + 1 for index, project in enumerate(supervisor.queue_order())}
     for project in store.projects():
         versions = store.versions(project['id'])
         live = store.live(project['id'])
@@ -43,7 +44,7 @@ def overview(supervisor: Supervisor) -> dict:
                          'run': run,
                          'monitor_level': monitor.assess(store, project, with_git=False)['level'],
                          'latest_version': versions[0]['number'] if versions else None,
-                         'versions_count': len(versions)})
+                         'versions_count': len(versions), 'queue_position': queue.get(project['id'])})
     return {'now': time.time(), 'limits': supervisor.limits_view(), 'projects': projects,
             'security': {'sandbox': sandbox.backend(), 'test_network': bool(store.setting('test_network', 0)),
                          'allow_unsandboxed': bool(store.setting('allow_unsandboxed', 0))},
@@ -266,6 +267,8 @@ class Handler(BaseHTTPRequestHandler):
                                           bool(body.get('overwrite')))
         elif action == 'language':
             supervisor.set_language(project_id, str(body.get('language') or ''))
+        elif action == 'run-next':
+            supervisor.run_next(project_id)
         elif action == 'options':
             supervisor.set_options(project_id, str(body['user_tests']) if 'user_tests' in body else None,
                                    bool(body['web_fetch']) if 'web_fetch' in body else None,

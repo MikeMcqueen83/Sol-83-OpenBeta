@@ -92,6 +92,21 @@ class LanguageAndKeys(Base):
         self.assertEqual((after['title'], after['id'], after['key']), ('Notatki zespołu', before['id'], before['key']))
 
 
+class Queue(Base):
+    def test_run_next_moves_a_project_to_the_front_and_queues_a_stopped_one(self):
+        second = self.supervisor.create_project(task='Drugi')['id']
+        third = self.supervisor.create_project(task='Trzeci')['id']
+        self.assertEqual([p['id'] for p in self.supervisor.queue_order()], [self.pid, second, third])
+        self.supervisor.run_next(third)
+        self.assertEqual([p['id'] for p in self.supervisor.queue_order()][0], third)
+        self.store.update_project(second, status='stopped')
+        self.supervisor.run_next(second)
+        self.assertEqual([p['id'] for p in self.supervisor.queue_order()][:2], [second, third])
+        from gemini_app.server import overview
+        rows = {p['id']: p['queue_position'] for p in overview(self.supervisor)['projects']}
+        self.assertEqual((rows[second], rows[third], rows[self.pid]), (1, 2, 3))
+
+
 class Interactions(Base):
     def test_same_open_question_is_not_asked_twice(self):
         first = interactions.add(self.store, self.pid, 'clarification', 'Jaki serwer?', 'codex')

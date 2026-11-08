@@ -66,6 +66,7 @@ CATALOG = {
     'side_ready': ('{who}: gotowy', '{who}: ready'),
     'side_none': ('brak włączonego modelu z tą rolą', 'no switched-on model has this role'),
     'nobody': ('żaden model', 'no model'),
+    'queue_next': ('Ten projekt ruszy jako następny, gdy zwolni się miejsce.', 'This project starts next, when a slot is free.'),
     'err_option': ('Nieznana wartość ustawienia.', 'Unknown setting value.'),
     'review_mode_set': ('Przegląd od następnej tury: {mode}.', 'Review from the next turn: {mode}.'),
     'review_mode_stage': ('po zakończonym etapie planu, najpóźniej co 3 tury',
