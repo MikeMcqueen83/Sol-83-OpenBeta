@@ -43,6 +43,17 @@ def find_binary():
     return str(max(candidates, key=version))
 
 
+def web_fetch_allowed() -> bool:
+    project_id = os.environ.get('GEMINI_PROJECT_ID')
+    if not project_id:
+        return False
+    try:
+        from gemini_app.store import Store
+        return bool((Store().project(project_id) or {}).get('web_fetch'))
+    except Exception:
+        return False
+
+
 def main():
     binary = find_binary()
     args = sys.argv[1:]
@@ -53,12 +64,13 @@ def main():
         os.execv(binary, [binary, *args])
     args[fmt] = 'stream-json'
     args += ['--verbose', '--settings', SANDBOX]
-    if '--tools' not in args:
-        # Web search runs on Anthropic's side, outside the local sandbox, as it does for Codex.
-        args += ['--allowedTools', 'WebSearch']
-
     sys.path.insert(0, str(BASE))
     from gemini_app import limits
+
+    if '--tools' not in args:
+        # Web search runs on Anthropic's side, outside the local sandbox, as it does for Codex. Reading whole
+        # pages (WebFetch) is the user's choice per project (research needs the primary sources, 2026-11-08).
+        args += ['--allowedTools', 'WebSearch,WebFetch' if web_fetch_allowed() else 'WebSearch']
 
     proc = subprocess.Popen([binary, *args], stdout=subprocess.PIPE, text=True,
                             errors='replace')

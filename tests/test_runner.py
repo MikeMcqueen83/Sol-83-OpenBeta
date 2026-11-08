@@ -24,6 +24,12 @@ def tearDownModule():
     shutil.rmtree(TEMP, ignore_errors=True)
 
 
+HANDBOOK_RUN = ("python3 tools/build.py   # writes dist/handbook.md and dist/handbook.html\n"
+                "python3 -m unittest discover -s tests -v   # structure, mermaid lint, citations, links, build\n"
+                "HANDBOOK_STRICT=1 python3 -m unittest discover -s tests -v   # final acceptance\n"
+                "Open dist/handbook.html in a browser (needs internet for mermaid.js to draw diagrams).")
+
+
 class Derive(unittest.TestCase):
     def setUp(self):
         self.folder = pathlib.Path(tempfile.mkdtemp(dir=TEMP))
@@ -45,6 +51,27 @@ class Derive(unittest.TestCase):
         self.assertFalse(library['available'])
         self.assertIn('biblioteka', library['reason'])
         self.assertFalse(runner.derive('', self.folder)['available'])
+
+    def test_comments_are_not_arguments_and_a_document_is_opened(self):
+        # PR14/26 on 2026-11-08: RUN started `build.py '#' writes ...`, which exited at once with an error.
+        self.assertEqual(runner.check_step('python3 tools/build.py   # writes dist/', self.folder)['argv'],
+                         ['python3', 'tools/build.py'])
+        self.assertEqual(runner.check_step("python3 x.py '#not a comment'", self.folder)['argv'],
+                         ['python3', 'x.py', '#not a comment'])
+        result = runner.derive(HANDBOOK_RUN, self.folder, use_llm=False)
+        self.assertEqual((result['kind'], result['document']), ('document', 'dist/handbook.html'))
+        self.assertEqual([step['argv'] for step in result['steps']], [['python3', 'tools/build.py']],
+                         'tests are not part of opening the document')
+        self.assertIsNone(runner.document_target('Otwórz `http://localhost:8000/index.html`'), 'an app, not a document')
+
+    def test_terminal_lines_are_ready_to_paste(self):
+        lines = runner.terminal_lines(HANDBOOK_RUN, '/Users/x/My Projects/handbook')
+        self.assertEqual(lines, ["cd '/Users/x/My Projects/handbook'", 'python3 tools/build.py',
+                                 'python3 -m unittest discover -s tests -v',
+                                 'HANDBOOK_STRICT=1 python3 -m unittest discover -s tests -v',
+                                 'open dist/handbook.html'])
+        self.assertTrue(all('#' not in line for line in lines))
+        self.assertIsNone(runner.ask_local_terminal(HANDBOOK_RUN, '/x', timeout=2), 'no local model, no answer')
 
     def test_unavailable_local_llm_never_falls_back_to_a_paid_model(self):
         self.assertIsNone(runner.ask_local_llm('Start the app the usual way.', timeout=2))
@@ -82,6 +109,27 @@ class Processes(unittest.TestCase):
         time.sleep(0.5)
         self.assertFalse(runner.alive(record))
         self.assertEqual(runner.view(self.store, 'p')['state'], 'stopped')
+
+    def test_document_is_built_once_then_served(self):
+        (self.folder / 'tools').mkdir()
+        (self.folder / 'tools/build.py').write_text(
+            "import pathlib, sys\nassert sys.argv[1:] == [], sys.argv\n"
+            "pathlib.Path('dist').mkdir(exist_ok=True)\npathlib.Path('dist/handbook.html').write_text('<h1>handbook</h1>')\n")
+        plan_data = runner.derive(HANDBOOK_RUN, self.folder, use_llm=False)
+        record = runner.start(self.store, 'doc', 1, self.folder, plan_data, self.folder / 'doc.log')
+        try:
+            self.assertTrue(record['url'].endswith('/dist/handbook.html'))
+            deadline, body = time.time() + 10, b''
+            while time.time() < deadline:
+                try:
+                    body = urllib.request.urlopen(record['url'], timeout=1).read()
+                    break
+                except OSError:
+                    time.sleep(0.2)
+            self.assertIn(b'handbook', body)
+            self.assertEqual(runner.view(self.store, 'doc')['url'], record['url'])
+        finally:
+            runner.stop(self.store, record['id'])
 
     def test_reused_pid_is_not_ours(self):
         self.assertFalse(runner.alive({'pid': os.getpid(), 'started': 'Mon Jan  1 00:00:00 2001'}))

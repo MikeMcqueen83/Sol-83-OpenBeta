@@ -97,12 +97,10 @@ def clock(moment: Optional[float]) -> str:
 
 
 def when(moment: Optional[float]) -> str:
-    """A time the user can read without guessing the day: 03:29 today, 9.11 23:43 another day."""
+    """A limit reset or pause end with its date, so a wait over a day reads at once: 8.11 08:00."""
     if not moment:
         return '--:--'
     local = time.localtime(moment)
-    if local[:3] == time.localtime()[:3]:
-        return time.strftime('%H:%M', local)
     return f"{local.tm_mday}.{local.tm_mon:02d} {time.strftime('%H:%M', local)}"
 
 
@@ -419,7 +417,7 @@ class GeminiScheduler:
             skipped = self.names[preferred]
             self.store.event(self.pid, 'handoff',
                              Msg('handoff', to=label(name), who=label(skipped), reason=choice.reason,
-                                 until=clock(avail[preferred].until)),
+                                 until=when(avail[preferred].until)),
                              agent=name, data={'from': skipped})
         self.rotated = False
         chosen = self._apply_models(index)
@@ -677,8 +675,10 @@ class GeminiScheduler:
         self.store.event(self.pid, 'version', Msg('version_new', number=version['number'],
                                                   sha=checkpoint.head[:7], summary=summary),
                          agent=name, data={'number': version['number']})
-        # "What to check in this version" is a manual test record of this version (spec 13.6 and 21).
-        if version.get('what_to_test'):
+        # "What to check in this version" is a manual test record of this version (spec 13.6 and 21), only when
+        # the user asked for a test of every version. By default the user is asked once, about the final
+        # version (Supervisor._finish): a research document is not handed to the user to test mid-work.
+        if version.get('what_to_test') and (self.store.project(self.pid).get('user_tests') or 'final') == 'each':
             interactions.supersede_version_checks(self.store, self.pid, version['number'])
             interactions.add(self.store, self.pid, 'manual_test', version['what_to_test'], 'version',
                              version_number=version['number'], commit_sha=checkpoint.head, lang=self.lang,
@@ -774,10 +774,16 @@ class GeminiScheduler:
         return None
 
     def _steps_not_closer(self) -> int:
-        """How many judged steps in a row the partner found not moving towards the goal."""
+        """How many judged steps in a row the partner found not moving towards the goal. A model that works
+        alone and judges its own previous step does not count either way: PR9/26 (2026-11-07) was stopped
+        on four "not closer" verdicts that Codex gave its own steps while Gemini was away."""
+        ends = [event for event in self.store.events(self.pid, 200) if event['kind'] == 'turn_end']
         count = 0
-        for event in self.store.events(self.pid, 200):
-            if event['kind'] != 'turn_end' or 'verdict' not in (event['data'] or {}):
+        for index, event in enumerate(ends):
+            if 'verdict' not in (event['data'] or {}):
+                continue
+            previous = ends[index + 1] if index + 1 < len(ends) else None
+            if previous is not None and previous['agent'] == event['agent']:
                 continue
             if event['data']['verdict'] not in ('not_closer', 'back'):
                 break
@@ -850,7 +856,7 @@ class GeminiScheduler:
             or [i for i, on in enumerate(enabled) if on and i != index]
         if not order:
             self.store.event(self.pid, 'takeover', Msg('turn_lost_single', who=label(name), turn=turn,
-                                                       reason=Msg(f'fail_{kind}'), until=clock(until)),
+                                                       reason=Msg(f'fail_{kind}'), until=when(until)),
                              agent=name, data=data)
             self.force_next = index
             return Outcome(message=self._takeover_message(turn, name, kind, checkpoint))
@@ -859,7 +865,7 @@ class GeminiScheduler:
         partner = self.names[successor]
         self.store.event(self.pid, 'takeover',
                          Msg('takeover', who=label(name), turn=turn, reason=Msg(f'fail_{kind}'),
-                             until=clock(until), to=label(partner)),
+                             until=when(until), to=label(partner)),
                          agent=partner, data=data)
         self.force_next = successor
         return Outcome(message=self._takeover_message(turn, name, kind, checkpoint))

@@ -52,6 +52,24 @@ Diagnoza na prawdziwych danych (`~/Sol-83-data/state/gemini.db`, kopia: `~/Sol-8
 
 Wszystkie nowe testy z tej tabeli nie przechodziły na kodzie sprzed poprawki (sprawdzone na osobnym drzewie roboczym z `b912a25`).
 
+## Etap 10: PR13/PR14, RUN, polecenia, research, tokeny (8 listopada 2026)
+
+Diagnoza na prawdziwych danych (kopia bazy przed restartem: `~/Sol-83-backups/gemini-2026-11-08-przed-restartem-0.7.1.db`):
+
+- **RUN „klika się na chwilę i wyłącza” (PR14).** Plan RUN z instrukcji `python3 tools/build.py   # writes dist/handbook.md ...` miał argv `['python3', 'tools/build.py', '#', 'writes', ...]`. `app-v1..v4.log`: `build.py: error: unrecognized arguments: # writes ...`. Linia „Open dist/handbook.html in a browser” była odrzucana („nieznany program: Open”). Budowanie dokumentu to jednorazowe polecenie, więc nawet poprawne kończyło się po sekundzie bez pokazania wyniku.
+- **Pytania i testy w PR14.** Każda z 6 wersji w 8 minut tworzyła prośbę „Co sprawdzić”, w której kazano uruchomić testy jednostkowe i budowanie. Użytkownik odpowiadał „nie mogę wykonać” (I13, I14), a modele tłumaczyły w turach, że `unittest` kończy się szybko. Decyzja I10 („pozwól czytać strony”) nie miała skutku: Claude dostawał tylko WebSearch, a WebFetch odmówił.
+- **PR9.** Zatrzymanie „4 kroki nieprzybliżające” było wynikiem samooceny: tury 76–79 wykonał sam Codex i oceniał własne poprzednie kroki. Szczegóły i pomiary tokenów: `docs/AUDYT-TOKENY-2026-11-08.md`.
+
+| Wymaganie | Implementacja | Test | Wynik | Ograniczenia |
+|---|---|---|---|---|
+| RUN bez komentarzy w argumentach | `runner.strip_comment`, `_commands`, `check_step`, `PLAN_FORMAT` (stare zapisane plany są wyprowadzane ponownie) | `tests/test_runner.py`: `Derive.test_comments_are_not_arguments_and_a_document_is_opened` | zrobione | |
+| RUN dla dokumentów HTML | `runner.document_target`, `derive` (kind `document`, bez kroków testów), `_start_document` (kroki do końca w piaskownicy, potem `http.server` na osobnym porcie), `app_runs.url`; panel: `runState` | `Processes.test_document_is_built_once_then_served` | zrobione | Diagramy ładowane z CDN wymagają internetu w przeglądarce. |
+| Polecenia do terminala przez lokalnego koordynatora | `runner.terminal_lines`, `ask_local_terminal`, `Supervisor.terminal_drop` (tabela `terminal_drops`, przepisanie w tle, walidacja linii i programów), karta „Do testów” | `Derive.test_terminal_lines_are_ready_to_paste`; sprawdzone na kopii danych PR14 (wynik „lokalny koordynator”) | zrobione | Bez Ollamy zostaje wersja z reguł. |
+| Data przy odnowieniu limitu | `scheduler.when` (zawsze data), panel: `dateTime`, `until` w dniach i godzinach | sprawdzone w przeglądarce | zrobione | |
+| Testy użytkownika w researchu | `projects.user_tests` (final/each/none), `scheduler._version_for`, `Supervisor._final_check`, `set_options`, `POST …/options`; zasady w `prompts` (`requests_rules`, CO TESTOWAĆ) | `tests/test_interactions.py`: `test_user_is_asked_to_test_the_final_version_only_by_default`; `UserInteractions.test_version_check_is_a_manual_test_record` | zrobione | Domyślnie „tylko wersja końcowa” dla wszystkich projektów. |
+| WebFetch jako ustawienie projektu | `projects.web_fetch`, `bin/claude.web_fetch_allowed` | `test_user_is_asked_to_test_the_final_version_only_by_default` (zapis ustawienia) | częściowo | Bez testu na żywo z prawdziwym WebFetch (zużyłby limit). |
+| Samoocena nie zatrzymuje projektu | `scheduler._steps_not_closer`, `monitor.assess` | `GoalProgress.test_a_model_working_alone_does_not_halt_on_its_own_verdicts` | zrobione | |
+
 ## Wymagania specyfikacji
 
 | Punkt | Wymaganie | Implementacja | Test | Wynik | Ograniczenia |

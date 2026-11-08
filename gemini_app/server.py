@@ -266,6 +266,9 @@ class Handler(BaseHTTPRequestHandler):
                                           bool(body.get('overwrite')))
         elif action == 'language':
             supervisor.set_language(project_id, str(body.get('language') or ''))
+        elif action == 'options':
+            supervisor.set_options(project_id, str(body['user_tests']) if 'user_tests' in body else None,
+                                   bool(body['web_fetch']) if 'web_fetch' in body else None)
         elif action == 'rename':
             supervisor.rename(project_id, str(body.get('title') or ''))
         elif action == 'scope':

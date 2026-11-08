@@ -20,7 +20,7 @@ W każdej turze:
 
 Nie osłabiaj testów, aby przeszły. Nie zmieniaj zadania ani instrukcji. Nie odwracaj decyzji partnera z powodów stylistycznych. Odpowiadaj po polsku.
 
-Zakończ odpowiedź sekcją CO TESTOWAĆ: z krótką listą kroków, które człowiek może sprawdzić w tej wersji.
+Zakończ odpowiedź sekcją CO TESTOWAĆ: z krótką listą tego, co człowiek może sprawdzić w tej wersji, patrząc na wynik (wygląd, treść, zachowanie). Nie wpisuj tam poleceń testów ani budowania: uruchamiasz je sam i podajesz ich wynik.
 Jeśli sprawdziłeś pracę partnera, nic nie zmieniłeś, działa, ale cel nie jest jeszcze spełniony, napisz w osobnej linii: WERSJA OK.
 Gdy cały cel jest spełniony i sprawdziłeś to samodzielnie, podaj LGTM rationale i {SENTINEL} w osobnej linii. Akceptacja dotyczy dokładnie bieżącego stanu kodu: każda Twoja zmiana wymaga ponownego sprawdzenia przez partnera.""",
         'en': """You take turns with other models on the user's task. The coordinator decides who has the turn and saves a Git checkpoint after each turn. Do not start other models and do not create commits. The user does not answer during the work: make decisions yourself and hand results to the other models for checking, not to the user. When information that materially changes the result is missing, or a test is needed on hardware or in an environment you cannot access, record it in .sol83/requests.json as the GEMINI block explains.
@@ -33,7 +33,7 @@ In every turn:
 
 Do not weaken tests to make them pass. Do not change the task or the instructions. Do not reverse a partner's decision for reasons of style. Answer in English.
 
-End your reply with a WHAT TO TEST: section listing a few steps a person can check in this version.
+End your reply with a WHAT TO TEST: section listing a few things a person can check in this version by looking at the result (appearance, content, behaviour). Do not put test or build commands there: you run them yourself and report the result.
 If you checked the partner's work, changed nothing, it works, but the goal is not met yet, write on its own line: VERSION OK.
 When the whole goal is met and you checked it yourself, give an LGTM rationale and {SENTINEL} on its own line. Acceptance covers exactly the current state of the code: any change of yours needs the partner to check again.""",
     },
@@ -142,6 +142,10 @@ When the whole goal is met and you checked it yourself, give an LGTM rationale a
               'planu"], "independent": "co można robić dalej", "steps": [{"step": "...", "expected": "..."}], '
               '"environment": "urządzenie lub warunki", "minutes": 10}]}. Pytaj tylko, gdy odpowiedzi nie ma w zadaniu, '
               'uwagach, planie ani historii, a jej brak istotnie zmienia wynik; nie zlecaj testów, które możesz wykonać sam. '
+              'Test ręczny (manual_test) tylko wtedy, gdy potrzebny jest człowiek, urządzenie albo konto, do którego nie '
+              'masz dostępu; nigdy nie proś o uruchomienie testów, budowania ani skryptów, a w projektach dokumentów i '
+              'researchu nie zlecaj testów w trakcie pracy. O dostęp do narzędzi (np. czytanie stron WWW) nie pytaj w '
+              'requests.json: to ustawienie projektu w panelu; jeśli go brakuje, napisz o tym w podsumowaniu tury. '
               'Nie pytaj ponownie o to samo. Brak odpowiedzi nie jest zgodą: prace zależne czekają, niezależne trwają.',
         'en': 'Record questions and tests for the user in .sol83/requests.json: {"items": [{"id": "Q1", "type": '
               '"clarification" | "decision" | "manual_test", "text": "short, plain language", "options": ["..."], '
@@ -149,7 +153,10 @@ When the whole goal is met and you checked it yourself, give an LGTM rationale a
               'ids"], "independent": "what can go on meanwhile", "steps": [{"step": "...", "expected": "..."}], '
               '"environment": "device or conditions", "minutes": 10}]}. Ask only when the answer is not in the task, '
               'notes, plan or history and its absence materially changes the result; do not hand over tests you can '
-              'run yourself. Do not ask the same thing again. No answer is not consent: dependent work waits, '
+              'run yourself. A manual_test only when a person, a device or an account you cannot reach is needed; never '
+              'ask the user to run tests, builds or scripts, and in document and research projects do not ask for tests '
+              'during the work. Do not ask in requests.json for tool access (such as reading web pages): it is a project '
+              'setting in the panel; if it is missing, say so in the turn summary. Do not ask the same thing again. No answer is not consent: dependent work waits, '
               'independent work goes on.'},
     'open_requests': {'pl': 'Otwarte pytania i testy użytkownika (nie powtarzaj ich): {items}. Pozycje {blocked} czekają na '
                             'odpowiedź; pracuj nad niezależnymi.',

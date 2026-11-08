@@ -97,6 +97,12 @@ def engine_pids(project_id: str) -> list:
     return pids
 
 
+def _program(line: str) -> str:
+    """The program a terminal line runs, after any VAR=value prefixes."""
+    words = [word for word in line.split() if not re.match(r'^[A-Za-z_]\w*=', word)]
+    return words[0] if words else ''
+
+
 def recommended_version(versions: list) -> Optional[dict]:
     """What the user should test: the newest version both models checked,
     otherwise the newest one the coordinator saw passing. Never one they rejected."""
@@ -191,6 +197,7 @@ class Supervisor:
         self.deliver_failed: dict = {}
         self.watched: dict = {}
         self.run_steps_cache: dict = {}
+        self.drops_pending: set = set()
 
     def _migrate_projects(self) -> None:
         """Data from older versions: display keys for projects without one, and a language read from
@@ -208,6 +215,35 @@ class Supervisor:
         if project.get('language') in prompts.LANGS and project['language'] != language and project.get('run_dir'):
             raise ValueError(Msg('err_language_fixed'))
         self.store.update_project(project_id, language=language)
+
+    USER_TESTS = ('final', 'each', 'none')
+
+    def set_options(self, project_id: str, user_tests: Optional[str] = None, web_fetch: Optional[bool] = None) -> None:
+        """When the user is asked to test (final version only, every version, never) and whether Claude may
+        read web pages (WebFetch) in this project. Both apply from the next turn."""
+        self._require(project_id)
+        if user_tests is not None:
+            if user_tests not in self.USER_TESTS:
+                raise ValueError(Msg('err_option'))
+            self.store.update_project(project_id, user_tests=user_tests)
+            self.store.event(project_id, 'models', Msg('user_tests_set', mode=Msg(f'user_tests_{user_tests}')))
+        if web_fetch is not None:
+            self.store.update_project(project_id, web_fetch=1 if web_fetch else 0)
+            self.store.event(project_id, 'models', Msg('web_fetch_on' if web_fetch else 'web_fetch_off'))
+
+    def _final_check(self, project_id: str) -> None:
+        """The one request to test, for the final version, when the project ends (the default mode)."""
+        project = self.store.project(project_id)
+        latest = self.store.latest_version(project_id)
+        if (project.get('user_tests') or 'final') != 'final' or not latest or not latest.get('what_to_test'):
+            return
+        if any(row['author'] == 'version' and row['version_number'] == latest['number']
+               for row in interactions.listing(self.store, project_id)):
+            return
+        interactions.supersede_version_checks(self.store, project_id, latest['number'])
+        interactions.add(self.store, project_id, 'manual_test', latest['what_to_test'], 'version',
+                         version_number=latest['number'], commit_sha=latest['commit_sha'],
+                         lang=prompts.language(project), why=f"v{latest['number']}")
 
     def rename(self, project_id: str, title: str) -> None:
         """The name changes; the id, key, folders and history do not."""
@@ -1126,6 +1162,7 @@ class Supervisor:
             if closed == 'done':
                 self.store.event(project_id, 'done', Msg('done_version', number=latest['number'])
                                  if latest else Msg('done'))
+                self._final_check(project_id)
             elif closed == 'attention':
                 self.store.event(project_id, 'attention', detail, data={'blockers': blockers})
             else:
@@ -1263,8 +1300,9 @@ class Supervisor:
         changed (manifest hash) or on request."""
         manifest = runner.manifest_hash(project['repo_path'], version['commit_sha']) if project.get('repo_path') else ''
         row = self.store._row('SELECT * FROM run_plans WHERE project_id=? AND version=?', (project['id'], version['number']))
-        if row and not refresh and row['manifest'] == manifest:
-            return {**json.loads(row['data']), 'stored': True}
+        stored = json.loads(row['data']) if row else {}
+        if row and not refresh and row['manifest'] == manifest and stored.get('format', 1) >= runner.PLAN_FORMAT:
+            return {**stored, 'stored': True}
         folder = Path(self.run_here(project, [version])['path'] or project['worktree'] or '.')
         plan = runner.derive(self._run_steps(project['repo_path'], version), folder, use_llm=refresh or not row)
         plan.update(commit=version['commit_sha'], manifest=manifest)
@@ -1439,8 +1477,45 @@ class Supervisor:
         if key not in self.run_steps_cache:
             self.run_steps_cache[key] = self._run_steps(project['repo_path'], version)
         steps = self.run_steps_cache[key]
+        drop = self.terminal_drop(project, version, folder, steps)
         return {'path': folder, 'version': version['number'], 'own': own, 'others': others,
-                'steps': f'cd {shlex.quote(folder)}' + (f'\n{steps}' if steps else '')}
+                'steps': f'cd {shlex.quote(folder)}' + (f'\n{steps}' if steps else ''),
+                'terminal': drop['text'], 'terminal_source': drop['source']}
+
+    def terminal_drop(self, project: dict, version: dict, folder: str, steps: Optional[str]) -> dict:
+        """Commands to paste into a terminal for this version, without comments or prose. The rule-based
+        version is there at once; the local coordinator (Ollama, no subscription) rewrites free-form
+        instructions in the background, and its answer is kept only when every line is a command."""
+        row = self.store._row('SELECT * FROM terminal_drops WHERE project_id=? AND version=?',
+                              (project['id'], version['number']))
+        if row and row['commit_sha'] == version['commit_sha'] and row['text'].startswith(f'cd {shlex.quote(folder)}'):
+            return {'text': row['text'], 'source': row['source']}
+        text = '\n'.join(runner.terminal_lines(steps, folder))
+        self._save_drop(project['id'], version, text, 'rules')
+        key = (project['id'], version['number'])
+        from . import observer  # the coordinator module imports this one
+        if steps and key not in self.drops_pending and observer.ollama_ready(observer.local_model(self.store)):
+            self.drops_pending.add(key)
+            threading.Thread(target=self._local_drop, daemon=True,
+                             args=(project['id'], version, folder, steps, text, observer.local_model(self.store))).start()
+        return {'text': text, 'source': 'rules'}
+
+    def _local_drop(self, project_id: str, version: dict, folder: str, steps: str, rules_text: str,
+                    model: str) -> None:
+        try:
+            lines = runner.ask_local_terminal(steps, folder, model)
+            # The model may reorder or drop a step; it may not invent programs the instructions never named.
+            known = {line.split()[0] for line in rules_text.splitlines()} | {'cd', 'open'}
+            if lines and all(_program(line) in known for line in lines) and len(lines) >= len(rules_text.splitlines()):
+                self._save_drop(project_id, version, '\n'.join(lines), 'local')
+        finally:
+            self.drops_pending.discard((project_id, version['number']))
+
+    def _save_drop(self, project_id: str, version: dict, text: str, source: str) -> None:
+        with self.store._db() as db:
+            db.execute('INSERT OR REPLACE INTO terminal_drops(project_id,version,commit_sha,text,source,created_at) '
+                       'VALUES(?,?,?,?,?,?)', (project_id, version['number'], version['commit_sha'], text, source,
+                                               time.time()))
 
     def _run_steps(self, repo: str, version: dict) -> Optional[str]:
         """From the agents' JAK URUCHOMIĆ, else the plan's run line, else the README."""

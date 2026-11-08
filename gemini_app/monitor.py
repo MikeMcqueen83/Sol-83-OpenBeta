@@ -83,7 +83,9 @@ def assess(store: Store, project: dict, with_git: bool = True) -> dict:
     if since and max(weekly_since.values() or [0]) >= EXPENSIVE_WEEKLY_POINTS:
         signal('expensive', Msg('mon_expensive', cost=_cost_text(weekly_since)))
     goals = [(turn['goal_done'], turn['goal_total']) for turn in turns if 'goal_done' in turn]
-    verdicts = [turn['verdict'] for turn in turns if turn.get('verdict')]
+    # A verdict on the model's own previous step (working alone) is not a partner's judgement.
+    verdicts = [turn['verdict'] for index, turn in enumerate(turns) if turn.get('verdict')
+                and not (index and turns[index - 1].get('agent') == turn.get('agent'))]
     recent_goals = goals[-GOAL_FLAT_TURNS:]
     if len(recent_goals) == GOAL_FLAT_TURNS and len({done for done, _ in recent_goals}) == 1 \
             and recent_goals[-1][0] < recent_goals[-1][1]:

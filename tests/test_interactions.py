@@ -173,6 +173,25 @@ class Interactions(Base):
         self.assertEqual([n['text'] for n in pending], ['Wynik testu n2'], 'one answer reaches the agents, the newest')
         self.assertEqual(interactions.repair_late_answers(self.store), [], 'nothing to do the second time')
 
+    def test_user_is_asked_to_test_the_final_version_only_by_default(self):
+        # 2026-11-08, PR14/26: six "what to check" requests in eight minutes of a research project.
+        for number, sha in ((1, 'a'), (2, 'b')):
+            self.store.add_version(self.pid, tag_prefix='g', commit_sha=sha * 40, tree=sha, level='proposed', turn=number,
+                                   agent='codex', what_to_test=f'Przejrzyj rozdział {number}')
+        self.supervisor._final_check(self.pid)
+        self.supervisor._final_check(self.pid)
+        checks = [row for row in interactions.listing(self.store, self.pid) if row['author'] == 'version']
+        self.assertEqual([(row['version_number'], row['state']) for row in checks], [(2, 'open')])
+        other = self.supervisor.create_project(task='Aplikacja')['id']
+        self.supervisor.set_options(other, user_tests='none', web_fetch=True)
+        self.assertEqual((self.store.project(other)['user_tests'], self.store.project(other)['web_fetch']), ('none', 1))
+        self.store.add_version(other, tag_prefix='g', commit_sha='c' * 40, tree='c', level='proposed', turn=1,
+                               agent='codex', what_to_test='Sprawdź')
+        self.supervisor._final_check(other)
+        self.assertEqual(interactions.listing(self.store, other), [])
+        with self.assertRaises(ValueError):
+            self.supervisor.set_options(other, user_tests='sometimes')
+
     def test_changed_answer_replaces_the_waiting_note(self):
         added = interactions.add(self.store, self.pid, 'decision', 'Jaki kolor?', 'codex', options=['zielony', 'niebieski'])
         self.supervisor.answer_interaction(self.pid, added['id'], 'zielony', request_key='a')

@@ -20,6 +20,8 @@ import shutil
 import signal
 import socket
 import subprocess
+import sys
+import threading
 import time
 import urllib.request
 from pathlib import Path
@@ -44,6 +46,14 @@ PORT_RANGE = range(8800, 8900)
 URL = re.compile(r'https?://(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?[^\s"\'<>]*')
 LIBRARY_HINTS = re.compile(r'\b(library|biblioteka|package|pakiet|sdk|module only)\b', re.I)
 OLLAMA_URL = os.environ.get('GEMINI_OLLAMA_URL', 'http://127.0.0.1:11434')
+# A document project (a handbook, a research report) is built once and then read: "open dist/x.html".
+# A file path, not part of a web address: "open http://localhost:8000/index.html" is an app, not a document.
+DOCUMENT = re.compile(r'(?:^|\b)(?:open|otw[óo]rz|xdg-open)\b[^\n]*?(?:^|(?<=[\s`\'"(]))([\w.-][\w./-]*\.html?)\b', re.I)
+TEST_STEP = re.compile(r'\b(unittest|pytest|nose2|tox|jest|vitest|mocha)\b|\b(npm|pnpm|yarn|bun) (run )?test\b'
+                       r'|\b(go|cargo|swift|mvn|gradle|dotnet) test\b')
+ONE_SHOT_TIMEOUT = 600
+# Stored run plans of an older format are derived again (format 2: comments removed, documents, 2026-11-08).
+PLAN_FORMAT = 2
 
 
 class RunError(RuntimeError):
@@ -60,21 +70,96 @@ def manifest_hash(repo: str, commit: str) -> str:
     return hashlib.sha256('\n'.join(parts).encode()).hexdigest()[:16]
 
 
+def strip_comment(line: str) -> str:
+    """The command without its trailing shell comment ("python3 build.py   # writes dist/"), quotes respected.
+    2026-11-08: RUN passed "#", "writes", ... as arguments and the build exited at once with an error."""
+    quote = None
+    for index, char in enumerate(line):
+        if quote:
+            if char == quote:
+                quote = None
+        elif char in '\'"':
+            quote = char
+        elif char == '#' and (index == 0 or line[index - 1].isspace()):
+            return line[:index].rstrip()
+    return line.rstrip()
+
+
+def _clean(line: str) -> str:
+    line = line.strip().lstrip('$').strip()
+    line = re.sub(r'^[-*\d.)]+\s+', '', line).strip()
+    if line.startswith('`') and line.endswith('`'):
+        line = line.strip('`').strip()
+    return strip_comment(line)
+
+
+def _is_command(line: str) -> bool:
+    """A line that starts with a program (optionally after VAR=value), not prose like "Open the file in a browser"."""
+    words = line.split()
+    while words and re.match(r'^[A-Za-z_]\w*=\S*$', words[0]):
+        words = words[1:]
+    return bool(words) and bool(re.match(r'^[a-z0-9_./-][\w./-]*$', words[0])) and not words[0].endswith('.')
+
+
 def _commands(text: str) -> list:
-    """Command lines from free text: fenced code first, else lines that look like commands."""
+    """Command lines from free text: fenced code first, else lines that look like commands. Comments,
+    prompt signs and list markers are removed."""
     blocks = re.findall(r'```[\w-]*\n(.*?)```', text or '', re.S)
     lines = '\n'.join(blocks).splitlines() if blocks else (text or '').splitlines()
     found = []
-    for line in lines:
-        line = line.strip().lstrip('$').strip()
-        line = re.sub(r'^[-*\d.)]+\s+', '', line).strip('`').strip()
-        if line and not line.startswith('#') and re.match(r'^[\w./-]+(\s|$)', line):
+    for raw in lines:
+        line = _clean(raw)
+        if line and _is_command(line) and not DOCUMENT.match(line):
             found.append(line)
     return found
 
 
+def document_target(text: str) -> Optional[str]:
+    """The HTML file the instructions say to open, if any."""
+    match = DOCUMENT.search(text or '')
+    return match[1].lstrip('./') if match else None
+
+
+def terminal_lines(text: Optional[str], folder: str) -> list:
+    """Commands to paste into a terminal, exactly as they run: cd into the version's folder first, no
+    comments, no prose, in the order the agents gave, and "open" for a document to read."""
+    lines = [f'cd {shlex.quote(str(folder))}']
+    for line in _commands(text or ''):
+        if line.split()[0] == 'cd':
+            continue
+        if line not in lines:
+            lines.append(line)
+    target = document_target(text or '')
+    if target and not any(line.startswith(('open ', 'xdg-open ')) for line in lines):
+        lines.append(f'open {shlex.quote(target)}')
+    return lines
+
+
+def ask_local_terminal(text: str, folder: str, model: Optional[str] = None, timeout: float = 90) -> Optional[list]:
+    """The local coordinator rewrites free-form instructions as a clean terminal sequence. Its answer is
+    checked line by line (comments and prose are dropped); None when it is not there or says nothing usable."""
+    prompt = ('Przepisz instrukcję uruchomienia projektu na polecenia do wklejenia w terminal macOS (zsh). '
+              'Wypisz wyłącznie polecenia, po jednym w linii, w kolejności wykonania, bez numeracji, bez komentarzy '
+              '(żadnego #), bez opisów i bez bloków ```. Pierwsza linia: cd ' + shlex.quote(str(folder)) + '. '
+              'Jeśli trzeba otworzyć plik HTML w przeglądarce, użyj: open <ścieżka>. Instrukcja:\n\n' + (text or '')[:6000])
+    body = json.dumps({'model': model or os.environ.get('SOL83_LOCAL_MODEL', 'gemma4:31b'), 'stream': False,
+                       'prompt': prompt}).encode()
+    try:
+        request = urllib.request.Request(OLLAMA_URL + '/api/generate', body, {'Content-Type': 'application/json'})
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            answer = json.loads(response.read()).get('response') or ''
+    except (OSError, ValueError):
+        return None
+    answer = re.sub(r'<think>.*?</think>', '', answer, flags=re.S)
+    lines = [line for line in (_clean(raw) for raw in answer.splitlines()) if line and _is_command(line)]
+    if not lines or not lines[0].startswith('cd '):
+        return None
+    return lines
+
+
 def check_step(line: str, folder: Path) -> dict:
     """One command, validated: plain argv, a known launcher or a script inside the folder, no shell."""
+    line = strip_comment(line)
     if SHELL_CHARS.search(line.replace('{port}', '')):
         raise RunError(f'polecenie z operatorami powłoki nie jest wykonywane: {line}')
     try:
@@ -130,12 +215,20 @@ def derive(text: Optional[str], folder: Path, use_llm: bool = True) -> dict:
         except RunError as exc:
             problems.append(str(exc))
     steps = [step for step in steps if step['kind'] != 'cd']
+    target = document_target(text)
+    if target:
+        # A document: its build steps run once, to the end, then the folder is served and the file opened.
+        # Test commands are the coordinator's and the agents' job, not part of opening the document.
+        build = [step for step in steps if not TEST_STEP.search(shlex.join(step['argv']))]
+        return {'available': True, 'kind': 'document', 'document': target, 'steps': build, 'problems': problems,
+                'source': source, 'manual': text[:2000], 'format': PLAN_FORMAT}
     if not any(step['kind'] == 'start' for step in steps):
         library = bool(LIBRARY_HINTS.search(text))
         return {'available': False, 'steps': steps, 'problems': problems, 'source': source,
                 'reason': 'to biblioteka albo projekt bez aplikacji do uruchomienia' if library
                 else 'nie znaleziono dozwolonego polecenia startu', 'manual': text[:2000]}
-    return {'available': True, 'steps': steps, 'problems': problems, 'source': source, 'manual': text[:2000]}
+    return {'available': True, 'steps': steps, 'problems': problems, 'source': source, 'manual': text[:2000],
+            'format': PLAN_FORMAT}
 
 
 def free_port(taken: set) -> int:
@@ -184,6 +277,8 @@ def start(store, project_id: str, version: int, folder: Path, plan: dict, log_pa
     port = free_port(taken)
     env = {**os.environ, 'PORT': str(port), 'HOST': '127.0.0.1'}
     log_path.parent.mkdir(parents=True, exist_ok=True)
+    if plan.get('kind') == 'document':
+        return _start_document(store, project_id, version, folder, plan, log_path, port, env)
     log = open(log_path, 'ab')
     try:
         for step in plan['steps']:
@@ -220,6 +315,43 @@ def start(store, project_id: str, version: int, folder: Path, plan: dict, log_pa
     return record
 
 
+def _start_document(store, project_id: str, version: int, folder: Path, plan: dict, log_path: Path,
+                    port: int, env: dict) -> dict:
+    """Build the document once (each step to its end, in the sandbox), then serve the folder on a free local
+    port and point at the file. A separate port keeps the document's scripts away from the panel's origin."""
+    with open(log_path, 'ab') as log:
+        for step in plan['steps']:
+            argv = [part.replace('{port}', str(port)) for part in step['argv']]
+            done = sandbox.run(argv, folder, network=True, timeout=ONE_SHOT_TIMEOUT, env=env,
+                               allow_unsandboxed=bool(store.setting('allow_unsandboxed', 0)))
+            log.write(f'$ {shlex.join(argv)}\n{done.output}\n'.encode())
+            if done.returncode:
+                raise RunError(f'budowanie dokumentu nie powiodło się: {shlex.join(argv)} (kod {done.returncode}); '
+                               f'{(done.output or "").strip().splitlines()[-1][:200] if (done.output or "").strip() else ""}')
+        target = folder / plan['document']
+        if not target.resolve().is_relative_to(folder.resolve()) or not target.is_file():
+            raise RunError(f'po budowaniu brak pliku {plan["document"]} w folderze wersji')
+        argv = [sys.executable, '-m', 'http.server', str(port), '--bind', '127.0.0.1']
+        command = sandbox.wrap(argv, [folder], network=True) if sandbox.backend() else (
+            argv if store.setting('allow_unsandboxed', 0) else None)
+        if command is None:
+            raise RunError(sandbox.NO_SANDBOX)
+        url = f'http://127.0.0.1:{port}/{plan["document"]}'
+        log.write(f'$ {shlex.join(argv)}\nDokument: {url}\n'.encode())
+        log.flush()
+        proc = subprocess.Popen(command, cwd=str(folder), env=env, stdin=subprocess.DEVNULL, stdout=log,
+                                stderr=subprocess.STDOUT, start_new_session=True)
+    record = {'project_id': project_id, 'version': version, 'pid': proc.pid, 'started': process_start(proc.pid),
+              'port': port, 'command': shlex.join(argv), 'folder': str(folder), 'log': str(log_path),
+              'state': 'running', 'created_at': time.time(), 'url': url}
+    with store._db() as db:
+        cursor = db.execute('INSERT INTO app_runs(project_id,version,pid,started,port,command,folder,log,state,created_at,url) '
+                            'VALUES(:project_id,:version,:pid,:started,:port,:command,:folder,:log,:state,:created_at,:url)',
+                            record)
+        record['id'] = cursor.lastrowid
+    return record
+
+
 def stop(store, run_id: int) -> bool:
     """Stop a run Sol-83 started, and only that: the process group of the recorded, still-matching pid."""
     row = store._row('SELECT * FROM app_runs WHERE id=?', (run_id,))
@@ -250,5 +382,5 @@ def view(store, project_id: str) -> Optional[dict]:
     except OSError:
         pass
     urls = URL.findall(tail)
-    return {**row, 'log_tail': sandbox.secretscan.redact(tail),
-            'url': urls[-1].replace('0.0.0.0', '127.0.0.1') if urls else None}
+    found = urls[-1].replace('0.0.0.0', '127.0.0.1') if urls else None
+    return {**row, 'log_tail': sandbox.secretscan.redact(tail), 'url': row.get('url') or found}

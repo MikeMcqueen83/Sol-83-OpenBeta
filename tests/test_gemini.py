@@ -1364,6 +1364,19 @@ class GoalProgress(Base):
         self.assertIn('goal_flat', keys)
         self.assertEqual(self.supervisor.detail(project_id)['monitor']['goal'], [2, 5])
 
+    def test_a_model_working_alone_does_not_halt_on_its_own_verdicts(self):
+        # PR9/26: four "not closer" verdicts Codex gave its own steps while the partner was away stopped the project.
+        steps = [self.rated('2/5', 'nie przybliżył', write={f'p{i}.txt': str(i)}) for i in range(5)]
+        steps.append({'write': {'ok.txt': 'ok'}, 'lgtm': True})
+        self.scenario(claude=steps)
+        project_id = self.supervisor.create_project(task='Zbuduj ok.txt', repo_path=str(self.repo), verify_cmd=VERIFY,
+                                                    codex_model='none', max_turns=20)['id']
+        self.wait_status(project_id, 'done', 'attention', timeout=60)
+        self.assertNotIn('nieprzybliżające', self.store.project(project_id)['status_detail'] or '')
+        self.assertEqual(len(self.calls()), 6)
+        keys = [s['key'] for s in self.supervisor.detail(project_id)['monitor']['signals']]
+        self.assertNotIn('goal_verdicts', keys)
+
     def test_progressing_work_raises_no_goal_signal(self):
         self.scenario(codex=[self.rated('1/3', 'brak', write={'ok.txt': 'ok'}),
                              self.rated('3/3', 'przybliżył', lgtm=True)],

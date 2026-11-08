@@ -1,5 +1,17 @@
 # Changelog
 
+## OpenBeta 0.7.2 — 2026-11-08
+
+Po zgłoszeniu dotyczącym PR13/PR14 i audycie zużycia tokenów (`docs/AUDYT-TOKENY-2026-11-08.md`).
+
+- RUN: komentarze w instrukcjach nie trafiają już jako argumenty (PR14: `build.py '#' writes ...` kończył się od razu błędem); prozatorskie „Open dist/x.html…” nie jest odrzucane jako program.
+- RUN dla dokumentów: budowanie do końca, potem folder wersji serwowany na osobnym porcie i link do pliku HTML; stan ostatniego RUN z końcówką logu w karcie „Do testów”.
+- Polecenia do terminala: gotowa sekwencja `cd` + polecenia bez komentarzy; lokalny koordynator przepisuje ją w tle, a wynik jest sprawdzany linia po linii.
+- Daty przy odnowieniu limitu i końcu przerwy (dzień tygodnia, data, godzina; odliczanie w dniach i godzinach).
+- Prośby o testy: domyślnie tylko przy wersji końcowej (ustawienie projektu: końcowa / każda wersja / wcale); modele nie zlecają testów, budowania ani skryptów, a w dokumentach i researchu nie proszą o testy w trakcie pracy.
+- Ustawienie projektu „Claude może czytać strony WWW (WebFetch)”; modele nie pytają o dostęp do narzędzi w pytaniach do użytkownika.
+- Reguła „modele oceniły kroki jako nieprzybliżające” i sygnał efektywności pomijają ocenę własnego kroku (PR9 zatrzymał się na czterech samoocenach Codexa).
+
 ## OpenBeta 0.7.1 — 2026-11-08
 
 Poprawki po zgłoszeniu z 8 listopada (projekty PR10, PR11, PR13, PR14). Szczegóły i dowody: `docs/TRACEABILITY.md`, sekcja „Etap 9”.

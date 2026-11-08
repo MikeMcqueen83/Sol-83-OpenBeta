@@ -67,6 +67,9 @@ CREATE TABLE IF NOT EXISTS git_ops(
 CREATE TABLE IF NOT EXISTS run_plans(
   project_id TEXT, version INTEGER, commit_sha TEXT, manifest TEXT, data TEXT, created_at REAL,
   PRIMARY KEY(project_id, version));
+CREATE TABLE IF NOT EXISTS terminal_drops(
+  project_id TEXT, version INTEGER, commit_sha TEXT, text TEXT, source TEXT, created_at REAL,
+  PRIMARY KEY(project_id, version));
 CREATE TABLE IF NOT EXISTS app_runs(
   id INTEGER PRIMARY KEY, project_id TEXT, version INTEGER, pid INTEGER, started TEXT, port INTEGER, command TEXT,
   folder TEXT, log TEXT, state TEXT, created_at REAL, stopped_at REAL);
@@ -88,7 +91,7 @@ PROJECT_FIELDS = {
     'turn_timeout', 'github_url', 'github_visibility', 'github_version', 'github_branch', 'github_auto',
     'run_version', 'delivered_version', 'claude_role', 'codex_role', 'role_fallback',
     'gemini_model', 'gemini_reasoning', 'gemini_role', 'claude_selection', 'codex_selection', 'gemini_selection',
-    'language', 'key', 'license', 'git_context'}
+    'language', 'key', 'license', 'git_context', 'user_tests', 'web_fetch'}
 MAX_BODY = 40000
 MIGRATIONS = {
     'projects': ('claude_reasoning', 'codex_reasoning', 'status_detail_en', 'github_repo',
@@ -96,10 +99,10 @@ MIGRATIONS = {
                  'github_auto', 'run_version', 'delivered_version', 'claude_role', 'codex_role',
                  'role_fallback', 'gemini_model', 'gemini_reasoning', 'gemini_role',
                  'claude_selection', 'codex_selection', 'gemini_selection', 'language', 'key', 'license',
-                 'git_context'),
+                 'git_context', 'user_tests', 'web_fetch'),
     'live': ('reason_en', 'config', 'detail'), 'events': ('text_en', 'body'), 'versions': ('verify_summary_en', 'how_to_run'),
     'notes': ('response', 'kind', 'reopened', 'request_key', 'priority', 'done_version', 'done_at', 'ref'),
-    'blocks': ('reason_en', 'source')}
+    'blocks': ('reason_en', 'source'), 'app_runs': ('url',),}
 
 
 def next_key(db, moment: float) -> str:
@@ -294,7 +297,7 @@ class Store:
         """Every record of a project, in one transaction."""
         with self._db() as db:
             for table in ('live', 'events', 'notes', 'questions', 'versions', 'plan_revisions', 'usage', 'interactions',
-                          'run_plans', 'app_runs', 'git_ops', 'projects'):
+                          'run_plans', 'terminal_drops', 'app_runs', 'git_ops', 'projects'):
                 column = 'id' if table == 'projects' else 'project_id'
                 db.execute(f'DELETE FROM {table} WHERE {column}=?', (project_id,))
 
