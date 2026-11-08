@@ -64,6 +64,18 @@ class Derive(unittest.TestCase):
                          'tests are not part of opening the document')
         self.assertIsNone(runner.document_target('Otwórz `http://localhost:8000/index.html`'), 'an app, not a document')
 
+    def test_document_is_built_in_a_copy_not_in_the_users_folder(self):
+        repo = pathlib.Path(tempfile.mkdtemp(dir=TEMP))
+        gitops.create_repo(repo)
+        (repo / 'KOMPENDIUM.md').write_text('v1')
+        git = Git(repo)
+        git.run('add', '-A')
+        git.run(*gitops.IDENTITY, 'commit', '-q', '-m', 'v1')
+        copy = runner.export_version(repo, git.head(), TEMP / 'doc-v1')
+        (copy / 'KOMPENDIUM.md').write_text('przebudowane')
+        self.assertEqual((repo / 'KOMPENDIUM.md').read_text(), 'v1')
+        self.assertEqual(git.run('status', '--porcelain'), '')
+
     def test_terminal_lines_are_ready_to_paste(self):
         lines = runner.terminal_lines(HANDBOOK_RUN, '/Users/x/My Projects/handbook')
         self.assertEqual(lines, ["cd '/Users/x/My Projects/handbook'", 'python3 tools/build.py',

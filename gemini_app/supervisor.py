@@ -1373,6 +1373,8 @@ class Supervisor:
         if Git(folder).head() != version['commit_sha']:
             raise RuntimeError(Msg('run_wrong_version', number=number))
         plan = self.run_plan(project, version)
+        if plan.get('kind') == 'document':
+            folder = runner.export_version(folder, version['commit_sha'], RUNS / project_id / f'doc-v{number}')
         try:
             record = runner.start(self.store, project_id, number, folder, plan, RUNS / project_id / f'app-v{number}.log')
         except runner.RunError as exc:

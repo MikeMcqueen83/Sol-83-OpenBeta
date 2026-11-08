@@ -315,6 +315,21 @@ def start(store, project_id: str, version: int, folder: Path, plan: dict, log_pa
     return record
 
 
+def export_version(repo, commit: str, dest: Path) -> Path:
+    """A clean copy of one version's files, outside the user's folder. A document is built there: building in
+    the "Run from here" folder rewrote its tracked files and then blocked the next version from being put
+    there (PR17/26, 2026-11-08: the folder stayed on v3 after the project finished at v6)."""
+    import io
+    import tarfile
+    archive = subprocess.run(['git', '-C', str(repo), 'archive', '--format=tar', commit], capture_output=True,
+                             check=True).stdout
+    shutil.rmtree(dest, ignore_errors=True)
+    dest.mkdir(parents=True)
+    with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
+        tar.extractall(dest, filter='data')
+    return dest
+
+
 def _start_document(store, project_id: str, version: int, folder: Path, plan: dict, log_path: Path,
                     port: int, env: dict) -> dict:
     """Build the document once (each step to its end, in the sandbox), then serve the folder on a free local
