@@ -218,6 +218,15 @@ class LimitSwitching(Base):
         self.set_limits(claude=FRESH, codex=FRESH)
         self.wait_status(project_id, 'done')
 
+    def test_stop_recorded_in_the_store_is_obeyed_even_if_the_signal_was_lost(self):
+        # PR17/26: "stop now" reached the engine while it was starting, Duet lost it and began a turn.
+        self.scenario(claude_limits=exhausted(), codex_limits=exhausted())
+        project_id = self.start()
+        self.wait_phase(project_id, 'waiting_limits')
+        self.store.update_project(project_id, status='stopping', stop_requested='immediate')  # no signal sent
+        self.wait_status(project_id, 'stopped')
+        self.assertEqual(self.calls(), [])
+
     def test_stop_during_wait_and_reset_does_not_resume_it(self):
         self.scenario(claude_limits=exhausted(), codex_limits=exhausted())
         project_id = self.start()

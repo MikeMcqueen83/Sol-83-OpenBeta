@@ -413,6 +413,13 @@ class GeminiScheduler:
         best = max(tier, key=lambda i: (limits.remaining(snapshots.get(self.names[i])), i == order[0]))
         return [best] + [i for i in order if i != best]
 
+    def _stop_requested(self) -> bool:
+        """The user's stop as recorded in the store. The signal alone is not enough: Duet makes a new stop flag
+        when it continues a run, so a stop sent while the engine was starting was lost (PR17/26, 2026-11-08:
+        "stop now" at 19:46:09, the engine started a Gemini turn two seconds later and kept working)."""
+        project = self.store.project(self.pid) or {}
+        return project.get('status') == 'stopping' and bool(project.get('stop_requested'))
+
     def _wake_signals(self) -> tuple:
         rows = {row['key']: row['value'] for row in self.store._rows(
             "SELECT key, value FROM settings WHERE key IN ('full_power', 'retry_now')")}
@@ -426,6 +433,8 @@ class GeminiScheduler:
         while time.monotonic() < deadline and not stop.requested:
             time.sleep(min(1.0, max(0.05, deadline - time.monotonic())))
             now_power, now_retry = self._wake_signals()
+            if self._stop_requested():
+                return False
             if now_retry != retry:
                 return True
             if now_power != full_power:
@@ -446,7 +455,7 @@ class GeminiScheduler:
         self.force_next = None
         self._take_user_orders()
         while True:
-            if stop.requested:
+            if stop.requested or self._stop_requested():
                 return None
             enabled, roles = self._enabled(), self._roles()
             self.work = self._work_kind(enabled, roles)
