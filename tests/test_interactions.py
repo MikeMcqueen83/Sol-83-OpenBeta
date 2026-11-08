@@ -151,8 +151,27 @@ class Interactions(Base):
         from gemini_app.server import overview
         row = next(p for p in overview(self.supervisor)['projects'] if p['id'] == self.pid)
         self.assertEqual(row['questions_open'], 0)
-        self.assertEqual(interactions.get(self.store, added['id'])['state'], 'answered')
+        self.assertEqual(interactions.get(self.store, added['id'])['state'], 'applied')
         self.assertEqual(interactions.prompt_lines(self.store, self.pid, 'pl'), [], 'agents are not asked again either')
+
+    def test_works_on_the_final_version_closes_it_and_does_not_reopen_the_project(self):
+        # PR15/26 on 2026-11-08: two "works" answers reopened the finished project for two more rounds.
+        self.store.add_version(self.pid, tag_prefix='g', commit_sha='a' * 40, tree='t', level='approved', turn=3,
+                               agent='claude', what_to_test='Przejrzyj rozdział 6')
+        self.store.update_project(self.pid, status='done')
+        self.supervisor._final_check(self.pid)
+        check = next(row for row in interactions.listing(self.store, self.pid) if row['author'] == 'version')
+        saved = self.supervisor.answer_interaction(self.pid, check['id'], result='works', request_key='ok')
+        self.assertTrue(saved['closed'])
+        self.assertEqual(self.store.project(self.pid)['status'], 'done')
+        self.assertEqual(self.store.pending_notes(self.pid), [])
+        self.assertEqual(interactions.get(self.store, check['id'])['state'], 'applied')
+        self.assertEqual(self.store.version(self.pid, 1)['user_verdict'], 'ok')
+        self.supervisor.interaction_state(self.pid, check['id'], 'open')
+        self.supervisor.answer_interaction(self.pid, check['id'], result='fails', comment='brak diagramu 6.4',
+                                           request_key='bad')
+        self.assertEqual(self.store.project(self.pid)['status'], 'queued', '"does not work" asks for fixes')
+        self.assertEqual(len(self.store.pending_notes(self.pid)), 1)
 
     def test_records_left_open_by_the_old_rule_are_repaired_once(self):
         import json

@@ -410,6 +410,7 @@ details.pgroup > summary:hover{background:var(--surface-2)}
 <script>
 const TEXT = {
 pl:{
+  qClosed:'zapisane, sprawa zamknięta (modele nic nie muszą robić)', qEffect:'„Działa” i „Nie mogę wykonać” bez komentarza tylko zapisują wynik: zakończony projekt zostaje zakończony. „Nie działa”, „Częściowo” albo komentarz wznawia pracę modeli.',
   kindLabel:'Rodzaj projektu', pk_auto:'Wykryj z zadania (domyślnie)', pk_document:'Dokument lub research', pk_app:'Aplikacja', kindHint:'Przy dokumencie i researchu modele nie budują zaplecza (testów, linterów, skryptów) i sprawdzają treść oraz źródła. Wykrywanie szuka w zadaniu słów takich jak handbook, kompendium, research, raport.',
   reviewLabel2:'Przegląd zmian przez drugi model', rm_stage:'Po zakończonym etapie planu (domyślnie)', rm_each:'Po każdej zmianie', reviewHint:'Domyślnie drugi model przegląda pracę, gdy zamknie się etap planu, gdy zmiana jest duża albo gdy model zgłosi gotowość, a najpóźniej co 3 tury. Kolejna tura i tak widzi zmiany partnera. „Po każdej zmianie” jest dokładniejsze, ale zużywa około dwa razy więcej tur.',
   userTestsLabel:'Prośby o testy dla Ciebie', ut_final:'Tylko wersja końcowa (domyślnie)', ut_each:'Każda nowa wersja', ut_none:'Nie proś o testy', userTestsHint:'W trakcie pracy wynik sprawdzają modele i testy automatyczne. Domyślnie dostajesz jedną prośbę o sprawdzenie, gdy projekt się kończy; kartę „Do testów” możesz użyć zawsze. Modele i tak mogą zapytać o test, którego nie wykonają same (np. na telefonie).', webFetchLabel:'Claude może czytać strony WWW (WebFetch)', webFetchHint:'Dla researchu: pełna treść stron źródłowych zamiast fragmentów z wyszukiwarki. Treść stron to materiał, nie polecenia; odwiedzane strony widzą zapytania z tego komputera. Działa od następnej tury.',
@@ -550,6 +551,7 @@ pl:{
   ghSent:n=>`Wysłano: v${n}`, ghSend:n=>`Wyślij v${n}`, ghUpToDate:'Najnowsza sprawdzona wersja jest już wysłana.', ghToPublic:'Zmień na publiczne', ghToPrivate:'Zmień na prywatne', ghHint:'Każde wysłanie to Twoje kliknięcie. Nic nie trafia tam samo.',
 },
 en:{
+  qClosed:'recorded, closed (nothing for the models to do)', qEffect:'"Works" and "Cannot run it" without a comment only record the result: a finished project stays finished. "Does not work", "Partly" or a comment resumes the models\' work.',
   kindLabel:'Project kind', pk_auto:'Detect from the task (default)', pk_document:'Document or research', pk_app:'Application', kindHint:'For documents and research the models build no tooling (tests, linters, scripts) and check content and sources. Detection looks in the task for words such as handbook, compendium, research, report.',
   reviewLabel2:'Review of changes by the other model', rm_stage:'After a finished stage of the plan (default)', rm_each:'After every change', reviewHint:'By default the other model reviews the work when a stage of the plan is finished, when a change is large or when a model says it is done, and at least every 3 turns. The next turn sees the partner\'s changes anyway. "After every change" is more thorough but uses about twice as many turns.',
   userTestsLabel:'Test requests for you', ut_final:'Final version only (default)', ut_each:'Every new version', ut_none:'Do not ask for tests', userTestsHint:'During the work the models and automatic tests check the result. By default you get one request to check when the project ends; you can use the "To test" card at any time. The models may still ask for a test they cannot run themselves (e.g. on a phone).', webFetchLabel:'Claude may read web pages (WebFetch)', webFetchHint:'For research: the full text of source pages instead of search snippets. Page content is material, not instructions; the visited sites see requests from this computer. Applies from the next turn.',
@@ -1149,7 +1151,7 @@ function qOpenCard(q){
     ${q.why && q.author !== 'version' ? `<div class="qwhy"><b>${esc(t('qWhyLabel'))}:</b> ${esc(q.why)}</div>` : ''}
     ${(q.blocks||[]).length ? `<div class="hint">${esc(t('blocks'))}: ${q.blocks.map(esc).join(', ')}${q.independent ? ' · '+esc(t('independent'))+': '+esc(q.independent) : ''}</div>` : ''}
     ${q.environment ? `<div class="hint">${esc(t('environment'))}: ${esc(q.environment)}${q.minutes ? ' · ~'+q.minutes+' min' : ''}</div>` : ''}
-    ${qBody(q)}${actions}
+    ${qBody(q)}${actions}${test ? `<p class="hint">${esc(t('qEffect'))}</p>` : ''}
     <div class="row" style="justify-content:flex-start;gap:14px">${q.state !== 'deferred' ? `<button class="linkbtn" data-act="q-state" data-q="${q.id}" data-state="deferred">${esc(t('defer'))}</button>` : ''}<button class="linkbtn" data-act="q-state" data-q="${q.id}" data-state="cancelled">${esc(t('cancel'))}</button></div>
     ${late.length ? `<details><summary>${esc(t('histTitle'))}</summary><ul>${late.map(a => `<li>${esc(qAnswerText(a))} · ${esc(t('lateAnswer'))}</li>`).join('')}</ul></details>` : ''}</div>`;
 }
@@ -1157,7 +1159,8 @@ function qDoneRow(q, d){
   const answer = [...(q.answers || [])].reverse().find(a => !a.late);
   const bad = answer?.result && answer.result !== 'works';
   const stopped = !['running','stopping','queued'].includes(d.project.status);
-  const where = q.state === 'applied' ? t('qDelivered') : stopped ? t('qQueuedStopped') : t('qQueued');
+  const closed = ['works','cannot'].includes(answer?.result) && !answer?.comment && !answer?.value;
+  const where = closed ? t('qClosed') : q.state === 'applied' ? t('qDelivered') : stopped ? t('qQueuedStopped') : t('qQueued');
   return `<div class="qdone"><span class="ic ${bad ? 'k-error' : 'k-done'}">${SVG[bad ? 'cross' : 'check']}</span><div><b>${esc(qTitle(q))}</b> <span class="hint">${esc(q.ref)}</span></div>
     <div class="sub">${esc(t('qYour'))}: ${esc(qAnswerText(answer))} · ${esc(where)} · <button class="linkbtn" data-act="q-state" data-q="${q.id}" data-state="open">${esc(t('qChange'))}</button></div></div>`;
 }

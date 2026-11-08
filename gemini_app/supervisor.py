@@ -661,6 +661,8 @@ class Supervisor:
                           and not comment.strip()):
             interactions.answer(self.store, check['id'], comment=comment.strip(), request_key=request_key,
                                 result=result, version=number)
+        if check and works and not comment.strip():
+            interactions.set_state(self.store, check['id'], 'applied')
         if works:
             self.store.event(project_id, 'verdict', Msg('verdict_ok', number=number))
             return
@@ -1065,6 +1067,14 @@ class Supervisor:
                          data={'interaction': interaction_id, 'late': saved['late']})
         if saved['late']:
             return saved
+        if row['type'] == 'manual_test' and result in ('works', 'cannot') and not comment.strip() and not value.strip():
+            # Nothing for the models to do: the answer is recorded and the matter is closed. A finished project
+            # stays finished (PR15/26 on 2026-11-08: each "works" on the final version reopened it for another
+            # round on Opus xhigh, which made a new version and a new request to test it).
+            interactions.set_state(self.store, interaction_id, 'applied')
+            if result == 'works' and row['author'] == 'version' and version:
+                self.store.update_version(project_id, version, user_verdict='ok', user_verdict_at=time.time())
+            return {**saved, 'closed': True}
         if row['type'] == 'manual_test':
             text = prompts.text(lang, 'test_result_note', id=row['ref'], title=row['text'][:120], version=version or '-',
                                 result=result or value or '-', comment=comment or '')
