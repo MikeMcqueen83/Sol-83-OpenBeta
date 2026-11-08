@@ -36,7 +36,18 @@ CATALOG = {
                       'Paused: {reason}. Add a note and resume, or settle the dispute.'),
     'retry': ('{who}: chwilowa awaria usługi, ponawiam (próba {attempt}).',
               '{who}: temporary service failure, retrying (attempt {attempt}).'),
-    'failures_stop': ('Kolejne błędy agentów, ostatni: {reason}.', 'Repeated agent errors, the last one: {reason}.'),
+    'failures_stop': ('{who}: {count} błędy z rzędu ({reason}). Przerwa rośnie przy każdym kolejnym; następna próba w nowej '
+                      'sesji o {until}. Sprawdź logowanie i wersję CLI albo wyłącz ten model w Ustawieniach.',
+                      '{who}: {count} errors in a row ({reason}). The pause grows with each; the next attempt, in a new session, '
+                      'at {until}. Check the sign-in and the CLI version, or switch this model off in Settings.'),
+    'turn_lost_accepted': ('{who} przerwał turę {turn} ({reason}, niedostępny do {until}). Pozostałe modele już zaakceptowały '
+                           'ten kod, więc nie dostają pustej tury: czekam na {who}, następna próba w nowej sesji.',
+                           '{who} dropped turn {turn} ({reason}, unavailable until {until}). The other models already '
+                           'accepted this code, so they get no empty turn: waiting for {who}, next attempt in a new session.'),
+    'project_kind_set': ('Rodzaj projektu od następnej tury: {kind}.', 'Project kind from the next turn: {kind}.'),
+    'project_kind_auto': ('wykrywany z zadania', 'detected from the task'),
+    'project_kind_document': ('dokument lub research', 'document or research'),
+    'project_kind_app': ('aplikacja', 'application'),
     'takeover': ('{who} przerwał turę {turn} ({reason}, niedostępny do {until}). {to} przejmuje pracę.',
                  '{who} dropped turn {turn} ({reason}, unavailable until {until}). {to} takes over.'),
     'fail_limit': ('wyczerpany limit', 'limit exhausted'),

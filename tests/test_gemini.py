@@ -616,6 +616,40 @@ class ReviewCadence(Base):
         self.assertEqual(self.works(project_id)[:3], ['plan', 'implement', 'review'])
 
 
+class FailureFlow(Base):
+    """PR9/26 on 2026-11-08: Gemini failed six times on a resumed broken session, each failure forced a turn on
+    Claude, which had already accepted the same code, and the project halted for "6 turns without a change"."""
+
+    def test_a_model_that_accepted_the_code_gets_no_empty_turn_after_a_failure(self):
+        self.scenario(codex=[{'write': {'ok.txt': 'ok'}}, {'fail': 'unexpected crash in the agent'}],
+                      claude=[{'lgtm': True}, {'reply': 'nie powinienem dostać tej tury'}])
+        project_id = self.start()
+        self.wait_phase(project_id, 'waiting_partner')
+        self.assertEqual([c['agent'] for c in self.calls()], ['codex', 'claude', 'codex'])
+        takeover = next(e for e in self.store.events(project_id) if e['kind'] == 'takeover')
+        self.assertIn('nie dostają pustej tury', takeover['text'])
+        self.assertEqual(self.store.block('codex')['source'], 'failure')
+
+    def test_repeated_failures_of_one_provider_get_growing_pauses(self):
+        self.assertEqual([limits.failure_pause('other', n) for n in (1, 2, 3, 4, 5)],
+                         [600, 1200, 2400, 4800, 7200])
+        self.assertEqual(limits.failure_pause('transient', 1), limits.TRANSIENT_BLOCK_S)
+
+    def test_document_projects_get_document_rules_and_apps_do_not(self):
+        from gemini_app import prompts
+        self.assertEqual(prompts.project_kind({'title': 'MC TAF vs VISA DAF', 'task': 'Przygotuj kompendium / handbook'}),
+                         'document')
+        self.assertEqual(prompts.project_kind({'title': 'Gra', 'task': 'Zbuduj grę RTS', 'project_kind': 'auto'}), 'app')
+        self.assertEqual(prompts.project_kind({'title': 'Gra', 'task': 'handbook', 'project_kind': 'app'}), 'app')
+        self.scenario(codex=[{'reply': 'plan'}], claude=[{'reply': 'x'}])
+        project_id = self.supervisor.create_project(task='Przygotuj handbook o płatnościach agentowych',
+                                                    repo_path=str(self.repo))['id']
+        self.wait_for(lambda: self.calls(), what='pierwsza tura')
+        self.supervisor.stop(project_id, immediate=True)
+        self.assertIn('To projekt dokumentu lub researchu', self.calls()[0]['prompt'])
+        self.assertIn('Pracuj oszczędnie', self.calls()[0]['prompt'])
+
+
 class ThreeModels(Base):
     def project(self, **choices):
         return self.supervisor.create_project(task='Zbuduj ok.txt', repo_path=str(self.repo), verify_cmd=VERIFY,
@@ -1865,15 +1899,13 @@ class Lifecycle(Base):
         self.wait_status(project_id, 'stopped', timeout=15)
         self.assertEqual(engine_pids(project_id), [])
 
-    def test_agent_gets_a_fresh_session_every_few_turns(self):
-        os.environ['GEMINI_ROTATE_AFTER'] = '1'
-        try:
-            self.scenario(codex=[{'write': {'ok.txt': 'ok'}}, {'write': {'b.txt': '1'}}, {'lgtm': True}],
-                          claude=[{'lgtm': True}, {'lgtm': True}])
-            project_id = self.start()
-            self.wait_status(project_id, 'done')
-        finally:
-            os.environ.pop('GEMINI_ROTATE_AFTER')
+    def test_agent_gets_a_fresh_session_every_turn_by_default(self):
+        # 2026-11-08 audit: a resumed session re-reads its history on every step (PR9: the 6th turn of a Gemini
+        # session cost 2.6 times the first). The handoff packet carries the context instead.
+        self.scenario(codex=[{'write': {'ok.txt': 'ok'}}, {'write': {'b.txt': '1'}}, {'lgtm': True}],
+                      claude=[{'lgtm': True}, {'lgtm': True}])
+        project_id = self.start()
+        self.wait_status(project_id, 'done')
         codex = [c for c in self.calls() if c['agent'] == 'codex']
         self.assertFalse(codex[1]['resumed'])
         self.assertIn('Nowa sesja', codex[1]['prompt'])

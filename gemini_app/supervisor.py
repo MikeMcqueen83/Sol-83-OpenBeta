@@ -221,10 +221,15 @@ class Supervisor:
     REVIEW_MODES = ('stage', 'each')
 
     def set_options(self, project_id: str, user_tests: Optional[str] = None, web_fetch: Optional[bool] = None,
-                    review_mode: Optional[str] = None) -> None:
+                    review_mode: Optional[str] = None, project_kind: Optional[str] = None) -> None:
         """When the user is asked to test (final version only, every version, never), whether Claude may
         read web pages (WebFetch), and how often a change is reviewed. All apply from the next turn."""
         self._require(project_id)
+        if project_kind is not None:
+            if project_kind not in prompts.KINDS:
+                raise ValueError(Msg('err_option'))
+            self.store.update_project(project_id, project_kind=project_kind)
+            self.store.event(project_id, 'models', Msg('project_kind_set', kind=Msg(f'project_kind_{project_kind}')))
         if review_mode is not None:
             if review_mode not in self.REVIEW_MODES:
                 raise ValueError(Msg('err_option'))

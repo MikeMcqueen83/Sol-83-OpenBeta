@@ -6,6 +6,8 @@ markers have a Polish and an English form and the parsers accept both.
 """
 from __future__ import annotations
 
+import re
+
 LANGS = ('pl', 'en')
 
 TEXT = {
@@ -17,6 +19,7 @@ W każdej turze:
 2. Sprawdź sam kod, diff i wyniki. Raport partnera to wskazówka, nie dowód.
 3. Wykonaj jeden spójny krok: zbuduj, napraw albo przetestuj i opisz usterki. Trzymaj turę w granicach kilkunastu minut pracy.
 4. Uruchom testy i podaj ich rzeczywisty wynik.
+5. Pracuj oszczędnie: każdy Twój krok to osobne zapytanie, które od nowa czyta cały kontekst. Plik zapisuj w całości zamiast wielu drobnych edycji, testy i budowanie uruchamiaj raz pod koniec tury (ponownie tylko po naprawie), skracaj wyjście poleceń (tryb cichy, tail), a wyniki wyszukiwania od razu streszczaj w pliku notatek.
 
 Nie osłabiaj testów, aby przeszły. Nie zmieniaj zadania ani instrukcji. Nie odwracaj decyzji partnera z powodów stylistycznych. Odpowiadaj po polsku.
 
@@ -30,6 +33,7 @@ In every turn:
 2. Check the code, the diff and the results yourself. A partner's report is a hint, not proof.
 3. Take one coherent step: build, fix, or test and describe defects. Keep a turn to some fifteen minutes of work.
 4. Run the tests and report their real result.
+5. Work economically: each of your steps is a separate request that reads the whole context again. Write a file in one go rather than in many small edits, run tests and builds once at the end of the turn (again only after a fix), keep command output short (quiet mode, tail), and summarise search results into a notes file right away.
 
 Do not weaken tests to make them pass. Do not change the task or the instructions. Do not reverse a partner's decision for reasons of style. Answer in English.
 
@@ -48,11 +52,19 @@ When the whole goal is met and you checked it yourself, give an LGTM rationale a
     'team_roles': {'pl': 'Role w zespole: {roles}.', 'en': 'Roles in the team: {roles}.'},
     'content_now': {'pl': 'Zamówienia do zrobienia teraz:', 'en': 'Orders to make now:'},
     'task': {'pl': 'Zadanie użytkownika:', 'en': "The user's task:"},
-    'rotated': {'pl': 'Nowa sesja: koordynator co kilka tur zaczyna świeżą sesję, żeby nie czytać całej historii. '
-                      'Kontekst masz w zadaniu, w planie .sol83/plan.json, w zmianach od startu projektu i w repozytorium.',
-                'en': 'New session: every few turns the coordinator starts a fresh session so the whole history is not '
-                      're-read. Your context is the task, the plan in .sol83/plan.json, the changes since the project '
-                      'started and the repository.'},
+    'changes_cut': {'pl': '(lista skrócona: resztę pokaże git log)', 'en': '(list shortened: git log shows the rest)'},
+    'document_rules': {'pl': 'To projekt dokumentu lub researchu, nie aplikacji. Nie buduj zaplecza: bez zestawów testów, linterów, '
+                             'walidatorów i skryptów poza jednym prostym budowaniem do HTML, jeśli jest potrzebne. Sprawdzaj treść, '
+                             'źródła i spójność, nie kod. Pisz rozdział w całości jednym zapisem.',
+                       'en': 'This is a document or research project, not an application. Do not build tooling: no test suites, '
+                             'linters, validators or scripts beyond one simple build to HTML, if needed. Check content, sources and '
+                             'consistency, not code. Write a chapter in one go.'},
+    'rotated': {'pl': 'Nowa sesja: koordynator zaczyna każdą turę w świeżej sesji, żeby nie czytać całej historii (to najdroższa '
+                      'część pracy). Kontekst masz w zadaniu, w planie .sol83/plan.json, w zmianach poniżej i w repozytorium; czytaj '
+                      'tylko pliki potrzebne do bieżącej pozycji.',
+                'en': 'New session: the coordinator starts every turn in a fresh session so the whole history is not re-read '
+                      '(the most expensive part of the work). The context is in the task, the plan .sol83/plan.json, the changes '
+                      'below and the repository; read only the files the current item needs.'},
     'self_review': {'pl': 'Tryb Full Power: {partner} jest niedostępny ({reason}), więc przegląd robisz Ty, w nowej sesji, '
                           'bez pamięci tej pracy. Traktuj kod jak cudzy: przeczytaj diff, uruchom testy, szukaj błędów i '
                           'brakujących przypadków względem zadania. Popraw to, co uzasadnione. Jeśli nic nie wymaga zmian, zgłoś LGTM.',
@@ -189,6 +201,20 @@ def text(lang: str, key: str, **values) -> str:
     entry = TEXT[key]
     template = entry.get(lang) or entry['pl']
     return template.format(**values) if values else template
+
+
+_DOCUMENT_TASK = re.compile(r'handbook|kompendi|compendium|research|raport|report|whitepaper|onboarding|przewodnik|'
+                            r'guide\b|analiz\w* rynk|market (analysis|research)|dokument\w* (?:dla|for)|opracowani', re.I)
+KINDS = ('auto', 'document', 'app')
+
+
+def project_kind(project: dict) -> str:
+    """'document' for research, reports and handbooks, 'app' otherwise. The user's choice wins over the guess."""
+    chosen = (project or {}).get('project_kind')
+    if chosen in ('document', 'app'):
+        return chosen
+    text = f"{(project or {}).get('title') or ''}\n{(project or {}).get('task') or ''}"
+    return 'document' if _DOCUMENT_TASK.search(text) else 'app'
 
 
 def language(project: dict) -> str:

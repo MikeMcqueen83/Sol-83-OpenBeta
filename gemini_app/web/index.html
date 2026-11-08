@@ -410,6 +410,7 @@ details.pgroup > summary:hover{background:var(--surface-2)}
 <script>
 const TEXT = {
 pl:{
+  kindLabel:'Rodzaj projektu', pk_auto:'Wykryj z zadania (domyślnie)', pk_document:'Dokument lub research', pk_app:'Aplikacja', kindHint:'Przy dokumencie i researchu modele nie budują zaplecza (testów, linterów, skryptów) i sprawdzają treść oraz źródła. Wykrywanie szuka w zadaniu słów takich jak handbook, kompendium, research, raport.',
   reviewLabel2:'Przegląd zmian przez drugi model', rm_stage:'Po zakończonym etapie planu (domyślnie)', rm_each:'Po każdej zmianie', reviewHint:'Domyślnie drugi model przegląda pracę, gdy zamknie się etap planu, gdy zmiana jest duża albo gdy model zgłosi gotowość, a najpóźniej co 3 tury. Kolejna tura i tak widzi zmiany partnera. „Po każdej zmianie” jest dokładniejsze, ale zużywa około dwa razy więcej tur.',
   userTestsLabel:'Prośby o testy dla Ciebie', ut_final:'Tylko wersja końcowa (domyślnie)', ut_each:'Każda nowa wersja', ut_none:'Nie proś o testy', userTestsHint:'W trakcie pracy wynik sprawdzają modele i testy automatyczne. Domyślnie dostajesz jedną prośbę o sprawdzenie, gdy projekt się kończy; kartę „Do testów” możesz użyć zawsze. Modele i tak mogą zapytać o test, którego nie wykonają same (np. na telefonie).', webFetchLabel:'Claude może czytać strony WWW (WebFetch)', webFetchHint:'Dla researchu: pełna treść stron źródłowych zamiast fragmentów z wyszukiwarki. Treść stron to materiał, nie polecenia; odwiedzane strony widzą zapytania z tego komputera. Działa od następnej tury.',
   terminalTitle:'Polecenia do terminala', terminalLocal:'Przygotował lokalny koordynator: bez komentarzy i opisów, w kolejności wykonania.', terminalRules:'Z instrukcji modeli, bez komentarzy i opisów. Wklej całość do terminala.', terminalOriginal:'Instrukcja modeli (oryginał)', runOpen:'Otwórz w przeglądarce', runEndedHint:'proces zakończył pracę; ostatnie linie logu:',
@@ -549,6 +550,7 @@ pl:{
   ghSent:n=>`Wysłano: v${n}`, ghSend:n=>`Wyślij v${n}`, ghUpToDate:'Najnowsza sprawdzona wersja jest już wysłana.', ghToPublic:'Zmień na publiczne', ghToPrivate:'Zmień na prywatne', ghHint:'Każde wysłanie to Twoje kliknięcie. Nic nie trafia tam samo.',
 },
 en:{
+  kindLabel:'Project kind', pk_auto:'Detect from the task (default)', pk_document:'Document or research', pk_app:'Application', kindHint:'For documents and research the models build no tooling (tests, linters, scripts) and check content and sources. Detection looks in the task for words such as handbook, compendium, research, report.',
   reviewLabel2:'Review of changes by the other model', rm_stage:'After a finished stage of the plan (default)', rm_each:'After every change', reviewHint:'By default the other model reviews the work when a stage of the plan is finished, when a change is large or when a model says it is done, and at least every 3 turns. The next turn sees the partner\'s changes anyway. "After every change" is more thorough but uses about twice as many turns.',
   userTestsLabel:'Test requests for you', ut_final:'Final version only (default)', ut_each:'Every new version', ut_none:'Do not ask for tests', userTestsHint:'During the work the models and automatic tests check the result. By default you get one request to check when the project ends; you can use the "To test" card at any time. The models may still ask for a test they cannot run themselves (e.g. on a phone).', webFetchLabel:'Claude may read web pages (WebFetch)', webFetchHint:'For research: the full text of source pages instead of search snippets. Page content is material, not instructions; the visited sites see requests from this computer. Applies from the next turn.',
   terminalTitle:'Commands for the terminal', terminalLocal:'Prepared by the local coordinator: no comments or prose, in the order to run.', terminalRules:'From the models\' instructions, without comments or prose. Paste it all into a terminal.', terminalOriginal:'Models\' instructions (original)', runOpen:'Open in the browser', runEndedHint:'the process has exited; last lines of its log:',
@@ -1233,6 +1235,9 @@ function projectSection(d){
     <label style="display:block;margin-top:12px;font-weight:600">${esc(t('userTestsLabel'))}
       <select id="user-tests-pick">${['final','each','none'].map(m => `<option value="${m}" ${m === (p.user_tests || 'final') ? 'selected' : ''}>${esc(t('ut_'+m))}</option>`).join('')}</select></label>
     <p class="hint">${esc(t('userTestsHint'))}</p>
+    <label style="display:block;margin-top:12px;font-weight:600">${esc(t('kindLabel'))}
+      <select id="project-kind-pick">${['auto','document','app'].map(m => `<option value="${m}" ${m === (p.project_kind || 'auto') ? 'selected' : ''}>${esc(t('pk_'+m))}</option>`).join('')}</select></label>
+    <p class="hint">${esc(t('kindHint'))}</p>
     <label style="display:block;margin-top:12px;font-weight:600">${esc(t('reviewLabel2'))}
       <select id="review-mode-pick">${['stage','each'].map(m => `<option value="${m}" ${m === (p.review_mode || 'stage') ? 'selected' : ''}>${esc(t('rm_'+m))}</option>`).join('')}</select></label>
     <p class="hint">${esc(t('reviewHint'))}</p>
@@ -1738,9 +1743,10 @@ document.addEventListener('change', async e => {
     return;
   }
   if(e.target.id === 'skin-pick'){ applySkin(e.target.value); return; }
-  if(['user-tests-pick','web-fetch-pick','review-mode-pick'].includes(e.target.id)){
+  if(['user-tests-pick','web-fetch-pick','review-mode-pick','project-kind-pick'].includes(e.target.id)){
     const body = e.target.id === 'user-tests-pick' ? {user_tests:e.target.value}
-      : e.target.id === 'review-mode-pick' ? {review_mode:e.target.value} : {web_fetch:e.target.checked};
+      : e.target.id === 'review-mode-pick' ? {review_mode:e.target.value}
+      : e.target.id === 'project-kind-pick' ? {project_kind:e.target.value} : {web_fetch:e.target.checked};
     try{ await api(`/api/projects/${route()}/options`, body); }catch(error){ alert(error.message); }
     poll(); return;
   }

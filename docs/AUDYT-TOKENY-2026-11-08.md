@@ -31,6 +31,13 @@ Ustalenia:
 - **Pętla długu.** Recenzenci dopisywali dług (D1…D21), a tury 37–56 i 65–79 szły głównie na dług, choć pozycje F7–F8 czekały. Pozycje wracały wielokrotnie: F2.2 przez 6 tur, F6.2 przez 5, a cztery oceny „cofnął” oznaczały odwracanie zmian partnera.
 - **Rytm przegląd–implementacja 1:1.** Prawie każda zmiana szła do przeglądu, więc połowa z 79 tur to przeglądy.
 
+## Uzupełnienie: PR9 dziś i porównanie z PR15
+
+- Codex w PR9 (8 sesji, 386 zapytań): średni kontekst 114 tys., 97% wejścia to ponowny odczyt z pamięci podręcznej; w koszcie ważonym cenami API ponowne czytanie to 59% (PR15 Claude: 47%).
+- Gemini w PR9: średnio 222 tys. tokenów w 1. turze sesji, 293, 365, 474, 545 i 585 tys. w 6. turze: koszt rośnie z historią sesji.
+- Tury 80–91 (8.11, 11:15–12:10): Antigravity sześć razy zwrócił pełny przegląd z akceptacją, ale ze statusem „The stream was interrupted”. Sol-83 wznawiał tę samą rozmowę, za każdym razem wymuszał pustą turę Claude, a licznik błędów zerowały udane tury partnera. Projekt zatrzymał się na „6 tur bez zmian” zamiast się zakończyć. Naprawione w 0.7.4.
+- PR15 (Claude, research): 79 zapytań w 4 turach; 44% kosztu to zaplecze testowe i budowanie, 35% wygenerowanego tekstu to myślenie (Opus xhigh). Symulacja na tych danych: nowa sesja co turę −16%, mniej kroków −8%, razem −21%; udział czytania 48% → 27%. Dolna granica samego stałego kontekstu (instrukcje i narzędzia) to około 6%.
+
 ## Propozycje zmian w logice dla dużych projektów
 
 | # | Zmiana | Szacowany efekt | Stan |
@@ -43,3 +50,6 @@ Ustalenia:
 | 6 | Budżet długu: zanim pozycje must są gotowe, dług tylko z kategorii bug/test, które blokują | koniec pętli D1…D21 | propozycja |
 | 7 | Przegląd przez Gemini (Antigravity) z niższym wysiłkiem albo limitem kroków; drogie przeglądy przez Claude lub Codex | PR14: przegląd Gemini 3–5 razy droższy niż tura Claude | propozycja |
 | 8 | Diagnoza błędu z komunikatu błędu, nie z całego ogona logu | poprawne etykiety w danych | propozycja |
+| 9 | Nowa sesja agenta w każdej turze, pakiet przekazania zamiast historii | PR15: −16%; Gemini PR9: do −45% | **zrobione (0.7.4)** |
+| 10 | Zasady oszczędnej pracy i projekt dokumentowy bez zaplecza | PR15: −8% kroków; do −44% kosztu zaplecza | **zrobione (0.7.4)** |
+| 11 | Awarie: nowa sesja, błędy per model, rosnąca przerwa, brak pustych tur | PR9: 6 utraconych przeglądów, 5 pustych tur | **zrobione (0.7.4)** |

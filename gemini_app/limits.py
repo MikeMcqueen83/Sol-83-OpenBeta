@@ -298,6 +298,13 @@ class Choice:
     waiting_for: Optional[int] = None
 
 
+def failure_pause(kind: str, consecutive: int) -> float:
+    """The pause after the n-th failure in a row of one provider that is not a limit: it doubles with each
+    repeat, up to UNKNOWN_RESET_MAX_S, so a broken CLI or session is not retried every few minutes for hours."""
+    base = AUTH_BLOCK_S if kind == 'auth' else TRANSIENT_BLOCK_S if kind == 'transient' else FAILURE_BLOCK_S
+    return min(base * 2 ** max(0, consecutive - 1), max(base, UNKNOWN_RESET_MAX_S))
+
+
 def unknown_reset_pause(strikes: int) -> float:
     """The guessed pause after an exhausted limit with no reset time, growing with repeats."""
     return min(UNKNOWN_RESET_S * 2 ** max(0, strikes), UNKNOWN_RESET_MAX_S)
@@ -379,7 +386,11 @@ def choose_among(order: list, avail: list, accepted: list, self_review: bool = F
         soonest = min(order, key=lambda i: avail[i].until or float('inf'))
         return Choice(None, mode, avail[soonest].until, avail[soonest].reason, soonest)
     first = order[0]
-    if first in ready:
+    # A model that already accepted the current code does not get a turn just for being first in line while a
+    # partner that has not accepted yet is away (PR9/26: five "nothing changed" turns while Gemini was down):
+    # that partner's review is awaited. With nobody to wait for, the first in line goes on as before.
+    awaited = any(not avail[i].available and not accepted[i] for i in order)
+    if first in ready and not (accepted[first] and awaited):
         speaker = first
     else:
         fresh = [i for i in ready if not accepted[i]]

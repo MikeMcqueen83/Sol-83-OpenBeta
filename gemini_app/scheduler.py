@@ -29,7 +29,10 @@ MAX_IDLE_TURNS = 6
 NO_VERSION_HALT = 8
 NO_GOAL_HALT = 4
 ITEM_HALT_FACTOR = 2
-ROTATE_AFTER = int(os.environ.get('GEMINI_ROTATE_AFTER', 6))
+# A new agent session every turn by default (2026-11-08 audit): a resumed session re-reads its whole history on
+# every step, the largest cost in PR9/PR15; the handoff packet, the plan and the repository carry the context.
+ROTATE_AFTER = int(os.environ.get('GEMINI_ROTATE_AFTER', 1))
+CHANGES_LIMIT = 4000
 MAX_TREE_REPEATS = 3
 MAX_FAILURES = 3
 MAX_RETRIES = 2
@@ -138,7 +141,8 @@ class GeminiScheduler:
         self.retry_delay = float(os.environ.get('GEMINI_RETRY_DELAY', 60))
         self.force_next: Optional[int] = None
         self.current_message = ''
-        self.failures = 0
+        self.failures: collections.Counter = collections.Counter()   # failures in a row, per provider
+        self.force_fresh: set = set()
         self.retries: collections.Counter = collections.Counter()
         self.idle_turns = 0
         self.tree_counts: collections.Counter = collections.Counter()
@@ -484,12 +488,13 @@ class GeminiScheduler:
         self.usage_before = self._usage(name)
         if choice.mode == 'self_review':
             self.session_turns[name] = 0
-        elif self.session_turns[name] >= ROTATE_AFTER:
+        elif self.session_turns[name] >= ROTATE_AFTER or name in self.force_fresh:
             # A resumed session re-reads its whole history every turn: start a new one now and
             # then, and let the plan, the handoff and the repository carry the context.
             self.cfg.agents[index].session_id = None
             self.session_turns[name] = 0
             self.rotated = True
+        self.force_fresh.discard(name)
         self.session_turns[name] += 1
         self.in_self_review = choice.mode == 'self_review'
         if self.in_self_review:
@@ -562,7 +567,7 @@ class GeminiScheduler:
         self.last_changed, self.last_work = checkpoint.changed, self.work
         if self.store.setting(f'strikes_{name}', 0):
             self.store.set_setting(f'strikes_{name}', 0)
-        self.failures = 0
+        self.failures[name] = 0
         self.retries.clear()
         reply = section(_NOTE_REPLY, result.reply)
         if self.store.answer_notes(self.pid, turn, reply):
@@ -890,6 +895,9 @@ class GeminiScheduler:
         text = self._failure_text(entry)
         kind = limits.classify_failure(text, result.failure_reason)
         diagnosis = providers.diagnose(text)
+        # The next attempt of this model starts a new session: PR9/26 on 2026-11-08 resumed a broken Antigravity
+        # conversation ("The stream was interrupted") six times and lost six complete reviews.
+        self.force_fresh.add(name)
         if kind == 'transient' and self.retries[name] < MAX_RETRIES:
             self.retries[name] += 1
             self.store.event(self.pid, 'retry', Msg('retry', who=label(name),
@@ -897,13 +905,15 @@ class GeminiScheduler:
             time.sleep(self.retry_delay * self.retries[name])
             self.force_next = index
             return Outcome(message=self.current_message)
-        until = self._block_failed_agent(name, kind, text)
         if kind != 'limit':
-            self.failures += 1
-            if self.failures >= MAX_FAILURES:
-                self.store.event(self.pid, 'attention',
-                                 Msg('failures_stop', reason=Msg(f'fail_{kind}')), agent=name)
-                return Outcome()
+            # Counted per provider: the partner's successful turns no longer reset a model that keeps failing.
+            self.failures[name] += 1
+        until = self._block_failed_agent(name, kind, text)
+        if kind != 'limit' and self.failures[name] >= MAX_FAILURES:
+            self.store.event(self.pid, 'attention',
+                             Msg('failures_stop', who=label(name), count=self.failures[name],
+                                 reason=Msg(f'fail_{kind}'), until=when(until)), agent=name)
+            return Outcome()
         data = {'from': name, 'kind': kind, 'until': until, 'commit': checkpoint.head, 'diagnosis': diagnosis,
                 'reset_source': self.reset_source}
         enabled = self._enabled()
@@ -915,6 +925,16 @@ class GeminiScheduler:
                              agent=name, data=data)
             self.force_next = index
             return Outcome(message=self._takeover_message(turn, name, kind, checkpoint))
+        # A model that already accepted exactly this code gets no forced turn: it would only report that nothing
+        # changed (PR9/26: five such turns, then a halt for "6 turns without a change"). The project waits for the
+        # failed model instead, unless the failed turn left changes or new work is queued.
+        if not checkpoint.changed and not self.store.pending_notes(self.pid):
+            order = [i for i in order if self.names[i] not in self.accepted and self.names[i] != self.idle_agent]
+            if not order:
+                self.store.event(self.pid, 'takeover', Msg('turn_lost_accepted', who=label(name), turn=turn,
+                                                           reason=Msg(f'fail_{kind}'), until=when(until)),
+                                 agent=name, data=data)
+                return Outcome(message=self._takeover_message(turn, name, kind, checkpoint))
         avail = self._availability()
         successor = next((i for i in order if avail[i].available), order[0])
         partner = self.names[successor]
@@ -933,7 +953,8 @@ class GeminiScheduler:
         now = time.time()
         self.reset_source = None
         if kind == 'auth':
-            until, reason, source = now + limits.AUTH_BLOCK_S, Msg('needs_login'), 'auth'
+            until = now + limits.failure_pause('auth', self.failures[name])
+            reason, source = Msg('needs_login'), 'auth'
         elif kind == 'limit':
             snapshot = self.reader.read(force=True).get(name)
             found = limits.availability(snapshot, self.store.threshold(name))
@@ -949,10 +970,9 @@ class GeminiScheduler:
                 self.store.set_setting(f'strikes_{name}', strikes + 1)
             self.reset_source = source
             reason = found.reason or Msg('provider_limit')
-        elif kind == 'transient':
-            until, reason, source = now + limits.TRANSIENT_BLOCK_S, Msg('fail_transient'), 'failure'
         else:
-            until, reason, source = now + limits.FAILURE_BLOCK_S, Msg(f'fail_{kind}'), 'failure'
+            until = now + limits.failure_pause(kind, self.failures[name])
+            reason, source = Msg(f'fail_{kind}'), 'failure'
         self.store.set_block(name, until, reason, source)
         return until
 
@@ -1061,6 +1081,8 @@ class GeminiScheduler:
                               in zip(self.names, self.roles, enabled) if on)
             lines += [model_roles.prompt(self.roles[index], lang), T('team_roles', roles=roles),
                       model_roles.WORK_LINES[self.work][lang]]
+        if prompts.project_kind(self.store.project(self.pid)) == 'document':
+            lines.append(T('document_rules'))
         if model_roles.creates_content(self.roles, enabled):
             if self.work == 'content':
                 lines += [T('content_now'), content.summary(content.pending(self.cfg.cwd))]
@@ -1083,8 +1105,11 @@ class GeminiScheduler:
             lines.append(T('latest', number=latest['number'], sha=latest['commit_sha'][:7], turn=latest['turn']))
         lines.append(T('tests', result=self.last_verify))
         head = self.git.head()
-        changes = self.git.changes_since(
-            self.project['base_commit'] if fresh else seen.get(name) or self.project['base_commit'])
+        # What changed since this model's last turn; a self-review looks at everything since the start.
+        since = self.project['base_commit'] if choice.mode == 'self_review' else seen.get(name) or self.project['base_commit']
+        changes = self.git.changes_since(since)
+        if len(changes) > CHANGES_LIMIT:
+            changes = changes[:CHANGES_LIMIT] + '\n' + T('changes_cut')
         if changes:
             lines += [T('changes'), changes]
         status = self.git.dirty()
