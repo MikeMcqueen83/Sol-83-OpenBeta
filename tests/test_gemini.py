@@ -476,6 +476,101 @@ class Roles(Base):
         self.assertEqual([call['agent'] for call in self.calls()], ['codex', 'codex'])
 
 
+class WaitsAndPauses(Base):
+    """2026-11-08: projects waited "for a model with the needed role" until 03:29 while Claude's limit had
+    reset at 03:00. The panel must name the model, the cause and the time, and say when the time is a guess."""
+
+    def test_usage_minute_gets_a_grace_minute(self):
+        # /usage showed "2:59am" while the provider's own resetsAt was 03:00:00: a turn started at 02:59 failed.
+        now = time.mktime((2026, 11, 8, 2, 50, 0, 0, 0, -1))
+        parsed = limits.parse_claude_usage('Current session: 100% used · resets 2:59am (Europe/Warsaw)\n', now)
+        reset = parsed['windows']['five_hour']['resets_at']
+        self.assertEqual(time.strftime('%H:%M:%S', time.localtime(reset)), '03:00:00')
+
+    def test_rejection_uses_the_provider_reset_and_a_guess_is_marked(self):
+        now = time.time()
+        self.scenario(claude_limits={'five_hour': {'used': 100, 'resets_at': now - 120}, 'seven_day': 13})
+        event = {'provider': 'claude', 'read_at': now, 'windows': {}, 'status': 'rejected', 'overage': True}
+        (STATE / 'limits-claude.json').write_text(json.dumps({**event, 'resets_at': now + 600}))
+        found = limits.availability(limits.read_claude(), 80.0)
+        self.assertFalse(found.available)
+        self.assertAlmostEqual(found.until, now + 600, delta=2)
+        self.assertFalse(found.estimate)
+        (STATE / 'limits-claude.json').write_text(json.dumps(event))
+        guess = limits.availability(limits.read_claude(), 80.0)
+        self.assertTrue(guess.estimate)
+        self.assertAlmostEqual(guess.until - time.time(), limits.UNKNOWN_RESET_S, delta=5)
+
+    def test_review_waits_for_the_reviewer_back_first(self):
+        # Codex (first in order) is back in two days, Claude tonight: the wait shows Claude's time.
+        now = time.time()
+        avail = [limits.Availability(False, now + 2 * 86400, 'tydzień'),
+                 limits.Availability(False, now + 1800, '5h', estimate=True),
+                 limits.Availability(True)]
+        choice = limits.choose_among([0, 1, 2], avail, [False, False, True])
+        self.assertEqual((choice.mode, choice.waiting_for, choice.until), ('waiting_partner', 1, now + 1800))
+
+    def test_overage_rejection_blocks_until_the_provider_reset_not_half_an_hour(self):
+        reset = time.time() + 1500
+        self.scenario(claude=[{'overage': True, 'limit_status': 'rejected', 'limit_resets_at': reset}],
+                      codex=[{'write': {'ok.txt': 'ok'}}],
+                      claude_limits={'five_hour': {'used': 100, 'resets_at': time.time() - 120}, 'seven_day': 13})
+        project_id = self.start()
+        self.wait_for(lambda: 'takeover' in self.kinds(project_id), timeout=40, what='przejęcie po limicie Claude')
+        block = self.store.block('claude')
+        self.assertAlmostEqual(block['until'], reset, delta=5)
+        self.assertEqual(block['source'], 'reading')
+        takeover = next(e for e in self.store.events(project_id) if e['kind'] == 'takeover')
+        self.assertEqual(takeover['data']['reset_source'], 'reading')
+
+    def test_role_wait_names_the_model_cause_and_time(self):
+        self.scenario(codex=[{'write': {'.sol83/plan.json': json.dumps(Planning.PLAN), 'ok.txt': 'ok'}}],
+                      claude_limits=exhausted(1800))
+        project_id = self.supervisor.create_project(task='Zbuduj ok.txt', repo_path=str(self.repo), verify_cmd=VERIFY,
+                                                    claude_role='architect', codex_role='implementer,tester')['id']
+        self.wait_phase(project_id, 'waiting_role')
+        self.assertEqual(self.calls(), [])
+        live = self.store.live(project_id)
+        self.assertIn('Pracę „plan” może wykonać tylko Claude', live['reason'])
+        self.assertIn('Claude: limit 5h 100%, do ', live['reason'])
+        self.assertIn('Codex: nie ma roli do pracy „plan”', live['reason'])
+        self.assertNotIn('szacunek', live['reason'])
+        self.assertIn('Only Claude can do the work "planning"', live['reason_en'])
+        sides = {row['side']: row for row in json.loads(live['detail'])['sides']}
+        self.assertEqual((sides['claude']['state'], sides['claude']['estimate'], sides['codex']['state']),
+                         ('limit', False, 'role'))
+        self.assertAlmostEqual(sides['claude']['until'], live['until'], delta=61)
+
+    def test_try_now_lifts_a_guessed_pause_and_the_project_continues(self):
+        self.scenario(codex=[{'write': {'ok.txt': 'ok'}}, {'lgtm': True}], claude=[{'lgtm': True}])
+        for side in ('claude', 'codex'):
+            self.store.set_block(side, time.time() + 3600, Msg('provider_limit'), 'estimate')
+        project_id = self.start()
+        self.wait_phase(project_id, 'waiting_limits')
+        self.assertIn('(szacunek', self.store.live(project_id)['reason'])
+        self.assertEqual(self.calls(), [])
+        self.assertTrue(self.supervisor.retry_now('codex')['lifted'])
+        self.assertFalse(self.supervisor.retry_now('codex')['lifted'], 'nothing left to lift')
+        self.wait_for(lambda: self.calls(), what='tura Codexa po „Spróbuj teraz”')
+        self.assertEqual(self.calls()[0]['agent'], 'codex')
+        self.assertIn('note', self.kinds(project_id))
+        self.assertTrue(any('Spróbuj teraz' in e['text'] for e in self.store.events(project_id)))
+
+    def test_waiting_wakes_at_once_on_try_now(self):
+        import types
+        from gemini_app.scheduler import GeminiScheduler
+        self.scenario()
+        project_id = self.supervisor.create_project(task='x', repo_path=str(self.repo))['id']
+        cfg = types.SimpleNamespace(agents=[types.SimpleNamespace(name='claude'), types.SimpleNamespace(name='codex')],
+                                    cwd=str(self.repo), task='x')
+        scheduler = GeminiScheduler(cfg, pathlib.Path(tempfile.mkdtemp(dir=TEMP)), self.store, project_id)
+        stop = types.SimpleNamespace(requested=False)
+        threading.Timer(0.5, lambda: self.store.set_setting('retry_now', time.time())).start()
+        started = time.monotonic()
+        self.assertTrue(scheduler._wait(60, stop))
+        self.assertLess(time.monotonic() - started, 5)
+
+
 class ThreeModels(Base):
     def project(self, **choices):
         return self.supervisor.create_project(task='Zbuduj ok.txt', repo_path=str(self.repo), verify_cmd=VERIFY,
@@ -1920,8 +2015,9 @@ class Policy(unittest.TestCase):
         snapshot = limits.parse_claude_usage(report, 1793567000.0)
         self.assertEqual(snapshot['windows'][limits.FIVE_HOUR]['used'], 16)
         self.assertEqual(snapshot['windows'][limits.SEVEN_DAY]['used'], 49)
-        self.assertEqual(time.strftime('%d %H:%M', time.localtime(
-            snapshot['windows'][limits.FIVE_HOUR]['resets_at'])), '02 02:49')
+        # The report rounds down to the minute: the window counts until the end of that minute (2026-11-08).
+        self.assertEqual(time.strftime('%d %H:%M:%S', time.localtime(
+            snapshot['windows'][limits.FIVE_HOUR]['resets_at'])), '02 02:50:00')
         self.assertIsNone(limits.parse_claude_usage('inny format', 1793567000.0))
 
 

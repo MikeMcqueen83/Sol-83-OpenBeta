@@ -16,7 +16,9 @@ Projekt to zadanie, repozytorium i zespół modeli. Każde zlecenie (pierwsze za
 
 Zamknięcie projektu i dodanie pracy są wykonywane w jednej transakcji bazy: zlecenie przyjęte w trakcie finalizacji zawsze zostaje obsłużone, a spóźniona akceptacja starego stanu nie zamyka projektu z nową pracą. Gdy silnik padnie w trakcie tury (np. restart komputera), przekazana praca wraca do kolejki.
 
-Stan projektu w panelu mówi, na co czeka: na turę, na wykonawcę (inna rola), na limit, na Twoją decyzję lub test, albo że wystąpił błąd.
+Stan projektu w panelu mówi, na co czeka: na turę, na wykonawcę (inna rola), na limit, na Twoją decyzję lub test, albo że wystąpił błąd. Stan jest podany słowem i ikoną, nie tylko kolorem.
+
+**Lista projektów** w lewym panelu ma na górze sekcję **W toku**: projekty pracujące, czekające na model, przegląd albo limit i te w kolejce, każdy z powodem oczekiwania (model, przyczyna, godzina, ewentualny szacunek) i liczbą pytań lub testów, które czekają na Ciebie. Pod nią są zwarte grupy **Wymaga uwagi**, **Zatrzymane** i **Ukończone** z licznikami. Rozwinięcie grup przeglądarka zapamiętuje; grupa z otwartym projektem jest zawsze rozwinięta.
 
 ## 3. Modele, role i tryby wyboru
 
@@ -45,6 +47,10 @@ Raz w miesiącu (pierwszy raz miesiąc po instalacji) koordynator może zlecić 
 
 Panel **Konta i logowanie** pokazuje dla każdego CLI: instalację, logowanie, konto i abonament (tylko gdy CLI je podaje: Claude i Codex tak, Antigravity nie), czas odczytu i nieaktualność. **Sprawdź połączenie** nie wywołuje modelu. Błędy są rozróżniane: brak logowania, wygasła sesja, niewłaściwe konto, brak dostępu do modelu, limit abonamentu, ograniczenie częstotliwości, sieć, awaria dostawcy, przyczyna nieustalona. Gdy dostawca podaje czas resetu w komunikacie (Antigravity: „Resets in 144h”), Sol-83 używa go zamiast zgadywać.
 
+**Przerwy po błędach.** Godzinę powrotu modelu Sol-83 bierze najpierw z odczytu limitów albo z komunikatu dostawcy (także z odrzucenia przez Claude, które podaje godzinę resetu). Tylko gdy żadne źródło jej nie podaje, przyjmuje szacunek i pokazuje go w panelu jako „(szacunek)”: wyczerpany limit bez godziny 15 min, potem 30, 60 i najwyżej 120 min; chwilowa awaria (ograniczenie częstotliwości, sieć, przeciążenie) 5 min po dwóch szybkich ponowieniach; inny błąd 10 min; problem z logowaniem 60 min. Przycisk **Spróbuj teraz** (w panelu limitów i na belce czekającego projektu) zdejmuje przerwę od razu, a czekające projekty czytają limity na nowo. Odczyt, który nadal pokazuje wyczerpany limit, dalej wstrzymuje tury: to dane dostawcy.
+
+**Dlaczego projekt czeka.** Opis oczekiwania wymienia każdy włączony model: który może wykonać daną pracę, co go wstrzymuje i do kiedy, oraz które modele nie mają potrzebnej roli. Czekanie na przegląd pokazuje recenzenta, który wróci najwcześniej.
+
 **Tokeny** (zakładka Efektywność) to wartości na turę: przyrost licznika tej samej sesji. Claude podaje turę, a Codex i Antigravity podają sumę całej sesji, więc Sol-83 liczy z niej przyrost. Codex podaje tylko sumę, dlatego wejście i wyjście są „brak danych”, a nie zero. Cache jest pokazywany osobno. Kategorii różnych dostawców nie należy porównywać wprost.
 
 **Udział w limitach**: suma ruchu odczytów limitów konta w czasie tur projektu, osobno dla każdego dostawcy, np. 250% okna 5 h = 2,5 pełnego okna. To szacunek, bo obejmuje też inną pracę na koncie. Tury bez odczytu i tury wspólne z innym projektem są wskazane. To nie jest bieżące saldo.
@@ -59,7 +65,7 @@ Agenci prowadzą plan w `.sol83/plan.json`. Kanoniczne statusy to `todo`, `doing
 
 Agent zgłasza pytanie, prośbę o decyzję albo test ręczny (np. na telefonie) w `.sol83/requests.json`. Sol-83 zapisuje je jako trwałe rekordy z autorem, modelem, rolą, wersją, uzasadnieniem, opcjami, rekomendacją i tym, co blokują. Odpowiadasz w zakładce **Pytania i testy**. Odpowiedź jest zapisana przed wznowieniem pracy i trafia do agentów przez kolejkę na najbliższej granicy tury. Wynik testu: działa, nie działa, częściowo, nie mogę wykonać. Negatywny wynik tworzy jedno zgłoszenie błędu dla tego testu i wersji.
 
-Brak odpowiedzi nie jest zgodą. Prace zależne czekają, niezależne trwają. Gdy nic nie może się dziać, projekt zatrzymuje się w stanie „oczekiwanie na odpowiedź lub test użytkownika” i wznawia się po Twojej odpowiedzi. Spóźniona odpowiedź (do pytania zastąpionego nowszym albo wynik testu dla innej wersji) zostaje w historii, ale nie jest stosowana automatycznie.
+Brak odpowiedzi nie jest zgodą. Prace zależne czekają, niezależne trwają. Gdy nic nie może się dziać, projekt zatrzymuje się w stanie „oczekiwanie na odpowiedź lub test użytkownika” i wznawia się po Twojej odpowiedzi. Spóźniona odpowiedź (do pytania zastąpionego nowszym albo wynik testu dla starszej wersji niż ta, której test dotyczy) zostaje w historii, ale nie jest stosowana automatycznie. Wynik dla nowszej wersji rozstrzyga test: sprawdzasz to, co jest teraz. Odpowiedziane pytania i testy przechodzą do sekcji **Zrobione** (z informacją, czy modele już je dostały) i nie wracają same; „Zmień odpowiedź” otwiera je ponownie.
 
 „Co sprawdzić w tej wersji” to rekord testu ręcznego tej wersji. Ocena wersji przyciskami Działa / Nie działa zapisuje jego wynik.
 

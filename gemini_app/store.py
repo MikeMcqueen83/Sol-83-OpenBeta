@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS versions(
   user_verdict_at REAL, how_to_run TEXT,
   UNIQUE(project_id, number));
 CREATE TABLE IF NOT EXISTS blocks(
-  provider TEXT PRIMARY KEY, until REAL, reason TEXT, reason_en TEXT, created_at REAL);
+  provider TEXT PRIMARY KEY, until REAL, reason TEXT, reason_en TEXT, created_at REAL, source TEXT);
 CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT);
 CREATE TABLE IF NOT EXISTS usage(
   id INTEGER PRIMARY KEY, project_id TEXT, turn INTEGER, agent TEXT, ts REAL, session_id TEXT, scope TEXT,
@@ -97,9 +97,9 @@ MIGRATIONS = {
                  'role_fallback', 'gemini_model', 'gemini_reasoning', 'gemini_role',
                  'claude_selection', 'codex_selection', 'gemini_selection', 'language', 'key', 'license',
                  'git_context'),
-    'live': ('reason_en', 'config'), 'events': ('text_en', 'body'), 'versions': ('verify_summary_en', 'how_to_run'),
+    'live': ('reason_en', 'config', 'detail'), 'events': ('text_en', 'body'), 'versions': ('verify_summary_en', 'how_to_run'),
     'notes': ('response', 'kind', 'reopened', 'request_key', 'priority', 'done_version', 'done_at', 'ref'),
-    'blocks': ('reason_en',)}
+    'blocks': ('reason_en', 'source')}
 
 
 def next_key(db, moment: float) -> str:
@@ -422,10 +422,18 @@ class Store:
         rows = self.versions(project_id)
         return rows[0] if rows else None
 
-    def set_block(self, provider: str, until: float, reason: str) -> None:
+    def set_block(self, provider: str, until: float, reason: str, source: Optional[str] = None) -> None:
+        """`source` says where `until` comes from: provider_message, reading, estimate, failure or auth."""
         with self._db() as db:
-            db.execute('INSERT OR REPLACE INTO blocks(provider,until,reason,reason_en,created_at) '
-                       'VALUES(?,?,?,?,?)', (provider, until, reason, en(reason), time.time()))
+            db.execute('INSERT OR REPLACE INTO blocks(provider,until,reason,reason_en,created_at,source) '
+                       'VALUES(?,?,?,?,?,?)', (provider, until, reason, en(reason), time.time(), source))
+
+    def clear_block(self, provider: str) -> Optional[dict]:
+        """Lift a pause now ("Try now"); returns what was lifted, if it was still in force."""
+        found = self.block(provider)
+        with self._db() as db:
+            db.execute('DELETE FROM blocks WHERE provider=?', (provider,))
+        return found if found and found['until'] > time.time() else None
 
     def block(self, provider: str) -> Optional[dict]:
         return self._row('SELECT * FROM blocks WHERE provider=?', (provider,))

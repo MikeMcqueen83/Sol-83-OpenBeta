@@ -131,9 +131,65 @@ class Interactions(Base):
         self.assertEqual(len(bugs), 1, 'one bug report per test and version')
         self.assertTrue(failed['applied'])
         self.store.add_version(self.pid, tag_prefix='g', commit_sha='b' * 40, tree='u', level='tested', turn=2, agent='codex')
-        late = self.supervisor.answer_interaction(self.pid, added['id'], result='works')
-        self.assertTrue(late['late'], 'a result for v2 does not settle the test of v1')
-        self.assertIn(f"test:I{added['id']}", self.supervisor.close_blockers(self.pid))
+        # A pass on the newer version settles the test: the gate asks for a pass on the current version.
+        # (Until 2026-11-08 it was "late", and the panel always sends the newest version: such a test could
+        # never be settled and its notification came back after every confirmation.)
+        newer = self.supervisor.answer_interaction(self.pid, added['id'], result='works')
+        self.assertFalse(newer['late'])
+        self.assertNotIn(f"test:I{added['id']}", self.supervisor.close_blockers(self.pid))
+        recorded_v2 = interactions.add(self.store, self.pid, 'manual_test', 'Sprawdź eksport', 'codex', version_number=2)
+        older = interactions.answer(self.store, recorded_v2['id'], result='works', version=1)
+        self.assertTrue(older['late'], 'a result for an older version does not settle a test of a newer one')
+        self.assertEqual(interactions.get(self.store, recorded_v2['id'])['state'], 'open')
+
+    def test_confirmed_test_is_done_for_the_user_and_does_not_come_back(self):
+        # PR10/26 on 2026-11-08: test I3 recorded at v1, confirmed "works" while v2 was the newest.
+        self.store.add_version(self.pid, tag_prefix='g', commit_sha='a' * 40, tree='t', level='tested', turn=1, agent='codex')
+        added = interactions.add(self.store, self.pid, 'manual_test', 'Serwer działa stabilnie', 'gemini', version_number=1)
+        self.store.add_version(self.pid, tag_prefix='g', commit_sha='b' * 40, tree='u', level='tested', turn=2, agent='codex')
+        self.supervisor.answer_interaction(self.pid, added['id'], result='works', request_key='click-1')
+        from gemini_app.server import overview
+        row = next(p for p in overview(self.supervisor)['projects'] if p['id'] == self.pid)
+        self.assertEqual(row['questions_open'], 0)
+        self.assertEqual(interactions.get(self.store, added['id'])['state'], 'answered')
+        self.assertEqual(interactions.prompt_lines(self.store, self.pid, 'pl'), [], 'agents are not asked again either')
+
+    def test_records_left_open_by_the_old_rule_are_repaired_once(self):
+        import json
+        self.store.add_version(self.pid, tag_prefix='g', commit_sha='a' * 40, tree='t', level='tested', turn=1, agent='codex')
+        added = interactions.add(self.store, self.pid, 'manual_test', 'Interfejs w przeglądarce', 'gemini', version_number=1)
+        old_answer = [{'ts': 1.0, 'value': '', 'comment': '', 'result': 'works', 'evidence': 'declaration', 'version': 2,
+                       'request_key': 'k', 'late': True}]
+        with self.store.tx() as db:
+            db.execute('UPDATE interactions SET answers=? WHERE id=?', (json.dumps(old_answer), added['id']))
+        ref = f"I{added['id']}"
+        for key in ('n1', 'n2'):
+            self.supervisor.add_note(self.pid, f'Wynik testu {key}', kind='answer', ref=ref, request_key=key)
+        Supervisor(self.store)
+        row = interactions.get(self.store, added['id'])
+        self.assertEqual(row['state'], 'answered')
+        self.assertEqual((row['answers'][0]['late'], row['answers'][0]['repaired']), (False, True))
+        pending = [n for n in self.store.pending_notes(self.pid) if n['ref'] == ref]
+        self.assertEqual([n['text'] for n in pending], ['Wynik testu n2'], 'one answer reaches the agents, the newest')
+        self.assertEqual(interactions.repair_late_answers(self.store), [], 'nothing to do the second time')
+
+    def test_changed_answer_replaces_the_waiting_note(self):
+        added = interactions.add(self.store, self.pid, 'decision', 'Jaki kolor?', 'codex', options=['zielony', 'niebieski'])
+        self.supervisor.answer_interaction(self.pid, added['id'], 'zielony', request_key='a')
+        self.supervisor.interaction_state(self.pid, added['id'], 'open')
+        self.supervisor.answer_interaction(self.pid, added['id'], 'niebieski', request_key='b')
+        pending = [n for n in self.store.pending_notes(self.pid) if n['ref'] == f"I{added['id']}"]
+        self.assertEqual(len(pending), 1)
+        self.assertIn('niebieski', pending[0]['text'])
+
+    def test_works_in_the_version_card_after_the_same_test_answer_is_not_recorded_twice(self):
+        self.store.add_version(self.pid, tag_prefix='g', commit_sha='a' * 40, tree='t', level='tested', turn=1,
+                               agent='codex', what_to_test='1. Otwórz aplikację')
+        added = interactions.add(self.store, self.pid, 'manual_test', '1. Otwórz aplikację', 'version', version_number=1)
+        self.supervisor.answer_interaction(self.pid, added['id'], result='works', request_key='tab')
+        self.supervisor.set_verdict(self.pid, 1, True)
+        self.assertEqual(len(interactions.get(self.store, added['id'])['answers']), 1)
+        self.assertEqual(self.store.version(self.pid, 1)['user_verdict'], 'ok')
 
     def test_no_answer_is_not_consent_and_deferring_keeps_the_gate(self):
         added = interactions.add(self.store, self.pid, 'manual_test', 'Test offline', 'codex', mandatory=True)

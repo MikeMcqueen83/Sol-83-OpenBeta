@@ -176,6 +176,8 @@ class Handler(BaseHTTPRequestHandler):
             return {'id': project['id']}
         if path == ['api', 'limits', 'refresh']:
             return {'limits': supervisor.limits_view(force=True)}
+        if path == ['api', 'limits', 'retry']:
+            return supervisor.retry_now(str(body.get('provider') or ''))
         if path == ['api', 'catalog', 'update']:
             threading.Thread(target=supervisor.update_catalog, daemon=True).start()
             return {'ok': True}

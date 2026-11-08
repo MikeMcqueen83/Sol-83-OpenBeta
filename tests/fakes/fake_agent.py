@@ -134,11 +134,13 @@ def emit(payload):
     print(json.dumps(payload), flush=True)
 
 
-def rate_event(overage=False):
+def rate_event(overage=False, status='allowed', resets_at=None):
+    """Claude's own event. A rejection carries the provider's reset time (`resetsAt`), as the real one did
+    on 2026-11-08: status rejected, isUsingOverage true, resetsAt at the end of the 5 h window."""
     values = load()['limits']['claude']
     five, week = window(values, 'five_hour'), window(values, 'seven_day')
     return {'type': 'rate_limit_event', 'rate_limit_info': {
-        'status': 'allowed', 'isUsingOverage': overage,
+        'status': status, 'isUsingOverage': overage, **({'resetsAt': resets_at} if resets_at else {}),
         'unifiedWindows': {'five_hour': {'utilization': five['used'] / 100,
                                          'resetsAt': five['resets_at']},
                            'seven_day': {'utilization': week['used'] / 100,
@@ -159,7 +161,8 @@ def claude(args):
         return 0
     step = next_step('claude', prompt, resumed='--resume' in args, argv=[*args, ''])
     perform(step)
-    emit(rate_event(overage=bool(step.get('overage'))))
+    emit(rate_event(overage=bool(step.get('overage')), status=step.get('limit_status', 'allowed'),
+                    resets_at=step.get('limit_resets_at')))
     if step.get('overage'):
         time.sleep(5)
     if step.get('fail'):

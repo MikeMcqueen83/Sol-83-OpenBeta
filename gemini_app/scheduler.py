@@ -22,7 +22,7 @@ from . import roles as model_roles
 from . import catalog, model_catalog
 from .catalog import MODEL_OFF
 from .gitops import Checkpoint, Git
-from .messages import Msg, in_language
+from .messages import Joined, Msg, in_language
 from .store import Store
 
 MAX_IDLE_TURNS = 6
@@ -36,8 +36,8 @@ MAX_RETRIES = 2
 MAX_SELF_REVIEWS = 5
 VERIFY_TIMEOUT = 1800
 VERIFY_TAIL_LINES = 25
-AUTH_BLOCK_S = 3600
-FAILURE_BLOCK_S = 600
+AUTH_BLOCK_S = limits.AUTH_BLOCK_S
+FAILURE_BLOCK_S = limits.FAILURE_BLOCK_S
 AGENT_LABEL = {'claude': 'Claude', 'codex': 'Codex', 'gemini': 'Gemini', 'local': 'Lokalny LLM'}
 TURN_START = {'solo': 'turn_start_solo', 'self_review': 'turn_start_review', 'single': 'turn_start_single'}
 _RECAP = re.compile(r'^RECAP:\s*(.+)$', re.M)
@@ -96,6 +96,16 @@ def clock(moment: Optional[float]) -> str:
     return time.strftime('%H:%M', time.localtime(moment)) if moment else '--:--'
 
 
+def when(moment: Optional[float]) -> str:
+    """A time the user can read without guessing the day: 03:29 today, 9.11 23:43 another day."""
+    if not moment:
+        return '--:--'
+    local = time.localtime(moment)
+    if local[:3] == time.localtime()[:3]:
+        return time.strftime('%H:%M', local)
+    return f"{local.tm_mday}.{local.tm_mon:02d} {time.strftime('%H:%M', local)}"
+
+
 def section(pattern, reply: str) -> str:
     """A labelled part of the reply, or the whole reply when the agent skipped the label."""
     match = pattern.search(reply or '')
@@ -134,6 +144,8 @@ class GeminiScheduler:
         self.verified: dict = {}
         self.last_verify = 'jeszcze nie uruchamiano'
         self.waiting_key = None
+        self.read_now = False
+        self.roles_now = None
         self.session_turns: collections.Counter = collections.Counter()
         self.rotated = False
         self.asked_item = False
@@ -344,13 +356,24 @@ class GeminiScheduler:
         best = max(tier, key=lambda i: (limits.remaining(snapshots.get(self.names[i])), i == order[0]))
         return [best] + [i for i in order if i != best]
 
-    def _wait(self, seconds: float, stop) -> None:
+    def _wake_signals(self) -> tuple:
+        rows = {row['key']: row['value'] for row in self.store._rows(
+            "SELECT key, value FROM settings WHERE key IN ('full_power', 'retry_now')")}
+        return rows.get('full_power'), rows.get('retry_now')
+
+    def _wait(self, seconds: float, stop) -> bool:
+        """Sleep until the next check. Returns True when the user pressed "Try now" meanwhile: the
+        limits are then read again at once instead of from the cache."""
         deadline = time.monotonic() + seconds
-        full_power = self.store.full_power()
+        full_power, retry = self._wake_signals()
         while time.monotonic() < deadline and not stop.requested:
             time.sleep(min(1.0, max(0.05, deadline - time.monotonic())))
-            if self.store.full_power() != full_power:
-                return
+            now_power, now_retry = self._wake_signals()
+            if now_retry != retry:
+                return True
+            if now_power != full_power:
+                return False
+        return False
 
     def _wait_seconds(self, until: Optional[float]) -> float:
         if not until:
@@ -373,7 +396,8 @@ class GeminiScheduler:
             order = self._order(self.work, enabled, roles, hint, forced)
             if not self.opened:
                 order = self._opening(order, roles)
-            avail = self._availability()
+            avail = self._availability(force=self.read_now)
+            self.read_now = False
             several = sum(enabled) > 1
             # A pending note is new work: nobody counts as done until a turn has received it.
             waits = several and not self.store.pending_notes(self.pid)
@@ -381,8 +405,8 @@ class GeminiScheduler:
             choice = limits.choose_among(order, avail, accepted, waits and self._may_self_review())
             if choice.speaker is not None:
                 break
-            self._announce_wait(choice)
-            self._wait(self._wait_seconds(choice.until), stop)
+            self._announce_wait(choice, order, avail, enabled, accepted)
+            self.read_now = self._wait(self._wait_seconds(choice.until), stop)
         self.opened = True
         self.waiting_key = None
         index = choice.speaker
@@ -438,7 +462,7 @@ class GeminiScheduler:
                   'roles': {other: list(role) for other, role, on in zip(self.names, roles, enabled) if on},
                   'fresh_session': agent.session_id is None}
         self.store.set_live(self.pid, phase='turn_running', speaker=name, turn=turn,
-                            mode=choice.mode, until=None, reason=choice.reason,
+                            mode=choice.mode, until=None, reason=choice.reason, detail=None,
                             started_at=time.time(), config=json.dumps(config))
         self.store.event(self.pid, 'turn_start',
                          Msg(TURN_START.get(choice.mode, 'turn_start'), turn=turn, who=label(name),
@@ -841,26 +865,34 @@ class GeminiScheduler:
         return Outcome(message=self._takeover_message(turn, name, kind, checkpoint))
 
     def _block_failed_agent(self, name: str, kind: str, text: str = '') -> float:
-        """How long a failed provider gets no turns. A reset the provider stated in its error (Antigravity:
-        "Resets in 144h11m44s") is used as it is; otherwise a reading, otherwise a growing estimate."""
+        """How long a failed provider gets no turns, and where that time comes from. A reset from a
+        reading or stated by the provider in its error (Antigravity: "Resets in 144h11m44s") is used as
+        it is; only without both is it a guess, which grows with repeats and is labelled an estimate.
+        Failures that are not a limit get short, fixed pauses (limits.py). "Try now" lifts any of them."""
         now = time.time()
         self.reset_source = None
         if kind == 'auth':
-            until, reason = now + AUTH_BLOCK_S, Msg('needs_login')
+            until, reason, source = now + limits.AUTH_BLOCK_S, Msg('needs_login'), 'auth'
         elif kind == 'limit':
             snapshot = self.reader.read(force=True).get(name)
             found = limits.availability(snapshot, self.store.threshold(name))
             stated = providers.reset_from_message(text, now)
-            # Without a reading (Gemini has none) the pause doubles with each exhausted limit in a row.
             strikes = int(self.store.setting(f'strikes_{name}', 0))
-            until = found.until or stated or now + limits.UNKNOWN_RESET_S * 2 ** min(strikes, 4)
-            self.reset_source = 'reading' if found.until else 'provider_message' if stated else 'estimate'
-            if not found.until and not stated:
+            if found.until and not found.estimate:
+                until, source = found.until, 'reading'
+            elif stated:
+                until, source = stated, 'provider_message'
+            else:
+                # Without a reset time (Gemini has no reading) the pause doubles with each limit in a row.
+                until, source = now + limits.unknown_reset_pause(strikes), 'estimate'
                 self.store.set_setting(f'strikes_{name}', strikes + 1)
+            self.reset_source = source
             reason = found.reason or Msg('provider_limit')
+        elif kind == 'transient':
+            until, reason, source = now + limits.TRANSIENT_BLOCK_S, Msg('fail_transient'), 'failure'
         else:
-            until, reason = now + FAILURE_BLOCK_S, Msg(f'fail_{kind}')
-        self.store.set_block(name, until, reason)
+            until, reason, source = now + limits.FAILURE_BLOCK_S, Msg(f'fail_{kind}'), 'failure'
+        self.store.set_block(name, until, reason, source)
         return until
 
     def _takeover_message(self, turn: int, name: str, kind: str, checkpoint: Checkpoint) -> str:
@@ -872,23 +904,66 @@ class GeminiScheduler:
 
     # ---- Handoff packet -----------------------------------------------
 
-    def _announce_wait(self, choice: limits.Choice) -> None:
+    def _side_states(self, order: list, avail: list, enabled: list, accepted: list) -> list:
+        """Every switched-on model and why it does or does not take this turn: the panel shows this
+        instead of one bare reason, so a wait always names the model, the cause and whether the time
+        is the provider's or a guess."""
+        rows = []
+        for index, name in enumerate(self.names):
+            if not enabled[index]:
+                continue
+            item = avail[index]
+            if index not in order:
+                general = model_roles.covers(self.roles_now[index], self.work) if self.roles_now else False
+                state, text = ('role', Msg('side_fallback_wait', who=label(name)) if general else
+                               Msg('side_no_role', who=label(name), work=Msg(f'work_{self.work}')))
+            elif not item.available and item.until:
+                state = 'limit'
+                text = Msg('side_until', who=label(name), reason=item.reason, until=when(item.until),
+                           estimate=Msg('estimate_mark') if item.estimate else '')
+            elif not item.available:
+                state, text = 'down', Msg('side_down', who=label(name), reason=item.reason)
+            elif accepted[index]:
+                state, text = 'accepted', Msg('side_accepted', who=label(name))
+            else:
+                state, text = 'ready', Msg('side_ready', who=label(name))
+            reason = item.reason if state in ('limit', 'down') else ''
+            rows.append({'side': name, 'state': state, 'until': item.until, 'estimate': item.estimate,
+                         'reason': str(reason), 'reason_en': (reason.en() if isinstance(reason, Msg) else str(reason)),
+                         'text': str(text), 'text_en': text.en(), 'msg': text})
+        return rows
+
+    def _wait_text(self, choice: limits.Choice, rows: list, order: list) -> Msg:
+        named = lambda states: Joined([row['msg'] for row in rows if row['state'] in states])  # noqa: E731
+        if choice.mode == 'waiting_partner':
+            return Msg('wait_partner', detail=named(('limit', 'down')))
+        if choice.mode == 'waiting_role':
+            able = Joined([label(self.names[i]) for i in order], ', ')
+            return Msg('wait_role', work=Msg(f'work_{self.work}'), able=able or Msg('nobody'),
+                       detail=named(('limit', 'down')) or Msg('side_none'),
+                       others=named(('role',)) or Msg('no_other_models'))
+        if len(rows) == 1:
+            return Msg('wait_single', detail=named(('limit', 'down')), until=when(choice.until))
+        return Msg('wait_limits', detail=named(('limit', 'down')), until=when(choice.until))
+
+    def _announce_wait(self, choice: limits.Choice, order: list = (), avail: Optional[list] = None,
+                       enabled: Optional[list] = None, accepted: Optional[list] = None) -> None:
+        enabled = enabled if enabled is not None else self._enabled()
+        avail = avail if avail is not None else self._availability()
+        self.roles_now = self._roles()
+        rows = self._side_states(list(order), avail, enabled, accepted or [False] * len(self.names))
+        text = self._wait_text(choice, rows, list(order))
+        detail = [{key: value for key, value in row.items() if key != 'msg'} for row in rows]
         self.store.set_live(self.pid, phase=choice.mode, speaker=None, until=choice.until,
-                            reason=choice.reason, mode=choice.mode, started_at=None)
-        key = (choice.mode, choice.reason, choice.until)
+                            reason=text, mode=choice.mode, started_at=None,
+                            detail=json.dumps({'work': self.work, 'sides': detail,
+                                               'waiting_for': self.names[choice.waiting_for]
+                                               if choice.waiting_for is not None else None}))
+        key = (choice.mode, str(text))
         if key == self.waiting_key:
             return
         self.waiting_key = key
-        if choice.mode == 'waiting_partner':
-            text = Msg('wait_partner', reason=choice.reason, until=clock(choice.until))
-        elif choice.mode == 'waiting_role':
-            text = Msg('wait_role', work=Msg(f'work_{self.work}'), reason=choice.reason,
-                       until=clock(choice.until))
-        elif sum(self._enabled()) == 1:
-            text = Msg('wait_single', reason=choice.reason, until=clock(choice.until))
-        else:
-            text = Msg('wait_limits', reason=choice.reason, until=clock(choice.until))
-        self.store.event(self.pid, 'waiting', text, data={'until': choice.until})
+        self.store.event(self.pid, 'waiting', text, data={'until': choice.until, 'sides': detail})
 
     def _limits_line(self) -> str:
         parts = []

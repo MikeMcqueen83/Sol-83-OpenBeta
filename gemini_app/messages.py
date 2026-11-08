@@ -44,10 +44,21 @@ CATALOG = {
     'fail_transient': ('chwilowa awaria usługi', 'temporary service failure'),
     'fail_timeout': ('przekroczony czas tury', 'turn timed out'),
     'fail_other': ('błąd agenta', 'agent error'),
-    'wait_partner': ('Kod gotowy, czekam na przegląd drugiego modelu: {reason} do {until}.',
-                     'Code ready, waiting for the second model\'s review: {reason} until {until}.'),
-    'wait_limits': ('Oba modele niedostępne. Wznawiam o {until} ({reason}).',
-                    'Both models unavailable. Resuming at {until} ({reason}).'),
+    'wait_partner': ('Kod gotowy, czeka na przegląd drugiego modelu. {detail}.',
+                     'Code ready, waiting for the second model\'s review. {detail}.'),
+    'wait_limits': ('Żaden model nie może teraz pracować. {detail}. Sprawdzę ponownie o {until}.',
+                    'No model can work right now. {detail}. Checking again at {until}.'),
+    'side_until': ('{who}: {reason}, do {until}{estimate}', '{who}: {reason}, until {until}{estimate}'),
+    'side_down': ('{who}: {reason}', '{who}: {reason}'),
+    'side_no_role': ('{who}: nie ma roli do pracy „{work}”', '{who}: has no role for the work "{work}"'),
+    'side_accepted': ('{who}: już zaakceptował obecny kod', '{who}: already accepted the current code'),
+    'side_ready': ('{who}: gotowy', '{who}: ready'),
+    'side_none': ('brak włączonego modelu z tą rolą', 'no switched-on model has this role'),
+    'nobody': ('żaden model', 'no model'),
+    'no_other_models': ('Innych włączonych modeli brak', 'There are no other switched-on models'),
+    'estimate_mark': (' (szacunek, bez godziny od dostawcy)', ' (estimate, no time from the provider)'),
+    'retry_now_done': ('Zdjęto przerwę {who} na Twoje polecenie („Spróbuj teraz”).',
+                       '{who}\'s pause lifted at your request ("Try now").'),
     'note_delivered': ('{who} dostał uwagi użytkownika ({count}).', '{who} received your notes ({count}).'),
     'needs_login': ('wymaga ponownego logowania', 'needs signing in again'),
     'provider_limit': ('dostawca zgłosił wyczerpany limit', 'the provider reported an exhausted limit'),
@@ -130,8 +141,12 @@ CATALOG = {
     'join2': ('{a}; {b}', '{a}; {b}'),
     'join3': ('{a}; {b}; {c}', '{a}; {b}; {c}'),
     'models_role': ('{models}, {role}: {work}', '{models}, {role}: {work}'),
-    'wait_role': ('Czekam na model, którego rola obejmuje pracę: {work} ({reason}, do {until}).',
-                  'Waiting for a model whose role covers this work: {work} ({reason}, until {until}).'),
+    'wait_role': ('Pracę „{work}” może wykonać tylko {able}, a teraz nie może: {detail}. {others}. Role zmienisz '
+                  'w Ustawieniach projektu.',
+                  'Only {able} can do the work "{work}", and cannot right now: {detail}. {others}. You can change '
+                  'the roles in the project settings.'),
+    'side_fallback_wait': ('{who}: ma rolę Ogólna, ale ustawiono „czekaj na model z rolą”',
+                           '{who}: has the General role, but the project is set to wait for the specialist'),
     'phase_waiting_role': ('czeka na model z potrzebną rolą', 'is waiting for a model with the needed role'),
     'turn_start_single': ('Tura {turn}: pracuje {who} ({models}, tryb jednego modelu).',
                           'Turn {turn}: {who} is working ({models}, one-model mode).'),
@@ -141,8 +156,8 @@ CATALOG = {
                          'wyłączony, więc praca poczeka.',
                          '{who} dropped turn {turn} ({reason}, unavailable until {until}). The other model '
                          'is off, so the work waits.'),
-    'wait_single': ('Model niedostępny, a drugi jest wyłączony. Wznawiam o {until} ({reason}).',
-                    'The model is unavailable and the other one is off. Resuming at {until} ({reason}).'),
+    'wait_single': ('Jedyny włączony model jest niedostępny. {detail}. Sprawdzę ponownie o {until}.',
+                    'The only switched-on model is unavailable. {detail}. Checking again at {until}.'),
     'note_urgent': ('Twoja uwaga (pilna, przerywam turę): {preview}', 'Your note (urgent, interrupting the turn): {preview}'),
     'note_next': ('Twoja uwaga (trafi do następnej tury): {preview}', 'Your note (goes to the next turn): {preview}'),
     'note_reply': ('{who} odpowiada na Twoją uwagę.', '{who} replied to your note.'),
@@ -357,6 +372,19 @@ class Msg(str):
         params = {name: value.en() if isinstance(value, Msg) else value
                   for name, value in self.params.items()}
         return CATALOG[self.key][1].format(**params)
+
+
+class Joined(Msg):
+    """Several messages shown as one, each part translated on its own."""
+
+    def __new__(cls, parts, sep: str = '; '):
+        parts = [part for part in parts if part]
+        message = str.__new__(cls, sep.join(str(part) for part in parts))
+        message.key, message.params, message.parts, message.sep = None, {}, parts, sep
+        return message
+
+    def en(self) -> str:
+        return self.sep.join(part.en() if isinstance(part, Msg) else str(part) for part in self.parts)
 
 
 def en(value):

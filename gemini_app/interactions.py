@@ -7,6 +7,10 @@ idempotent. An answer to a superseded or cancelled record, or a test result for 
 kept in the history and not applied by itself. Restart restores everything: it is all in SQLite.
 
 States: open -> answered -> applied, or deferred, cancelled, superseded. No answer is never consent.
+For the user an answered record is done: it no longer counts as waiting for them and is not asked again.
+A test result is late only when it is for an OLDER version than the one the test asks about; a result
+for the same or a newer version answers it (2026-11-08: "works" on v2 for a test recorded at v1 was
+kept as late, the record stayed open and its notification came back after every confirmation).
 """
 from __future__ import annotations
 
@@ -119,15 +123,48 @@ def answer(store, interaction_id: int, value: str = '', comment: str = '', reque
         answers = json.loads(row['answers'] or '[]')
         if request_key and any(entry.get('request_key') == request_key for entry in answers):
             return {'applied': False, 'late': False, 'duplicate': True, 'row': None}
-        late = row['state'] not in ('open', 'answered', 'deferred') or (
-            row['type'] == 'manual_test' and version is not None and row['version_number'] is not None
-            and version != row['version_number'])
+        late = row['state'] not in ('open', 'answered', 'deferred') or older_version(row, version)
         answers.append({'ts': time.time(), 'value': value[:4000], 'comment': comment[:4000], 'result': result,
                         'evidence': evidence, 'version': version, 'request_key': request_key or None, 'late': late})
         state = row['state'] if late else 'answered'
         db.execute('UPDATE interactions SET answers=?, state=?, updated_at=? WHERE id=?',
                    (json.dumps(answers, ensure_ascii=False), state, time.time(), interaction_id))
     return {'applied': not late, 'late': late, 'duplicate': False, 'row': get(store, interaction_id)}
+
+
+def older_version(row, version: Optional[int]) -> bool:
+    """A manual test result given for a version older than the one the test was recorded for."""
+    return (row['type'] == 'manual_test' and version is not None and row['version_number'] is not None
+            and version < row['version_number'])
+
+
+def repair_late_answers(store) -> list:
+    """Records left open by the former rule, which took a result for a newer version as late. Each one
+    gets the state its answer would get today; the answers stay as they were, with a mark. Idempotent."""
+    fixed = []
+    for row in store._rows("SELECT * FROM interactions WHERE state='open' AND type='manual_test' "
+                           "AND answers LIKE '%\"late\": true%'"):
+        answers = json.loads(row['answers'] or '[]')
+        valid = [entry for entry in answers if entry.get('late') and entry.get('version') is not None
+                 and not older_version(row, entry['version'])]
+        if not valid:
+            continue
+        for entry in valid:
+            entry.update(late=False, repaired=True)
+        with store.tx() as db:
+            db.execute("UPDATE interactions SET answers=?, state='answered', updated_at=? WHERE id=? AND state='open'",
+                       (json.dumps(answers, ensure_ascii=False), time.time(), row['id']))
+        fixed.append(row['id'])
+    # Each repeated click used to queue one more note with the same answer: the agents get the newest.
+    with store.tx() as db:
+        db.execute("UPDATE notes SET status='withdrawn' WHERE status='pending' AND ref LIKE 'I%' AND id NOT IN "
+                   "(SELECT MAX(id) FROM notes WHERE status='pending' AND ref LIKE 'I%' GROUP BY project_id, ref)")
+    return fixed
+
+
+def last_answer(row) -> Optional[dict]:
+    """The user's latest answer that counts (not late)."""
+    return next((entry for entry in reversed(row.get('answers') or []) if not entry.get('late')), None)
 
 
 def set_state(store, interaction_id: int, state: str) -> None:

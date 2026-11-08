@@ -180,6 +180,7 @@ class Supervisor:
     def __init__(self, store: Optional[Store] = None):
         self.store = store or Store()
         self._migrate_projects()
+        interactions.repair_late_answers(self.store)
         self.procs: dict = {}
         self.reader = limits.Reader(ttl=float(os.environ.get('GEMINI_LIMITS_TTL', 60)))
         self.lock = threading.RLock()
@@ -604,9 +605,13 @@ class Supervisor:
                                   user_verdict_at=time.time())
         check = next((row for row in interactions.listing(self.store, project_id) if row['author'] == 'version'
                       and row['version_number'] == number and row['type'] == 'manual_test'), None)
-        if check:
+        result = 'works' if works else 'fails'
+        previous = interactions.last_answer(check) if check else None
+        # The same result for the same version, given in the questions tab, is not recorded twice.
+        if check and not (previous and previous.get('result') == result and previous.get('version') == number
+                          and not comment.strip()):
             interactions.answer(self.store, check['id'], comment=comment.strip(), request_key=request_key,
-                                result='works' if works else 'fails', version=number)
+                                result=result, version=number)
         if works:
             self.store.event(project_id, 'verdict', Msg('verdict_ok', number=number))
             return
@@ -803,20 +808,46 @@ class Supervisor:
         view = {}
         for name in limits.PROVIDERS:
             threshold = self.store.threshold(name)
-            found = limits.availability(snapshots.get(name), threshold, self.store.block(name))
+            block = self._live_block(name)
+            found = limits.availability(snapshots.get(name), threshold, block)
             view[name] = {**(snapshots.get(name) or {}), 'threshold': threshold[limits.FIVE_HOUR],
                           'weekly_threshold': threshold[limits.SEVEN_DAY],
                           'reason_en': en(found.reason),
                           'configured': self.store.setting(f'threshold_{name}'),
                           'configured_weekly': self.store.setting(f'weekly_{name}', 100.0),
                           'available': found.available, 'until': found.until,
-                          'reason': found.reason}
+                          'reason': found.reason, 'estimate': found.estimate,
+                          'paused': bool(block), 'pause_source': block['source'] if block else None}
         problem = limits.gemini_problem()
-        found = limits.availability(None, 100.0, self.store.block('gemini'))
+        block = self._live_block('gemini')
+        found = limits.availability(None, 100.0, block)
         view['gemini'] = {'provider': 'gemini', 'no_reading': True, 'problem': problem, 'problem_en': en(problem),
                           'available': found.available and not problem, 'until': found.until,
-                          'reason': found.reason if not found.available else '', 'reason_en': en(found.reason)}
+                          'reason': found.reason if not found.available else '', 'reason_en': en(found.reason),
+                          'estimate': found.estimate, 'paused': bool(block),
+                          'pause_source': block['source'] if block else None}
         return view
+
+    def _live_block(self, provider: str) -> Optional[dict]:
+        block = self.store.block(provider)
+        return block if block and block['until'] > time.time() else None
+
+    def retry_now(self, provider: str) -> dict:
+        """"Try now": lift Sol-83's own pause of a provider and wake every waiting project, which then
+        reads the limits again at once. A reading that still shows an exhausted limit keeps the wait:
+        that is the provider's data, not a guess, and starting a turn would only be rejected."""
+        if provider not in ('claude', 'codex', 'gemini'):
+            raise ValueError(Msg('err_not_found'))
+        lifted = self.store.clear_block(provider)
+        self.store.set_setting('retry_now', time.time())
+        view = self.limits_view(force=True)
+        if lifted:
+            label = AGENT_NAMES[provider]
+            for project in self.store.projects('running'):
+                live = self.store.live(project['id']) or {}
+                if str(live.get('phase') or '').startswith('waiting'):
+                    self.store.event(project['id'], 'note', Msg('retry_now_done', who=label))
+        return {'lifted': bool(lifted), 'limits': view}
 
     def _require(self, project_id: str) -> dict:
         project = self.store.project(project_id)
@@ -941,7 +972,7 @@ class Supervisor:
                                   engine_start=process_start(proc.pid), stop_requested=None,
                                   resume_after_stop=0)
         self.store.set_live(project_id, phase='starting', speaker=None, turn=None, mode=None,
-                            until=None, reason=None, started_at=time.time())
+                            until=None, reason=None, detail=None, started_at=time.time())
         self.store.event(project_id, 'started', Msg('engine_started'))
 
     def _attention(self, project_id: str, detail: str) -> None:
@@ -992,6 +1023,11 @@ class Supervisor:
         else:
             text = prompts.text(lang, 'answer_note', id=row['ref'], question=row['text'][:200], answer=value or comment)
             kind = 'answer'
+        # A changed answer replaces the one still waiting in the queue: the agents get one, the latest.
+        waiting = [note for note in self.store.pending_notes(project_id) if note.get('ref') == row['ref']]
+        if waiting:
+            self.store.update_note(waiting[-1]['id'], text=text, kind=kind)
+            return saved
         self.add_note(project_id, text, kind=kind, ref=row['ref'], priority=1,
                       request_key=f"{row['ref']}-{version}-{result}" if kind == 'verdict' else request_key)
         project = self.store.project(project_id)

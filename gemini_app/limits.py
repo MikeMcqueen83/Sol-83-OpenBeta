@@ -25,7 +25,17 @@ from .paths import BIN, STATE, agent_path, clean_env
 FIVE_HOUR = 'five_hour'
 SEVEN_DAY = 'seven_day'
 DEFAULT_THRESHOLD = 95.0
-UNKNOWN_RESET_S = 1800
+# How long a provider gets no new turn when nothing says when it comes back. These are guesses, and
+# the panel labels them as such; the user can always lift a pause with "Try now". A reset the
+# provider stated (in the error or in a reading) always wins over a guess.
+UNKNOWN_RESET_S = 900          # an exhausted limit with no reset time: 15 min, doubling with each repeat
+UNKNOWN_RESET_MAX_S = 7200     # ... up to 2 h
+TRANSIENT_BLOCK_S = 300        # rate limit, network, outage, after the quick retries in place: 5 min
+FAILURE_BLOCK_S = 600          # timeout or an unclassified agent error: 10 min
+AUTH_BLOCK_S = 3600            # signing in again is the user's step; "Try now" after it
+# `claude /usage` gives reset times to the minute and rounds down: a turn started at the shown
+# minute was still rejected (2026-11-08: shown 2:59am, the provider's own resetsAt was 03:00:00).
+USAGE_MINUTE_GRACE_S = 60
 PROVIDERS = ('claude', 'codex')
 API_ENV_KEYS = ('ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'OPENAI_API_KEY', 'CODEX_API_KEY',
                 'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX', 'CLAUDE_CODE_USE_FOUNDRY')
@@ -158,8 +168,9 @@ def parse_claude_usage(text: str, now: float) -> Optional[dict]:
     for label, key in (('Current session', FIVE_HOUR), (r'Current week \(all models\)', SEVEN_DAY)):
         match = re.search(label + r':\s*([\d.]+)% used(?:\s*·\s*resets (.+?)\s*\((.+?)\))?', text)
         if match:
+            reset = _parse_reset(match[2], match[3], now) if match[2] else None
             windows[key] = {'used': float(match[1]),
-                            'resets_at': _parse_reset(match[2], match[3], now) if match[2] else None}
+                            'resets_at': reset + USAGE_MINUTE_GRACE_S if reset else None}
     if not windows:
         return None
     return {'provider': 'claude', 'source': 'claude /usage', 'read_at': now, 'windows': windows,
@@ -243,7 +254,11 @@ def read_claude(timeout: float = 30) -> dict:
         snapshot = None
     if snapshot:
         if event and event.get('status') == 'rejected' and event.get('read_at', 0) > now - 300:
+            # The rejection carries the provider's own reset time: without it the pause was a guess
+            # (a 30 min block at 02:59 for a limit the provider said resets at 03:00).
             snapshot['status'] = 'rejected'
+            if (event.get('resets_at') or 0) > now:
+                snapshot['resets_at'] = event['resets_at']
         return snapshot
     return event or {'provider': 'claude', 'read_at': now, 'error': 'brak odczytu limitów',
                      'windows': {}}
@@ -269,6 +284,8 @@ class Availability:
     available: bool
     until: Optional[float] = None
     reason: str = ''
+    # True when `until` is Sol-83's guess, not a time the provider gave: the panel says so.
+    estimate: bool = False
 
 
 @dataclasses.dataclass
@@ -277,6 +294,13 @@ class Choice:
     mode: str
     until: Optional[float] = None
     reason: str = ''
+    # The model the project waits for (the one back soonest), when nobody can take the turn.
+    waiting_for: Optional[int] = None
+
+
+def unknown_reset_pause(strikes: int) -> float:
+    """The guessed pause after an exhausted limit with no reset time, growing with repeats."""
+    return min(UNKNOWN_RESET_S * 2 ** max(0, strikes), UNKNOWN_RESET_MAX_S)
 
 
 def window_label(key: str):
@@ -293,11 +317,12 @@ def availability(snapshot: Optional[dict], threshold=DEFAULT_THRESHOLD,
     """
     now = now or time.time()
     if block and block['until'] > now:
-        return Availability(False, block['until'], block['reason'])
+        return Availability(False, block['until'], block['reason'], estimate=block.get('source') == 'estimate')
     if not snapshot or snapshot.get('error'):
         return Availability(True, None, Msg('limit_unknown'))
     until = None
     reason = ''
+    estimate = False
     for key, window in (snapshot.get('windows') or {}).items():
         resets_at = window.get('resets_at')
         if resets_at and resets_at <= now:
@@ -308,6 +333,7 @@ def availability(snapshot: Optional[dict], threshold=DEFAULT_THRESHOLD,
             moment = resets_at or now + UNKNOWN_RESET_S
             if until is None or moment > until:
                 percent = f'{used:.0f}'
+                estimate = not resets_at
                 until, reason = moment, (
                     Msg('reserve_reason', window=window_label(key), percent=percent,
                         threshold=f'{limit:.0f}') if used < 100
@@ -315,8 +341,8 @@ def availability(snapshot: Optional[dict], threshold=DEFAULT_THRESHOLD,
     if until is None and (snapshot.get('status') == 'rejected' or snapshot.get('allowed') is False
                           or snapshot.get('overage')):
         fallback = snapshot.get('resets_at') or now + UNKNOWN_RESET_S
-        until, reason = max(fallback, now + 60), Msg('provider_rejects')
-    return Availability(until is None, until, reason)
+        until, reason, estimate = max(fallback, now + 60), Msg('provider_rejects'), not snapshot.get('resets_at')
+    return Availability(until is None, until, reason, estimate)
 
 
 def remaining(snapshot: Optional[dict], now: Optional[float] = None) -> float:
@@ -351,7 +377,7 @@ def choose_among(order: list, avail: list, accepted: list, self_review: bool = F
         if not order:
             return Choice(None, mode)
         soonest = min(order, key=lambda i: avail[i].until or float('inf'))
-        return Choice(None, mode, avail[soonest].until, avail[soonest].reason)
+        return Choice(None, mode, avail[soonest].until, avail[soonest].reason, soonest)
     first = order[0]
     if first in ready:
         speaker = first
@@ -362,7 +388,11 @@ def choose_among(order: list, avail: list, accepted: list, self_review: bool = F
         elif self_review:
             return Choice(ready[0], 'self_review', reason=avail[first].reason)
         else:
-            return Choice(None, 'waiting_partner', avail[first].until, avail[first].reason)
+            # The review comes from whichever reviewer is back first, not from the first in order:
+            # 2026-11-08 a project showed Codex's weekly reset (two days) while Claude was back that night.
+            pending = [i for i in order if not avail[i].available and not accepted[i]] or [first]
+            soonest = min(pending, key=lambda i: avail[i].until or float('inf'))
+            return Choice(None, 'waiting_partner', avail[soonest].until, avail[soonest].reason, soonest)
     partners = [i for i in range(len(avail)) if i != speaker]
     if any(avail[i].available for i in partners):
         return Choice(speaker, 'alternate', reason='' if speaker == first else avail[first].reason)

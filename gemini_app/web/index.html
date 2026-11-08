@@ -241,6 +241,57 @@ select:focus-visible{outline:2px solid var(--codex);outline-offset:1px}
 .command{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--surface-2);border-radius:6px;padding:4px 8px;display:inline-block;margin-top:4px}
 .thresholds{margin-top:6px;font-size:13px}
 .thresholds .grid2{margin-top:6px}
+/* Project list (2026-11-08): what is in progress on top, with its state in words; the rest in compact
+   groups the user opens and closes (remembered in this browser). */
+.pgroup{margin:0 -8px 4px}
+.pgroup-head{display:flex;align-items:center;gap:6px;padding:5px 8px;font-size:12px;font-weight:650;color:var(--text-2);border-radius:8px;cursor:default}
+details.pgroup > summary{list-style:none;cursor:pointer}
+details.pgroup > summary::-webkit-details-marker{display:none}
+details.pgroup > summary::before{content:'';flex:none;width:0;height:0;border-left:5px solid currentColor;border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform .15s}
+details.pgroup[open] > summary::before{transform:rotate(90deg)}
+details.pgroup > summary:hover{background:var(--surface-2)}
+.gcount{margin-left:auto;font-size:11px;font-weight:650;color:var(--text-2);background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:0 7px;min-width:22px;text-align:center}
+.pgroup.now .gcount{background:var(--primary);color:var(--on-primary);border-color:var(--primary)}
+.pcard{display:block;text-decoration:none;padding:9px 10px;margin:0 0 6px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.pcard:hover{border-color:var(--line-strong)}
+.pcard[aria-current=true]{border-color:var(--text);box-shadow:inset 3px 0 0 var(--text)}
+.pcard:focus-visible,.prow:focus-visible{outline:2px solid var(--codex);outline-offset:1px}
+.pstate{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:5px}
+.state{display:inline-flex;align-items:center;gap:5px;border-radius:6px;padding:1px 7px 1px 5px;font-size:12px;font-weight:650;white-space:nowrap}
+.state svg,.ic svg,.btn svg,.qbadge svg{width:12px;height:12px;flex:none}
+.state.k-working{background:var(--surface-2);color:var(--text)}.state.k-working svg{color:var(--codex)}
+.state.k-wait{background:var(--warn-soft);color:var(--warn-ink)}
+.state.k-user,.state.k-error{background:var(--bad-soft);color:var(--bad-ink)}
+.state.k-idle{background:var(--surface-2);color:var(--text-2)}
+.state.k-done{background:var(--good-soft);color:var(--good-ink)}
+.pwhen{font-size:12px;color:var(--text-2);font-weight:600}
+.why{font-size:12px;line-height:1.45;color:var(--text-2);margin-top:4px;overflow-wrap:anywhere}
+.why ul{margin:2px 0 0;padding-left:16px}
+.why .est,.limit-foot .est{color:var(--warn-ink);font-weight:600}
+.qbadge{display:inline-flex;align-items:center;gap:4px;margin-top:5px;font-size:12px;font-weight:650;color:var(--bad-ink)}
+.prow{display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:2px 7px;align-items:center;padding:5px 8px;border-radius:8px;text-decoration:none;font-size:13px}
+.prow:hover{background:var(--surface-2)}
+.prow[aria-current=true]{background:var(--surface-2);box-shadow:inset 2px 0 0 var(--text)}
+.prow .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.prow .k{color:var(--text-3);font-size:11px;font-weight:500;margin-right:5px}
+.prow .aside{font-size:11px;color:var(--text-3);white-space:nowrap;display:inline-flex;align-items:center;gap:2px}
+.prow .sub{grid-column:2/-1;font-size:11.5px;color:var(--text-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:-1px}
+.ic{display:inline-flex;color:var(--text-3)}.ic.k-user,.ic.k-error{color:var(--bad-ink)}.ic.k-done{color:var(--good-ink)}.ic.k-wait{color:var(--warn-ink)}
+.retry{margin-top:6px}
+/* Questions and tests: what waits for the user first, done items apart and short. */
+.qsection{margin:4px 0 14px}
+.qsection > h4{font-size:13px;margin:0 0 6px;display:flex;align-items:center;gap:6px}
+.qcard .qhead{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.qcard .qtitle{font-weight:650;font-size:14.5px;margin:6px 0 2px;overflow-wrap:anywhere}
+.qcard .qwhy{font-size:13px;color:var(--text-2);margin:2px 0 6px;overflow-wrap:anywhere}
+.qcard ol{margin:6px 0 8px;padding-left:20px}.qcard li{margin:2px 0;overflow-wrap:anywhere}
+.qcard .qtext{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;color:var(--text-2)}
+.qactions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.btn.ok{border-color:var(--good);color:var(--good-ink)}
+.qdone{display:grid;grid-template-columns:14px minmax(0,1fr);gap:2px 8px;padding:7px 2px;border-top:1px solid var(--line);font-size:13px}
+.qdone:first-of-type{border-top:0}
+.qdone .ic{margin-top:3px}
+.qdone .sub{grid-column:2;color:var(--text-3);font-size:12px}
 @media (max-width:1080px){.columns{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:820px){
   .app{grid-template-columns:minmax(0,1fr)}
@@ -358,6 +409,21 @@ select:focus-visible{outline:2px solid var(--codex);outline-offset:1px}
 <script>
 const TEXT = {
 pl:{
+  // Project list and waits (2026-11-08)
+  g_now:'W toku', g_attention:'Wymaga uwagi', g_stopped:'Zatrzymane', g_done:'Ukończone', g_nowEmpty:'Nic teraz nie pracuje ani nie czeka.',
+  k_working:'Pracuje', k_starting:'Uruchamianie', k_stopping:'Zatrzymywanie', k_review:'Czeka na przegląd', k_role:'Czeka na model z rolą', k_limit:'Czeka na limit',
+  k_user:'Czeka na Ciebie', k_error:'Błąd', k_queued:'W kolejce', k_stopped:'Zatrzymany', k_done:'Ukończony', k_dependency:'Czeka na zależność',
+  w_turn:(w,t,m,k)=>`${w} · tura ${t}/${m}${k ? ' · '+k : ''}`, w_role:(work,able)=>`Pracę „${work}” wykona tylko: ${able}.`, w_review:'Kod gotowy, przegląd zrobi:',
+  w_limits:'Wszystkie włączone modele są chwilowo niedostępne:', w_back:c=>`sprawdzę ponownie ${c}`, untilShort:c=>`do ${c}`, estimateShort:'(szacunek)', nobodyShort:'żaden model',
+  estimateHelp:'Dostawca nie podał godziny końca limitu: to szacunek Sol-83. Możesz spróbować wcześniej.', retryNow:'Spróbuj teraz', retryNowFor:w=>`Spróbuj teraz: ${w}`,
+  retryLifted:w=>`Zdjęto przerwę ${w}. Projekty sprawdzą dostępność od razu.`, retryKept:w=>`${w}: Sol-83 nie wstrzymywał tego modelu. Odczyt limitu pokazuje, że nadal jest wyczerpany.`,
+  qWaitingYou:n=>n === 1 ? '1 pytanie/test czeka na Ciebie' : `${n} pytań/testów czeka na Ciebie`, sinceShort:c=>`od ${c}`,
+  // Questions and tests
+  qTodo:'Czeka na Ciebie', qDoneTitle:'Zrobione', qOldTitle:'Nieaktualne', qNothing:'Nic nie czeka na Ciebie.', qVersionTitle:n=>`Co sprawdzić w wersji v${n}`,
+  qFrom:w=>`od: ${w}`, qWhyLabel:'Dlaczego', qStepsLabel:'Kroki', qYour:'Twoja odpowiedź', qDelivered:'przekazana modelom', qQueued:'trafi do modeli w następnej turze',
+  qQueuedStopped:'trafi do modeli po wznowieniu projektu', qChange:'Zmień odpowiedź', qDeferred:'odłożone', qResultAsk:'Wynik testu:',
+  qCommentFail:'Co nie działa? (opcjonalnie, pomoże modelom)',
+
   whyRunning:'Projekt już pracuje albo czeka w kolejce.', whyNotRunning:'Projekt nie pracuje.', runApp:'RUN', runRunning:'RUN działa', whyRunActive:'Aplikacja już działa: zatrzymaj ją albo otwórz adres.', whyNoVersion:'Brak wersji do uruchomienia.', runStop:'Zatrzymaj RUN',
   questionsBtn:'Pytania i testy', questionsOpen:'Otwarte pytania i testy', questionsShort:'pytań/testów', langUnknown:'język nieustalony', langFixed:'Język projektu: stały od utworzenia.', actions:'Akcje projektu', seeGates:'Zobacz bramki odbioru',
   progressHelp:'Postęp netto = funkcjonalny minus dług w punktach procentowych, na tej samej podstawie: pozycje zakresu z planu ważone priorytetem (must 3, should 2, could 1). To wskaźnik zarządczy, nie prawdopodobieństwo sukcesu. Bramki odbioru są osobno.',
@@ -478,6 +544,21 @@ pl:{
   ghSent:n=>`Wysłano: v${n}`, ghSend:n=>`Wyślij v${n}`, ghUpToDate:'Najnowsza sprawdzona wersja jest już wysłana.', ghToPublic:'Zmień na publiczne', ghToPrivate:'Zmień na prywatne', ghHint:'Każde wysłanie to Twoje kliknięcie. Nic nie trafia tam samo.',
 },
 en:{
+  // Project list and waits (2026-11-08)
+  g_now:'In progress', g_attention:'Needs attention', g_stopped:'Stopped', g_done:'Finished', g_nowEmpty:'Nothing is working or waiting right now.',
+  k_working:'Working', k_starting:'Starting', k_stopping:'Stopping', k_review:'Waiting for review', k_role:'Waiting for a model with the role', k_limit:'Waiting for a limit',
+  k_user:'Waiting for you', k_error:'Error', k_queued:'Queued', k_stopped:'Stopped', k_done:'Finished', k_dependency:'Waiting for a dependency',
+  w_turn:(w,t,m,k)=>`${w} · turn ${t}/${m}${k ? ' · '+k : ''}`, w_role:(work,able)=>`Only ${able} can do the work "${work}".`, w_review:'Code ready, the review will come from:',
+  w_limits:'All switched-on models are unavailable for now:', w_back:c=>`checking again ${c}`, untilShort:c=>`until ${c}`, estimateShort:'(estimate)', nobodyShort:'no model',
+  estimateHelp:'The provider gave no end time for the limit: this is Sol-83\'s estimate. You can try earlier.', retryNow:'Try now', retryNowFor:w=>`Try now: ${w}`,
+  retryLifted:w=>`${w}'s pause lifted. Projects check availability right away.`, retryKept:w=>`${w}: Sol-83 was not pausing this model. The limit reading shows it is still exhausted.`,
+  qWaitingYou:n=>n === 1 ? '1 question/test waits for you' : `${n} questions/tests wait for you`, sinceShort:c=>`since ${c}`,
+  // Questions and tests
+  qTodo:'Waiting for you', qDoneTitle:'Done', qOldTitle:'No longer current', qNothing:'Nothing waits for you.', qVersionTitle:n=>`What to check in version v${n}`,
+  qFrom:w=>`from: ${w}`, qWhyLabel:'Why', qStepsLabel:'Steps', qYour:'Your answer', qDelivered:'delivered to the models', qQueued:'goes to the models in the next turn',
+  qQueuedStopped:'goes to the models when the project resumes', qChange:'Change answer', qDeferred:'deferred', qResultAsk:'Test result:',
+  qCommentFail:'What does not work? (optional, helps the models)',
+
   whyRunning:'The project is already working or queued.', whyNotRunning:'The project is not working.', runApp:'RUN', runRunning:'RUN is on', whyRunActive:'The app is already running: stop it or open its address.', whyNoVersion:'No version to run.', runStop:'Stop RUN',
   questionsBtn:'Questions and tests', questionsOpen:'Open questions and tests', questionsShort:'questions/tests', langUnknown:'language not set', langFixed:'Project language: fixed at creation.', actions:'Project actions', seeGates:'See acceptance gates',
   progressHelp:'Net progress = functional minus debt in percentage points, on the same basis: the plan\'s scope items weighted by priority (must 3, should 2, could 1). A management indicator, not a probability of success. Acceptance gates are separate.',
@@ -711,8 +792,9 @@ function renderLimits(limits){
     const five = windows.five_hour, week = windows.seven_day;
     let foot;
     if(l.error) foot = esc(t('readFail', l.error));
-    else if(!l.available) foot = esc(t('back', cap(local(l,'reason')), until(l.until), clock(l.until)));
+    else if(!l.available) foot = esc(t('back', cap(local(l,'reason')), until(l.until), clock(l.until))) + (l.estimate ? ` <span class="est" title="${esc(t('estimateHelp'))}">${esc(t('estimateShort'))}</span>` : '');
     else foot = five?.resets_at ? esc(t('windowResets', clock(five.resets_at))) : '';
+    if(l.paused) foot += `<br><button class="btn small retry" data-act="retry" data-provider="${name}" title="${esc(t('estimateHelp'))}">${esc(t('retryNow'))}</button>`;
     const plan = l.plan ? ` · ${esc(t('plan', l.plan))}` : '';
     return `<div class="limit"><div class="limit-head"><span class="agent"><span class="swatch ${name}"></span>${NAME[name]}</span>${status}</div>
       ${meter(name,t('window5'),five,l.threshold ?? 95)}${meter(name,t('week'),week,l.weekly_threshold ?? 100)}
@@ -747,8 +829,10 @@ function geminiLimit(g){
   if(!g) return '';
   const status = g.problem ? pill(t('gNotReady'),'warn') : g.available ? pill(t('available'),'good') : pill(t('paused'),'bad');
   const foot = g.problem ? local(g,'problem') : !g.available ? t('back', cap(local(g,'reason')), until(g.until), clock(g.until)) : t('gNoReading');
+  const est = !g.available && g.estimate ? ` <span class="est" title="${esc(t('estimateHelp'))}">${esc(t('estimateShort'))}</span>` : '';
+  const retry = g.paused ? `<br><button class="btn small retry" data-act="retry" data-provider="gemini" title="${esc(t('estimateHelp'))}">${esc(t('retryNow'))}</button>` : '';
   return `<div class="limit"><div class="limit-head"><span class="agent"><span class="swatch gemini"></span>Gemini · Antigravity</span>${status}</div>
-    <div class="limit-foot">${esc(foot)}</div></div>`;
+    <div class="limit-foot">${esc(foot)}${est}${retry}</div></div>`;
 }
 function activity(p, live){
   if(!live || !live.phase) return '';
@@ -757,6 +841,8 @@ function activity(p, live){
     const solo = live.mode === 'solo' ? t('a_solo', others(p, live.speaker), local(live,'reason')) : live.mode === 'single' ? t('a_single') : '';
     return t('a_turn', NAME[live.speaker], live.turn, p.max_turns) + solo;
   }
+  // A wait recorded by this version names each model, its cause, the time and whether it is a guess.
+  if(liveDetail(live)) return local(live,'reason');
   if(live.phase === 'waiting_limits') return SIDES.filter(s => p[s+'_model'] && p[s+'_model'] !== 'none').length === 1 ? t('a_singleWait', clock(live.until)) : t('a_limits', clock(live.until));
   if(live.phase === 'waiting_partner') return t('a_partner', clock(live.until));
   if(live.phase === 'waiting_role') return t('a_role', clock(live.until));
@@ -814,21 +900,118 @@ function sideControls(side, model, effort, role, selection){
   </div><fieldset class="roles-pick" data-side="${side}" style="border:0;padding:0;margin:4px 0 0;font-size:12px;color:var(--text-3)"><legend>${esc(t('roles'))}</legend>
     ${ROLES.map(r => `<label class="check" title="${esc(t('rd_'+r))}"><input type="checkbox" value="${r}" ${(role||'general').split(',').includes(r)?'checked':''}> ${esc(t('r_'+r))}</label>`).join(' ')}</fieldset>${off ? '' : selectionControl(side, selection) + modelNote(side, model, selection)}${problem?`<p class="hint">${esc(problem)}</p>`:''}</div>`;
 }
+// ---- Project list (2026-11-08) -------------------------------------------------------------
+// The state is said in words with an icon, never by colour alone. "In progress" holds what runs,
+// waits for a model or a limit, or is queued; the other groups are compact and remember whether the
+// user opened them. A wait names the model, the cause, the time and whether that time is a guess.
+const SVG = {
+  play:'<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3.5 2.2v7.6L9.8 6z" fill="currentColor"/></svg>',
+  clock:'<svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 3.4V6l1.8 1.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  pause:'<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3.6 2.5v7M8.4 2.5v7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+  user:'<svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="3.8" r="2.1" fill="currentColor"/><path d="M1.8 10.6c.5-2.3 2.2-3.5 4.2-3.5s3.7 1.2 4.2 3.5z" fill="currentColor"/></svg>',
+  warn:'<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1.4 11 10.4H1z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M6 4.6v2.6M6 8.7v.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  queue:'<svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="2.5" cy="6" r="1.2" fill="currentColor"/><circle cx="6" cy="6" r="1.2" fill="currentColor"/><circle cx="9.5" cy="6" r="1.2" fill="currentColor"/></svg>',
+  stop:'<svg viewBox="0 0 12 12" aria-hidden="true"><rect x="2.8" y="2.8" width="6.4" height="6.4" rx="1" fill="currentColor"/></svg>',
+  check:'<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.3 6.4 4.9 9l4.8-5.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  cross:'<svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 3 6 6M9 3l-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  half:'<svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.4" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 1.6a4.4 4.4 0 0 1 0 8.8z" fill="currentColor"/></svg>',
+};
+const liveDetail = live => { try{ return live?.detail ? JSON.parse(live.detail) : null; }catch(error){ return null; } };
+// One state per project: word, icon and tone, from the server's state_kind and the live phase.
+function projectState(p){
+  const phase = p.live?.phase;
+  if(p.status === 'stopping') return {key:'k_stopping', icon:'pause', tone:'k-idle'};
+  if(p.status === 'running'){
+    if(p.state_kind === 'error') return {key:'k_error', icon:'warn', tone:'k-error'};
+    if(phase === 'turn_running') return {key:'k_working', icon:'play', tone:'k-working'};
+    if(phase === 'waiting_partner') return {key:'k_review', icon:'clock', tone:'k-wait'};
+    if(phase === 'waiting_role') return {key:'k_role', icon:'clock', tone:'k-wait'};
+    if(phase === 'waiting_limits') return {key:'k_limit', icon:'pause', tone:'k-wait'};
+    return {key:'k_starting', icon:'play', tone:'k-working'};
+  }
+  return ({queued:{key:'k_queued', icon:'queue', tone:'k-idle'}, user:{key:'k_user', icon:'user', tone:'k-user'},
+           error:{key:'k_error', icon:'warn', tone:'k-error'}, dependency:{key:'k_dependency', icon:'clock', tone:'k-wait'},
+           done:{key:'k_done', icon:'check', tone:'k-done'}})[p.state_kind] || {key:'k_stopped', icon:'stop', tone:'k-idle'};
+}
+const stateChip = st => `<span class="state ${st.tone}">${SVG[st.icon]}${esc(t(st.key))}</span>`;
+const sideWait = s => `<b>${esc(NAME[s.side] || s.side)}</b>: ${esc(local(s,'reason'))}${s.until ? ' · '+esc(t('untilShort', clock(s.until))) : ''}${s.estimate ? ` <span class="est" title="${esc(t('estimateHelp'))}">${esc(t('estimateShort'))}</span>` : ''}`;
+// Why a project waits, in one or two lines: who could take the turn and what holds each of them.
+function waitWhy(p){
+  const live = p.live || {}, detail = liveDetail(live);
+  if(live.phase === 'turn_running'){
+    const c = p.last_config;
+    return esc(t('w_turn', NAME[live.speaker] || '', live.turn ?? '', p.max_turns, c?.work ? t('work_'+c.work) : '')) + (live.mode === 'solo' ? esc(t('a_solo', others(p, live.speaker), local(live,'reason'))) : '');
+  }
+  if(!['waiting_partner','waiting_role','waiting_limits'].includes(live.phase)) return '';
+  if(!detail){
+    // An engine started before this version: its own one-line reason.
+    return esc(cap(local(live,'reason'))) + (live.until ? ' · '+esc(t('untilShort', clock(live.until))) : '');
+  }
+  const down = (detail.sides || []).filter(s => s.state === 'limit' || s.state === 'down');
+  const list = down.length ? down.map(sideWait).join('<br>') : '';
+  if(live.phase === 'waiting_role'){
+    const able = down.map(s => NAME[s.side] || s.side).join(', ') || t('nobodyShort');
+    return `${esc(t('w_role', t('work_'+(detail.work || 'implement')), able))}<br>${list}`;
+  }
+  if(live.phase === 'waiting_partner') return `${esc(t('w_review'))}<br>${list}`;
+  return `${esc(t('w_limits'))}<br>${list}`;
+}
+function pausedSides(p){
+  // Providers Sol-83 itself paused (a block): "Try now" can lift these, a reading it cannot.
+  const detail = liveDetail(p.live), limits = state.overview?.limits || {};
+  return (detail?.sides || []).filter(s => (s.state === 'limit' || s.state === 'down') && limits[s.side]?.paused).map(s => s.side);
+}
+function modelsLine(p){
+  return SIDES.filter(s => p[s+'_model'] && p[s+'_model'] !== 'none').map(s => `${NAME[s]}: ${p[s+'_selection'] && p[s+'_selection'] !== 'manual' ? t('sel_'+p[s+'_selection']) : p[s+'_model']}`).join(' · ');
+}
+function projectCard(p, current){
+  const st = projectState(p), why = waitWhy(p), ver = p.recommended ? 'v'+p.recommended : '';
+  const q = p.questions_open ? `<div class="qbadge">${SVG.user}${esc(t('qWaitingYou', p.questions_open))}</div>` : '';
+  const net = p.progress ? ' · '+esc(t('pNet'))+' '+p.progress.net+'%' : '';
+  return `<a class="pcard" href="#/p/${p.id}" aria-current="${p.id===current}">
+    <div class="proj-top"><span class="proj-title"><span class="hint">${esc(p.key||'')}</span> ${esc(p.title)}</span><span class="proj-ver">${ver}${p.run?.state==='running'?' ▶':''}</span></div>
+    <div class="pstate">${stateChip(st)}${p.monitor_level === 'warn' ? `<span class="state k-wait">${SVG.warn}${esc(t('monSidebar'))}</span>` : ''}</div>
+    ${why ? `<div class="why">${why}</div>` : ''}${q}
+    <div class="proj-sub hint">${esc(modelsLine(p))}${net}</div></a>`;
+}
+function projectRow(p, current){
+  const st = projectState(p), detail = local(p,'status_detail');
+  const when = p.status === 'done' ? (p.finished_at || p.updated_at) : p.updated_at;
+  const sub = `${t(st.key)}${when ? ' · '+clock(when) : ''}${detail ? ' · '+detail : ''}`;
+  return `<a class="prow" href="#/p/${p.id}" aria-current="${p.id===current}" title="${esc(p.title + ' — ' + sub)}">
+    <span class="ic ${st.tone}">${SVG[st.icon]}</span><span class="t"><span class="k">${esc(p.key||'')}</span>${esc(p.title)}</span>
+    <span class="aside">${p.recommended ? 'v'+p.recommended : ''}${p.questions_open ? `<span class="counter" title="${esc(t('qWaitingYou', p.questions_open))}">${p.questions_open}</span>` : ''}</span>
+    <span class="sub">${esc(sub)}</span></a>`;
+}
+const GROUP_DEFAULT = {attention:true, stopped:false, done:false};
+function groupOpen(name){
+  try{ const saved = JSON.parse(localStorage.getItem('sol83-groups') || '{}'); if(name in saved) return !!saved[name]; }catch(error){}
+  return GROUP_DEFAULT[name];
+}
+function rememberGroup(name, open){
+  try{ const saved = JSON.parse(localStorage.getItem('sol83-groups') || '{}'); saved[name] = open; localStorage.setItem('sol83-groups', JSON.stringify(saved)); }catch(error){}
+}
+const NOW_ORDER = {k_working:0, k_starting:1, k_stopping:2, k_review:3, k_role:3, k_limit:3, k_error:4, k_queued:5};
 function renderProjects(projects){
   const current = route();
   if(!projects.length){ setHTML('projects',`<p class="empty" style="padding:4px 8px">${esc(t('noProjects'))}</p>`); return; }
-  setHTML('projects', projects.map(p => {
-    const kind = STATUS_KIND[p.status] || 'idle', label = t('s_'+p.status);
-    const text = p.status === 'running' ? (activity(p, p.live) || label) : (local(p,'status_detail') || label);
-    const dot = p.monitor_level === 'warn' ? 'warn' : p.status === 'running' ? (p.live?.phase === 'turn_running' ? 'run' : 'warn') : kind;
-    const models = SIDES.filter(s => p[s+'_model'] && p[s+'_model'] !== 'none').map(s => `${NAME[s]}: ${p[s+'_selection'] && p[s+'_selection'] !== 'manual' ? t('sel_'+p[s+'_selection']) : p[s+'_model']}`).join(' · ');
-    const last = p.last_config ? `${NAME[p.last_config.agent]||''} ${p.last_config.model||''}` : '';
-    return `<a class="proj" href="#/p/${p.id}" aria-current="${p.id===current}">
-      <div class="proj-top"><span class="proj-title"><span class="hint">${esc(p.key||'')}</span> ${esc(p.title)}</span><span class="proj-ver">${p.recommended?'v'+p.recommended:''}${p.run?.state==='running'?' ▶':''}</span></div>
-      ${p.summary ? `<div class="proj-sub hint" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.summary)}</div>` : ''}
-      <div class="proj-sub"><span class="dot ${dot}"></span><span>${p.monitor_level === 'warn' ? '⚠ '+esc(t('monSidebar'))+' · ' : ''}${esc(text)}</span></div>
-      <div class="proj-sub hint">${esc(models)}${last ? ' · '+esc(t('lastTurn'))+': '+esc(last) : ''}${p.progress ? ' · '+esc(t('pNet'))+' '+p.progress.net+'%' : ''}${p.questions_open ? ` · <span class="counter">${p.questions_open}</span> ${esc(t('questionsShort'))}` : ''}</div></a>`;
-  }).join(''));
+  const groups = {now:[], attention:[], stopped:[], done:[]};
+  for(const p of projects){
+    if(['running','stopping','queued'].includes(p.status)) groups.now.push(p);
+    else if(p.status === 'attention' || p.state_kind === 'error') groups.attention.push(p);
+    else if(p.status === 'done') groups.done.push(p);
+    else groups.stopped.push(p);
+  }
+  groups.now.sort((a, b) => (NOW_ORDER[projectState(a).key] ?? 9) - (NOW_ORDER[projectState(b).key] ?? 9));
+  const now = `<section class="pgroup now" aria-label="${esc(t('g_now'))}"><div class="pgroup-head">${esc(t('g_now'))}<span class="gcount">${groups.now.length}</span></div>
+    ${groups.now.length ? groups.now.map(p => projectCard(p, current)).join('') : `<p class="hint" style="padding:0 8px 6px">${esc(t('g_nowEmpty'))}</p>`}</section>`;
+  const rest = ['attention','stopped','done'].filter(name => groups[name].length).map(name => {
+    // The open project's group is shown open, without changing what the user chose to remember.
+    const open = groupOpen(name) || groups[name].some(p => p.id === current);
+    return `<details class="pgroup" data-group="${name}" ${open ? 'open' : ''}><summary class="pgroup-head">${esc(t('g_'+name))}<span class="gcount">${groups[name].length}</span></summary>
+      ${groups[name].map(p => projectRow(p, current)).join('')}</details>`;
+  }).join('');
+  setHTML('projects', now + rest);
 }
 function testCard(d){
   const v = d.recommended, work = d.work || {}, p = d.project;
@@ -853,7 +1036,7 @@ function testCard(d){
       <div class="vnum">v${v.number}</div>
       <div class="test-meta">${pill(t('l_'+v.level), LEVEL_KIND[v.level]||'idle')}${verdict}<span>${esc(t('commit'))} ${esc(v.commit_sha.slice(0,7))}</span><span>${clock(v.created_at)}</span>${confirmed?`<span>${esc(confirmed)}</span>`:''}</div>
     </div><div class="actions">
-      <button class="btn" data-act="works" data-n="${v.number}">${esc(t('works'))}</button>
+      ${v.user_verdict === 'ok' ? '' : `<button class="btn ok" data-act="works" data-n="${v.number}">${SVG.check} ${esc(t('works'))}</button>`}
       <button class="btn danger" data-act="broken" data-n="${v.number}">${esc(t('broken'))}</button>
     </div></div>
     <div class="test-body">
@@ -911,25 +1094,68 @@ function taskTab(d){
     <div class="row" style="justify-content:flex-end"><button class="btn small" data-act="copy" data-text="${esc(p.task)}">${esc(t('copy'))}</button></div>
     <pre class="task-full">${esc(p.task)}</pre></details><dl class="kv">${rows.map(([k,v])=>`<dt>${esc(t(k))}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;
 }
+// Questions and tests (2026-11-08): what waits for the user first, each with a title, why it is asked,
+// the steps and the answers as buttons. Once answered it is done for the user: it moves to "Done" with
+// the answer and whether the models already have it, and it is never asked again by itself.
+function qTitle(q){
+  if(q.author === 'version' && q.version_number) return t('qVersionTitle', q.version_number);
+  const first = (q.text || '').trim().split(/\n|(?<=[.?!])\s+(?=\S)/)[0] || '';
+  return first.length > 160 ? first.slice(0, 157) + '…' : first;
+}
+function qSteps(q){
+  if((q.steps || []).length) return q.steps.map(s => `<li>${esc(s.step||'')}${s.expected ? ` <span class="hint">→ ${esc(s.expected)}</span>` : ''}</li>`);
+  const text = (q.text || '').trim();
+  if(!/^\s*1[.)]\s/.test(text)) return [];
+  return text.split(/\s*(?:^|\s)\d+[.)]\s+/).filter(Boolean).map(step => `<li>${esc(step.trim())}</li>`);
+}
+function qBody(q){
+  const steps = qSteps(q), title = qTitle(q), text = (q.text || '').trim();
+  const rest = steps.length && !(q.steps || []).length ? '' : text.slice(text.startsWith(title.replace(/…$/, '')) ? title.replace(/…$/, '').length : 0).trim();
+  return `${rest ? `<div class="qtext">${esc(rest)}</div>` : ''}${steps.length ? `<ol>${steps.join('')}</ol>` : ''}`;
+}
+const RESULT_ICON = {works:'check', fails:'cross', partial:'half', cannot:'stop'};
+function qAnswerText(a){
+  if(!a) return '';
+  return `${a.result ? t('res_'+a.result) : a.value || ''}${a.comment ? ' — ' + a.comment : ''}${a.version ? ' · v'+a.version : ''} · ${clock(a.ts)}`;
+}
+function qOpenCard(q){
+  const test = q.type === 'manual_test';
+  const who = NAME[q.author] || (q.author === 'version' ? t('versionCheck') : q.author || '');
+  const options = (q.options || []).map(o => `<button class="btn small" data-act="answer" data-q="${q.id}" data-value="${esc(o)}">${esc(o)}${q.recommendation === o ? ' ★' : ''}</button>`).join('');
+  const actions = test
+    ? `<div class="qactions" role="group" aria-label="${esc(t('qResultAsk'))}">${['works','fails','partial','cannot'].map(r => `<button class="btn small ${r === 'works' ? 'ok' : r === 'fails' ? 'danger' : ''}" data-act="test-result" data-q="${q.id}" data-result="${r}">${SVG[RESULT_ICON[r]]} ${esc(cap(t('res_'+r)))}</button>`).join('')}</div>`
+    : `<div class="qactions">${options}</div><div class="row" style="flex-wrap:nowrap;margin-top:6px"><input type="text" id="answer-${q.id}" placeholder="${esc(t('ownAnswer'))}"><button class="btn small primary" data-act="answer" data-q="${q.id}">${esc(t('send'))}</button></div>`;
+  const late = (q.answers || []).filter(a => a.late);
+  return `<div class="qcard"><div class="qhead"><span class="state ${q.state === 'deferred' ? 'k-idle' : 'k-user'}">${SVG[test ? 'check' : 'user']}${esc(cap(t('qt_'+q.type)))}</span>
+      <span class="meta">${esc(q.ref)}${q.version_number ? ' · v'+q.version_number : ''} · ${esc(t('qFrom', who))} · ${clock(q.created_at)}${q.mandatory ? ' · '+esc(t('mandatory')) : ''}${q.state === 'deferred' ? ' · '+esc(t('qDeferred')) : ''}</span></div>
+    <div class="qtitle">${esc(qTitle(q))}</div>
+    ${q.why && q.author !== 'version' ? `<div class="qwhy"><b>${esc(t('qWhyLabel'))}:</b> ${esc(q.why)}</div>` : ''}
+    ${(q.blocks||[]).length ? `<div class="hint">${esc(t('blocks'))}: ${q.blocks.map(esc).join(', ')}${q.independent ? ' · '+esc(t('independent'))+': '+esc(q.independent) : ''}</div>` : ''}
+    ${q.environment ? `<div class="hint">${esc(t('environment'))}: ${esc(q.environment)}${q.minutes ? ' · ~'+q.minutes+' min' : ''}</div>` : ''}
+    ${qBody(q)}${actions}
+    <div class="row" style="justify-content:flex-start;gap:14px">${q.state !== 'deferred' ? `<button class="linkbtn" data-act="q-state" data-q="${q.id}" data-state="deferred">${esc(t('defer'))}</button>` : ''}<button class="linkbtn" data-act="q-state" data-q="${q.id}" data-state="cancelled">${esc(t('cancel'))}</button></div>
+    ${late.length ? `<details><summary>${esc(t('histTitle'))}</summary><ul>${late.map(a => `<li>${esc(qAnswerText(a))} · ${esc(t('lateAnswer'))}</li>`).join('')}</ul></details>` : ''}</div>`;
+}
+function qDoneRow(q, d){
+  const answer = [...(q.answers || [])].reverse().find(a => !a.late);
+  const bad = answer?.result && answer.result !== 'works';
+  const stopped = !['running','stopping','queued'].includes(d.project.status);
+  const where = q.state === 'applied' ? t('qDelivered') : stopped ? t('qQueuedStopped') : t('qQueued');
+  return `<div class="qdone"><span class="ic ${bad ? 'k-error' : 'k-done'}">${SVG[bad ? 'cross' : 'check']}</span><div><b>${esc(qTitle(q))}</b> <span class="hint">${esc(q.ref)}</span></div>
+    <div class="sub">${esc(t('qYour'))}: ${esc(qAnswerText(answer))} · ${esc(where)} · <button class="linkbtn" data-act="q-state" data-q="${q.id}" data-state="open">${esc(t('qChange'))}</button></div></div>`;
+}
 function questionsTab(d){
   const items = d.interactions || [];
   const gates = (d.blockers || []).length ? `<div class="alert">${esc(t('gatesTitle'))}: ${(d.blockers||[]).map(esc).join(', ')}</div>` : '';
   if(!items.length) return gates + `<p class="empty">${esc(t('qNone'))}</p>`;
-  return gates + items.map(q => {
-    const open = ['open','answered','deferred'].includes(q.state), test = q.type === 'manual_test';
-    const steps = (q.steps || []).length ? `<ol>${q.steps.map(s => `<li>${esc(s.step||'')}${s.expected ? ` <span class="hint">→ ${esc(s.expected)}</span>` : ''}</li>`).join('')}</ol>` : '';
-    const options = (q.options || []).map(o => `<button class="btn small" data-act="answer" data-q="${q.id}" data-value="${esc(o)}">${esc(o)}${q.recommendation === o ? ' ★' : ''}</button>`).join(' ');
-    const form = !open ? '' : test
-      ? `<div class="row" style="flex-wrap:wrap">${['works','fails','partial','cannot'].map(r => `<button class="btn small" data-act="test-result" data-q="${q.id}" data-result="${r}">${esc(t('res_'+r))}</button>`).join(' ')}</div>`
-      : `<div class="row" style="flex-wrap:wrap">${options}<input type="text" id="answer-${q.id}" placeholder="${esc(t('ownAnswer'))}" style="flex:1;min-width:160px"><button class="btn small primary" data-act="answer" data-q="${q.id}">${esc(t('send'))}</button></div>`;
-    const history = (q.answers || []).map(a => `<li>${clock(a.ts)} · ${esc(a.result ? t('res_'+a.result) : a.value || '')} ${esc(a.comment || '')}${a.version ? ' · v'+a.version : ''}${a.late ? ' · '+esc(t('lateAnswer')) : ''}</li>`).join('');
-    return `<div class="qcard"><div class="meta">${esc(q.ref)} · ${esc(t('qt_'+q.type))} · ${esc(NAME[q.author] || (q.author === 'version' ? t('versionCheck') : q.author || ''))} · ${esc(t('qs_'+q.state))}${q.version_number ? ' · v'+q.version_number : ''}${q.mandatory ? ' · '+esc(t('mandatory')) : ''}</div>
-      <div><b>${esc(q.text)}</b></div>${q.why ? `<div class="hint">${esc(t('why'))}: ${esc(q.why)}</div>` : ''}
-      ${(q.blocks||[]).length ? `<div class="hint">${esc(t('blocks'))}: ${q.blocks.map(esc).join(', ')}${q.independent ? ' · '+esc(t('independent'))+': '+esc(q.independent) : ''}</div>` : ''}
-      ${q.environment ? `<div class="hint">${esc(t('environment'))}: ${esc(q.environment)}${q.minutes ? ' · ~'+q.minutes+' min' : ''}</div>` : ''}${steps}${form}
-      ${open ? `<div class="row"><button class="linkbtn" data-act="q-state" data-q="${q.id}" data-state="deferred">${esc(t('defer'))}</button><button class="linkbtn" data-act="q-state" data-q="${q.id}" data-state="cancelled">${esc(t('cancel'))}</button></div>` : ''}
-      ${history ? `<details><summary>${esc(t('histTitle'))}</summary><ul>${history}</ul></details>` : ''}</div>`;
-  }).join('');
+  const todo = items.filter(q => q.state === 'open').concat(items.filter(q => q.state === 'deferred'));
+  const done = items.filter(q => ['answered','applied'].includes(q.state));
+  const old = items.filter(q => ['superseded','cancelled'].includes(q.state));
+  const oldRows = old.map(q => `<div class="qdone"><span class="ic">${SVG.stop}</span><div>${esc(qTitle(q))} <span class="hint">${esc(q.ref)} · ${esc(t('qs_'+q.state))}</span></div></div>`).join('');
+  return gates + `<section class="qsection"><h4>${esc(t('qTodo'))} <span class="gcount">${todo.filter(q => q.state === 'open').length}</span></h4>
+      ${todo.length ? todo.map(qOpenCard).join('') : `<p class="empty">${esc(t('qNothing'))}</p>`}</section>
+    ${done.length ? `<details class="qsection" open><summary>${esc(t('qDoneTitle'))} (${done.length})</summary>${done.map(q => qDoneRow(q, d)).join('')}</details>` : ''}
+    ${old.length ? `<details class="qsection"><summary>${esc(t('qOldTitle'))} (${old.length})</summary>${oldRows}</details>` : ''}`;
 }
 const TABS = [['przebieg','tabRun'],['plan','tabPlan'],['pytania','tabQuestions'],['wersje','tabVersions'],['tresci','tabAssets'],['efekt','tabEff'],['ustawienia','tabSettings'],['zadanie','tabTask']];
 const ASSET_KIND = {requested:'idle', done:'good', error:'bad', proposed:'warn', rejected:'bad', deferred:'idle'};
@@ -1138,6 +1364,7 @@ function renderHead(d){
         : btn('run-app', 'runApp', '', false, t('whyNoVersion')),
     run?.state === 'running' ? btn('run-stop', 'runStop', '', true, '') : '',
     btn('tab-questions', 'questionsBtn', '', true, '', '') + (open ? `<span class="counter" title="${esc(t('questionsOpen'))}">${open}</span>` : ''),
+    ...(running ? pausedSides({live:d.live}) : []).map(side => `<button class="btn" data-act="retry" data-provider="${side}" title="${esc(t('estimateHelp'))}">${esc(t('retryNowFor', NAME[side]))}</button>`),
   ].join('');
   const danger = `<div class="danger-zone">${btn('stop-now', 'stopNow', 'danger', canStop && running, t('whyNotRunning'))}</div>`;
   const lang = p.language === 'unknown' ? `<span class="pill warn">${esc(t('langUnknown'))}</span>` : `<span class="pill idle" title="${esc(t('langFixed'))}">${esc((p.language||'pl').toUpperCase())}</span>`;
@@ -1319,6 +1546,16 @@ document.addEventListener('click', async e => {
   const button = e.target.closest('[data-act]');
   if(!button) return;
   const id = route(), n = Number(button.dataset.n), act = button.dataset.act;
+  if(act === 'retry'){
+    const provider = button.dataset.provider;
+    button.disabled = true;
+    try{
+      const done = await api('/api/limits/retry', {provider});
+      if(!done.lifted) alert(t('retryKept', NAME[provider]));
+      await poll();
+    }catch(error){ alert(error.message); button.disabled = false; }
+    return;
+  }
   if(act === 'item'){
     button.disabled = true;
     try{ await api(`/api/projects/${id}/start-item`, {item:button.dataset.item, request_key:requestKey()}); await poll(); }
@@ -1376,7 +1613,10 @@ document.addEventListener('click', async e => {
   if(act === 'answer' || act === 'test-result'){
     const q = Number(button.dataset.q), own = document.getElementById('answer-'+q);
     const body = {interaction:q, request_key:requestKey()};
-    if(act === 'test-result'){ body.result = button.dataset.result; body.comment = prompt(t('testComment')) || ''; }
+    if(act === 'test-result'){
+      body.result = button.dataset.result;
+      if(body.result !== 'works'){ const comment = prompt(t('qCommentFail')); if(comment === null) return; body.comment = comment; }
+    }
     else { body.value = button.dataset.value || own?.value || ''; if(!body.value.trim()) return; }
     button.disabled = true;
     try{ await api(`/api/projects/${id}/answer`, body); await poll(); }catch(error){ alert(error.message); button.disabled = false; }
@@ -1411,6 +1651,14 @@ async function runGitHub(button, visibility){
   }catch(error){ alert(error.message); if(button) button.disabled = false; }
 }
 document.getElementById('repo-filter').addEventListener('input', renderRepos);
+// Only the user's own click is remembered: a group shown open because it holds the open project is not.
+document.getElementById('projects').addEventListener('click', e => {
+  const summary = e.target.closest('details.pgroup > summary');
+  if(!summary) return;
+  const group = summary.parentElement;
+  rememberGroup(group.dataset.group, !group.open);
+  setTimeout(() => { state.html['projects'] = null; }, 0);
+});
 document.getElementById('providers-box').addEventListener('toggle', async e => {
   if(e.target.open && !state.providers){ try{ state.providers = await api('/api/providers'); renderProviders(state.providers); }catch(error){} }
 });
