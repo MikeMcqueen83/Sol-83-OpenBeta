@@ -69,6 +69,7 @@ Diagnoza na prawdziwych danych (kopia bazy przed restartem: `~/Sol-83-backups/ge
 | Testy użytkownika w researchu | `projects.user_tests` (final/each/none), `scheduler._version_for`, `Supervisor._final_check`, `set_options`, `POST …/options`; zasady w `prompts` (`requests_rules`, CO TESTOWAĆ) | `tests/test_interactions.py`: `test_user_is_asked_to_test_the_final_version_only_by_default`; `UserInteractions.test_version_check_is_a_manual_test_record` | zrobione | Domyślnie „tylko wersja końcowa” dla wszystkich projektów. |
 | WebFetch jako ustawienie projektu | `projects.web_fetch`, `bin/claude.web_fetch_allowed` | `test_user_is_asked_to_test_the_final_version_only_by_default` (zapis ustawienia) | częściowo | Bez testu na żywo z prawdziwym WebFetch (zużyłby limit). |
 | Samoocena nie zatrzymuje projektu | `scheduler._steps_not_closer`, `monitor.assess` | `GoalProgress.test_a_model_working_alone_does_not_halt_on_its_own_verdicts` | zrobione | |
+| Rzadszy przegląd (0.7.3) | `scheduler._review_due`, `_since_review`, `_stage_finished`, `REVIEW_EVERY`, `REVIEW_LINES`; `projects.review_mode` (stage/each), `Supervisor.set_options`, Ustawienia projektu | `tests/test_gemini.py`: `ReviewCadence` (etap, 3 tury, tryb „po każdej zmianie”); `Roles.test_architect_only_plans_and_the_general_model_does_the_rest` | zrobione | Etap zależy od tego, czy model aktualizuje status zadań w planie (kontrakt planu tego wymaga); tura bez podanej pozycji idzie do przeglądu od razu. Dług czeka na serię 3 tur. |
 
 ## Wymagania specyfikacji
 

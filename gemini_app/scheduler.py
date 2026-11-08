@@ -34,6 +34,9 @@ MAX_TREE_REPEATS = 3
 MAX_FAILURES = 3
 MAX_RETRIES = 2
 MAX_SELF_REVIEWS = 5
+# Review cadence (2026-11-08 audit: reviews were half of all turns, and 76% of the tokens in PR14/26).
+REVIEW_EVERY = int(os.environ.get('SOL83_REVIEW_EVERY', 3))
+REVIEW_LINES = 500
 VERIFY_TIMEOUT = 1800
 VERIFY_TAIL_LINES = 25
 AUTH_BLOCK_S = limits.AUTH_BLOCK_S
@@ -199,11 +202,63 @@ class GeminiScheduler:
         if model_roles.creates_content(roles, enabled) and self.last_work != 'content' \
                 and content.pending(self.cfg.cwd):
             return 'content'
-        # A change or a claim of done gets a review; an accepting review asks the next reviewer.
-        done = (self.last_changed and self.last_work == 'implement') or self.last_speaker in self.accepted
-        if done and not self._converged(enabled, roles):
+        # A claim of done gets a review at once, a change when its stage of the plan is finished (or after a
+        # few turns); an accepting review asks the next reviewer.
+        if self._review_due() and not self._converged(enabled, roles):
             return 'review'
         return 'implement'
+
+    def _review_due(self) -> bool:
+        """Whether the work so far goes to review now. At once: a claim that the goal is met, no valid plan to
+        go by, the project's choice "review every change", a large change, or a finished stage of the plan
+        (a feature whose tasks are all done). Otherwise after REVIEW_EVERY implementation turns in a row.
+        Meanwhile the next implementation turn still sees the partner's changes in its context."""
+        if self.last_speaker in self.accepted:
+            return True
+        if not (self.last_changed and self.last_work == 'implement'):
+            return False
+        if (self.store.project(self.pid).get('review_mode') or 'stage') == 'each':
+            return True
+        plan, problem = project_plan.load(self.cfg.cwd)
+        if plan is None or problem:
+            return True
+        streak, lines, worked = self._since_review()
+        if streak >= REVIEW_EVERY or lines >= REVIEW_LINES:
+            return True
+        return any(self._stage_finished(plan, item) for item in worked)
+
+    def _since_review(self) -> tuple:
+        """Implementation turns that changed code since the last review or plan turn: count, changed lines and
+        the plan items they named (None when a turn named none)."""
+        streak, lines, worked = 0, 0, []
+        for event in self.store.events(self.pid, 200):
+            if event['kind'] != 'turn_end':
+                continue
+            data = event['data'] or {}
+            if data.get('work') in ('review', 'plan', 'content'):
+                break
+            if data.get('failed') or not data.get('changed'):
+                continue
+            streak += 1
+            lines += data.get('lines') or 0
+            worked.append(data.get('item'))
+        return streak, lines, worked
+
+    @staticmethod
+    def _stage_finished(plan: dict, item_id: Optional[str]) -> bool:
+        """The named item closed its stage: a feature done, or the last open task of its feature. A turn that
+        named no item, or one the plan does not know, is reviewed (nothing to go by). Debt waits for the streak."""
+        items = {item['id']: item for item in project_plan.items(plan)}
+        item = items.get(item_id) if item_id else None
+        if item is None:
+            return True
+        if item.get('kind') == 'debt':
+            return False
+        stage = item['id'] if not item.get('parent') else item['parent']
+        tasks = [entry for entry in items.values() if entry.get('parent') == stage and entry.get('kind') != 'debt']
+        if not tasks:
+            return (items.get(stage) or item).get('status') == 'done'
+        return all(entry.get('status') in ('done', 'deferred') for entry in tasks)
 
     def _take_user_orders(self) -> None:
         """Orders the user placed in the panel, and decisions on the agents' proposals, go into the file

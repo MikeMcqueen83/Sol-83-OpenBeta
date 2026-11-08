@@ -91,7 +91,7 @@ PROJECT_FIELDS = {
     'turn_timeout', 'github_url', 'github_visibility', 'github_version', 'github_branch', 'github_auto',
     'run_version', 'delivered_version', 'claude_role', 'codex_role', 'role_fallback',
     'gemini_model', 'gemini_reasoning', 'gemini_role', 'claude_selection', 'codex_selection', 'gemini_selection',
-    'language', 'key', 'license', 'git_context', 'user_tests', 'web_fetch'}
+    'language', 'key', 'license', 'git_context', 'user_tests', 'web_fetch', 'review_mode'}
 MAX_BODY = 40000
 MIGRATIONS = {
     'projects': ('claude_reasoning', 'codex_reasoning', 'status_detail_en', 'github_repo',
@@ -99,7 +99,7 @@ MIGRATIONS = {
                  'github_auto', 'run_version', 'delivered_version', 'claude_role', 'codex_role',
                  'role_fallback', 'gemini_model', 'gemini_reasoning', 'gemini_role',
                  'claude_selection', 'codex_selection', 'gemini_selection', 'language', 'key', 'license',
-                 'git_context', 'user_tests', 'web_fetch'),
+                 'git_context', 'user_tests', 'web_fetch', 'review_mode'),
     'live': ('reason_en', 'config', 'detail'), 'events': ('text_en', 'body'), 'versions': ('verify_summary_en', 'how_to_run'),
     'notes': ('response', 'kind', 'reopened', 'request_key', 'priority', 'done_version', 'done_at', 'ref'),
     'blocks': ('reason_en', 'source'), 'app_runs': ('url',),}

@@ -38,7 +38,7 @@ Ustalenia:
 | 1 | Samoocena nie liczy się do reguły „nie przybliża” | brak fałszywych wstrzymań przy pracy solo | **zrobione (0.7.2)** |
 | 2 | Testy użytkownika domyślnie tylko dla wersji końcowej; zakaz zlecania testów i budowania | mniej przerw i notatek zwrotnych | **zrobione (0.7.2)** |
 | 3 | WebFetch jako ustawienie projektu | research na źródłach pierwotnych, mniej poprawek [Verify] | **zrobione (0.7.2)** |
-| 4 | Przegląd po zakończeniu pozycji planu albo co 2–3 tury implementacji, zamiast po każdej turze (natychmiast tylko przy nieprzechodzących testach albo dużym diffie) | około 30–45% mniej tur; w PR14 przeglądy to 76% tokenów | propozycja |
+| 4 | Przegląd po zamkniętym etapie planu albo najpóźniej co 3 tury implementacji, zamiast po każdej turze; od razu przy dużej zmianie (od 500 linii), deklaracji gotowości albo braku planu | około 30–45% mniej tur; w PR14 przeglądy to 76% tokenów | **zrobione (0.7.3)**, ustawienie projektu „Po każdej zmianie” |
 | 5 | Cel z planu (pozycje must i kryteria odbioru), a deklaracja modeli tylko jako wskazówka | wiarygodny sygnał postępu | propozycja |
 | 6 | Budżet długu: zanim pozycje must są gotowe, dług tylko z kategorii bug/test, które blokują | koniec pętli D1…D21 | propozycja |
 | 7 | Przegląd przez Gemini (Antigravity) z niższym wysiłkiem albo limitem kroków; drogie przeglądy przez Claude lub Codex | PR14: przegląd Gemini 3–5 razy droższy niż tura Claude | propozycja |

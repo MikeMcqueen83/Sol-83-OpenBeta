@@ -218,10 +218,18 @@ class Supervisor:
 
     USER_TESTS = ('final', 'each', 'none')
 
-    def set_options(self, project_id: str, user_tests: Optional[str] = None, web_fetch: Optional[bool] = None) -> None:
-        """When the user is asked to test (final version only, every version, never) and whether Claude may
-        read web pages (WebFetch) in this project. Both apply from the next turn."""
+    REVIEW_MODES = ('stage', 'each')
+
+    def set_options(self, project_id: str, user_tests: Optional[str] = None, web_fetch: Optional[bool] = None,
+                    review_mode: Optional[str] = None) -> None:
+        """When the user is asked to test (final version only, every version, never), whether Claude may
+        read web pages (WebFetch), and how often a change is reviewed. All apply from the next turn."""
         self._require(project_id)
+        if review_mode is not None:
+            if review_mode not in self.REVIEW_MODES:
+                raise ValueError(Msg('err_option'))
+            self.store.update_project(project_id, review_mode=review_mode)
+            self.store.event(project_id, 'models', Msg('review_mode_set', mode=Msg(f'review_mode_{review_mode}')))
         if user_tests is not None:
             if user_tests not in self.USER_TESTS:
                 raise ValueError(Msg('err_option'))

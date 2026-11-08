@@ -1,5 +1,9 @@
 # Changelog
 
+## OpenBeta 0.7.3 — 2026-11-08
+
+- Rzadszy przegląd zmian: drugi model przegląda pracę, gdy zamknie się etap planu (funkcja, której zadania są gotowe), przy dużej zmianie (od 500 linii), przy deklaracji gotowości albo gdy nie ma poprawnego planu, a najpóźniej co 3 tury implementacji (`SOL83_REVIEW_EVERY`). Wcześniej przegląd był po każdej turze: połowa tur w PR9, 76% tokenów w PR14. Ustawienie projektu „Po każdej zmianie” przywraca dawny rytm.
+
 ## OpenBeta 0.7.2 — 2026-11-08
 
 Po zgłoszeniu dotyczącym PR13/PR14 i audycie zużycia tokenów (`docs/AUDYT-TOKENY-2026-11-08.md`).

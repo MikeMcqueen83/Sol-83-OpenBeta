@@ -438,9 +438,11 @@ class Roles(Base):
 
     def test_architect_only_plans_and_the_general_model_does_the_rest(self):
         plan = json.dumps(Planning.PLAN)
+        # The implementer marks its task done, which finishes stage F1: that change goes to review.
+        finished = plan.replace('"status": "doing", "budget": 1', '"status": "done", "budget": 1')
         self.scenario(claude=[{'write': {'.sol83/plan.json': plan}, 'reply': 'PRACA: F1'},
                               {'write': {'.sol83/plan.json': plan.replace('Ozdoby', 'Eksport')}}],
-                      codex=[{'write': {'ok.txt': 'ok'}, 'reply': 'PRACA: F1.1'}, {'lgtm': True},
+                      codex=[{'write': {'ok.txt': 'ok', '.sol83/plan.json': finished}, 'reply': 'PRACA: F1.1'}, {'lgtm': True},
                              {'write': {'eksport.txt': '1'}}, {'lgtm': True}])
         project_id = self.project(claude_role='architect')
         self.wait_status(project_id, 'done')
@@ -569,6 +571,49 @@ class WaitsAndPauses(Base):
         started = time.monotonic()
         self.assertTrue(scheduler._wait(60, stop))
         self.assertLess(time.monotonic() - started, 5)
+
+
+class ReviewCadence(Base):
+    """2026-11-08 audit: a review after every implementation turn was half of all turns (PR9/26) and 76% of
+    the tokens (PR14/26). A change is reviewed when its stage of the plan is finished, or after
+    REVIEW_EVERY implementation turns in a row, or at once on a claim of done."""
+
+    @staticmethod
+    def plan(done=()):
+        tasks = {'F1': ('F1.1', 'F1.2'), 'F2': ('F2.1', 'F2.2', 'F2.3', 'F2.4')}
+        items = []
+        for feature, children in tasks.items():
+            items.append({'id': feature, 'title': feature, 'kind': 'feature', 'priority': 'must', 'status': 'todo'})
+            items += [{'id': task, 'title': task, 'kind': 'task', 'parent': feature, 'priority': 'must',
+                       'status': 'done' if task in done else 'todo', 'budget': 2} for task in children]
+        return json.dumps({'architecture': 'Pliki tekstowe.', 'run': 'cat a.txt', 'items': items})
+
+    def step(self, item, *done):
+        return {'write': {f'{item}.txt': item, '.sol83/plan.json': self.plan(done)}, 'reply': f'PRACA: {item}'}
+
+    def works(self, project_id):
+        return [e['data']['work'] for e in reversed(self.store.events(project_id)) if e['kind'] == 'turn_start']
+
+    def test_review_after_a_finished_stage_or_three_turns(self):
+        self.scenario(codex=[{'write': {'.sol83/plan.json': self.plan()}, 'reply': 'PRACA: F1'},
+                             self.step('F1.2', 'F1.1', 'F1.2'), self.step('F2.1', 'F1.1', 'F1.2', 'F2.1'),
+                             self.step('F2.3', 'F1.1', 'F1.2', 'F2.1', 'F2.2', 'F2.3')],
+                      claude=[self.step('F1.1', 'F1.1'), {'reply': 'Przegląd: etap F1 w porządku.'},
+                              self.step('F2.2', 'F1.1', 'F1.2', 'F2.1', 'F2.2'), {'reply': 'Przegląd F2.1-F2.3.'}])
+        project_id = self.start(verify='', turns=20)
+        self.wait_for(lambda: len(self.works(project_id)) >= 8, timeout=60, what='osiem tur')
+        self.supervisor.stop(project_id, immediate=True)
+        self.assertEqual(self.works(project_id)[:8], ['plan', 'implement', 'implement', 'review',
+                                                      'implement', 'implement', 'implement', 'review'])
+
+    def test_every_change_is_reviewed_when_the_project_asks_for_it(self):
+        self.scenario(codex=[{'write': {'.sol83/plan.json': self.plan()}, 'reply': 'PRACA: F1'}],
+                      claude=[self.step('F1.1', 'F1.1')])
+        project_id = self.start(verify='', turns=20)
+        self.supervisor.set_options(project_id, review_mode='each')
+        self.wait_for(lambda: len(self.works(project_id)) >= 3, timeout=60, what='trzy tury')
+        self.supervisor.stop(project_id, immediate=True)
+        self.assertEqual(self.works(project_id)[:3], ['plan', 'implement', 'review'])
 
 
 class ThreeModels(Base):
