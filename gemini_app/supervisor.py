@@ -726,12 +726,15 @@ class Supervisor:
             # Only forward: a rejected version stays until a newer one, never an older one in its place.
             if version['number'] <= max(project['delivered_version'] or 0, project['run_version'] or 0):
                 continue
-            if self.deliver_failed.get(project['id']) == version['number']:
+            failed = self.deliver_failed.get(project['id'])
+            # A failed delivery is tried again a minute later (the user may have cleaned the folder meanwhile),
+            # not only after a restart; the failure is reported once.
+            if failed and failed[0] == version['number'] and time.time() - failed[1] < 60:
                 continue
             try:
                 path = self._put_version(project, version)
             except (gitops.GitError, OSError) as exc:
-                self.deliver_failed[project['id']] = version['number']
+                self.deliver_failed[project['id']] = (version['number'], time.time())
                 last = self.store.last_event(project['id'], 'deliver')
                 if not last or json.loads(last['data'] or '{}') != {'number': version['number'], 'ok': False}:
                     detail = exc.args[0] if exc.args and isinstance(exc.args[0], str) else str(exc)
