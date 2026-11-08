@@ -630,6 +630,13 @@ class FailureFlow(Base):
         self.assertIn('nie dostają pustej tury', takeover['text'])
         self.assertEqual(self.store.block('codex')['source'], 'failure')
 
+    def test_an_accepted_model_waits_only_for_a_partner_back_soon(self):
+        now = time.time()
+        soon = [limits.Availability(True), limits.Availability(False, now + 600, 'błąd agenta')]
+        away = [limits.Availability(True), limits.Availability(False, now + 2 * 86400, 'limit tygodniowy')]
+        self.assertEqual(limits.choose_among([0, 1], soon, [True, False]).mode, 'waiting_partner')
+        self.assertEqual(limits.choose_among([0, 1], away, [True, False]).speaker, 0)
+
     def test_repeated_failures_of_one_provider_get_growing_pauses(self):
         self.assertEqual([limits.failure_pause('other', n) for n in (1, 2, 3, 4, 5)],
                          [600, 1200, 2400, 4800, 7200])

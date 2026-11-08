@@ -36,6 +36,7 @@ AUTH_BLOCK_S = 3600            # signing in again is the user's step; "Try now" 
 # `claude /usage` gives reset times to the minute and rounds down: a turn started at the shown
 # minute was still rejected (2026-11-08: shown 2:59am, the provider's own resetsAt was 03:00:00).
 USAGE_MINUTE_GRACE_S = 60
+AWAIT_PARTNER_S = 3600         # an accepted model waits for a partner back within this time, not longer
 PROVIDERS = ('claude', 'codex')
 API_ENV_KEYS = ('ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'OPENAI_API_KEY', 'CODEX_API_KEY',
                 'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX', 'CLAUDE_CODE_USE_FOUNDRY')
@@ -389,7 +390,9 @@ def choose_among(order: list, avail: list, accepted: list, self_review: bool = F
     # A model that already accepted the current code does not get a turn just for being first in line while a
     # partner that has not accepted yet is away (PR9/26: five "nothing changed" turns while Gemini was down):
     # that partner's review is awaited. With nobody to wait for, the first in line goes on as before.
-    awaited = any(not avail[i].available and not accepted[i] for i in order)
+    # Only a partner back soon is worth waiting for: a weekly limit (Codex until Monday) is not.
+    soon = time.time() + AWAIT_PARTNER_S
+    awaited = any(not avail[i].available and not accepted[i] and (avail[i].until or 0) <= soon for i in order)
     if first in ready and not (accepted[first] and awaited):
         speaker = first
     else:

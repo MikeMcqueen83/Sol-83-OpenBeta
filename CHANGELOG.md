@@ -7,6 +7,7 @@ Oszczędność limitów i przepływ przy awariach (audyt PR9 i PR15, `docs/AUDYT
 - Nowa sesja agenta w każdej turze (`GEMINI_ROTATE_AFTER`, domyślnie 1): kontekst niesie pakiet przekazania (zadanie, plan, zmiany od ostatniej tury modelu, skrócone do 4000 znaków) zamiast całej historii. Wcześniej wznawiana sesja czytała historię przy każdym kroku: w PR9 szósta tura sesji Gemini kosztowała 2,6 raza tyle co pierwsza.
 - Zasada oszczędnej pracy dla modeli: plik w całości zamiast wielu edycji, testy i budowanie raz na koniec tury, krótkie wyjście poleceń, notatki z wyszukiwania w pliku.
 - Rodzaj projektu (wykrywany z zadania albo wybrany): przy dokumencie i researchu modele nie budują zaplecza (testów, linterów, skryptów) i sprawdzają treść oraz źródła.
+- Model, który zaakceptował kod, czeka tylko na partnera, który wróci w ciągu godziny (nie na limit tygodniowy).
 - Awarie: kolejna próba modelu po nieudanej turze zaczyna nową sesję; błędy liczone osobno dla każdego modelu, z rosnącą przerwą (10, 20, 40… min, do 2 h) i komunikatem po trzech z rzędu; model, który zaakceptował bieżący kod, nie dostaje pustej tury ani wymuszonego przejęcia (PR9: sześć utraconych przeglądów Gemini i pięć pustych tur Claude).
 
 ## OpenBeta 0.7.3 — 2026-11-08
