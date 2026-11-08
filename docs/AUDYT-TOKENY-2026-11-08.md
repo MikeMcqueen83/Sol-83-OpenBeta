@@ -53,3 +53,13 @@ Ustalenia:
 | 9 | Nowa sesja agenta w każdej turze, pakiet przekazania zamiast historii | PR15: −16%; Gemini PR9: do −45% | **zrobione (0.7.4)** |
 | 10 | Zasady oszczędnej pracy i projekt dokumentowy bez zaplecza | PR15: −8% kroków; do −44% kosztu zaplecza | **zrobione (0.7.4)** |
 | 11 | Awarie: nowa sesja, błędy per model, rosnąca przerwa, brak pustych tur | PR9: 6 utraconych przeglądów, 5 pustych tur | **zrobione (0.7.4)** |
+
+## Audyt po wersji 0.7.4 (projekty od 13:30)
+
+| Wskaźnik | PR15, PR9 (przed) | PR16–PR21 (po 0.7.4) |
+|---|---|---|
+| Średni kontekst kroku Claude | 221–441 tys. | 25–94 tys. |
+| Udział ponownego czytania (Claude, koszt ważony) | 47–60% | 11–29% |
+| Zaplecze w projektach dokumentowych | do 44% kosztu | 0–8% zapisów |
+
+Pozostałe wycieki, naprawione w 0.7.5: powrót do starych sesji po wznowieniu (ok. 8,7 mln tokenów), przegląd przez czytanie całych plików (37–64% kosztu Claude, pojedyncze wyniki do kilkudziesięciu tysięcy tokenów), osobna tura planu na każde zlecenie (PR18: 6 z 17 tur), drogie przeglądy Gemini (ok. 1,2 mln tokenów każdy). Limit tygodniowy Antigravity wyczerpał się 8.11 o 21:00 (powrót 15.11 00:16). Ręczne Opus xhigh w PR18: 58 z 116 punktów okna 5 h zużytych po 13:30, przy czterech turach Claude.

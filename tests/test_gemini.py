@@ -614,6 +614,25 @@ class ReviewCadence(Base):
         self.supervisor.stop(project_id, immediate=True)
         self.assertEqual(self.works(project_id)[:8], ['plan', 'implement', 'implement', 'review',
                                                       'implement', 'implement', 'implement', 'review'])
+        # The reviewer gets the patch since its last turn, so it need not open whole files.
+        review = [c for c in self.calls() if c['agent'] == 'claude'][1]
+        self.assertIn('Zmiany do przeglądu', review['prompt'])
+        self.assertIn('+F1.2', review['prompt'])
+
+    def test_document_project_in_auto_gives_writing_to_gemini_and_review_to_the_partner(self):
+        import types
+        from gemini_app.scheduler import GeminiScheduler
+        self.scenario()
+        project_id = self.supervisor.create_project(
+            task='Przygotuj handbook o płatnościach', repo_path=str(self.repo), codex_model='none',
+            gemini_model='gemini-3-pro', selections={'claude': 'auto_economy', 'gemini': 'auto_economy'})['id']
+        cfg = types.SimpleNamespace(agents=[types.SimpleNamespace(name=n) for n in ('codex', 'claude', 'gemini')],
+                                    cwd=str(self.repo), task='x')
+        scheduler = GeminiScheduler(cfg, pathlib.Path(tempfile.mkdtemp(dir=TEMP)), self.store, project_id)
+        enabled, roles = scheduler._enabled(), scheduler._roles()
+        scheduler.spoke = {'gemini': 5, 'claude': 3}
+        self.assertEqual(scheduler.names[scheduler._order('implement', enabled, roles, 1, False)[0]], 'gemini')
+        self.assertEqual(scheduler.names[scheduler._order('review', enabled, roles, 1, False)[0]], 'claude')
 
     def test_every_change_is_reviewed_when_the_project_asks_for_it(self):
         self.scenario(codex=[{'write': {'.sol83/plan.json': self.plan()}, 'reply': 'PRACA: F1'}],
@@ -1914,6 +1933,17 @@ class Lifecycle(Base):
         self.supervisor.stop(project_id, immediate=True)
         self.wait_status(project_id, 'stopped', timeout=15)
         self.assertEqual(engine_pids(project_id), [])
+
+    def test_resumed_project_does_not_go_back_to_old_sessions(self):
+        # PR15/PR17 on 2026-11-08: after a resume the first turn of each model resumed its long session.
+        self.scenario(codex=[{'write': {'ok.txt': 'ok'}}, {'lgtm': True}, {'write': {'b.txt': '1'}}],
+                      claude=[{'lgtm': True}, {'lgtm': True}])
+        project_id = self.start()
+        self.wait_status(project_id, 'done')
+        before = len(self.calls())
+        self.supervisor.add_note(project_id, 'Dopisz b.txt')
+        self.wait_for(lambda: len(self.calls()) > before, what='tura po wznowieniu')
+        self.assertFalse(self.calls()[before]['resumed'])
 
     def test_agent_gets_a_fresh_session_every_turn_by_default(self):
         # 2026-11-08 audit: a resumed session re-reads its history on every step (PR9: the 6th turn of a Gemini

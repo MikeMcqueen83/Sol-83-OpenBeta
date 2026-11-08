@@ -52,6 +52,10 @@ When the whole goal is met and you checked it yourself, give an LGTM rationale a
     'team_roles': {'pl': 'Role w zespole: {roles}.', 'en': 'Roles in the team: {roles}.'},
     'content_now': {'pl': 'Zamówienia do zrobienia teraz:', 'en': 'Orders to make now:'},
     'task': {'pl': 'Zadanie użytkownika:', 'en': "The user's task:"},
+    'review_diff': {'pl': 'Zmiany do przeglądu (diff od Twojej ostatniej tury). Przeglądaj na ich podstawie; całe pliki otwieraj '
+                          'tylko wtedy, gdy diff nie wystarcza, i nie wypisuj całych dużych plików:',
+                    'en': 'Changes to review (diff since your last turn). Review from them; open whole files only when the '
+                          'diff is not enough, and do not print whole large files:'},
     'changes_cut': {'pl': '(lista skrócona: resztę pokaże git log)', 'en': '(list shortened: git log shows the rest)'},
     'document_rules': {'pl': 'To projekt dokumentu lub researchu, nie aplikacji. Nie buduj zaplecza: bez zestawów testów, linterów, '
                              'walidatorów i skryptów poza jednym prostym budowaniem do HTML, jeśli jest potrzebne. Sprawdzaj treść, '

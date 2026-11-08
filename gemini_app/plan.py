@@ -60,6 +60,10 @@ TEXTS = {
         'of 1-3 turns of work; budget is the number of turns. Priority must: without it the goal is not met; '
         'should: clearly better; could: an extra. Do not split too finely: merge a task smaller than half a turn '
         'with its neighbour.')},
+    'add_order': {'pl': ('Użytkownik zlecił nową pracę. Dopisz ją do .sol83/plan.json jako nowe pozycje, bez przebudowy '
+                         'całego planu (pozycje done zostają done), i w tej samej turze zacznij najważniejszą z nich.'),
+                  'en': ('The user ordered new work. Add it to .sol83/plan.json as new items, without rebuilding the whole '
+                         'plan (done items stay done), and start the most important of them in this same turn.')},
     'replan': {'pl': REPLAN, 'en': (
         'The user ordered new work. First rebuild .sol83/plan.json: add the new features, connect them with the '
         'existing items and debt, and set priorities again. Done items stay done. Then start the most important '

@@ -33,6 +33,9 @@ ITEM_HALT_FACTOR = 2
 # every step, the largest cost in PR9/PR15; the handoff packet, the plan and the repository carry the context.
 ROTATE_AFTER = int(os.environ.get('GEMINI_ROTATE_AFTER', 1))
 CHANGES_LIMIT = 4000
+# Reviewers get the patch itself, so they need not open whole files (2026-11-08: reviews read files with cat,
+# 37-64% of Claude's cost, single outputs of tens of thousands of tokens).
+REVIEW_DIFF_LIMIT = 30000
 MAX_TREE_REPEATS = 3
 MAX_FAILURES = 3
 MAX_RETRIES = 2
@@ -200,8 +203,12 @@ class GeminiScheduler:
         plan, problem = project_plan.load(self.cfg.cwd)
         # New work waiting in the queue rebuilds the plan first; so does a plan inherited from an
         # earlier project on the same repository.
+        architects = [i for i, (on, role) in enumerate(zip(enabled, roles))
+                      if on and model_roles.covers(role, 'plan') and not model_roles.is_general(role)]
+        # New work goes into the plan in the next working turn; a separate (and in Auto, top-tier) plan turn
+        # only without a valid plan or when a dedicated architect owns the plan (PR18: 6 plan turns of 17).
         if (plan is None and not problem) or self.store.meta(self.pid).get('replan') == 'inherited' \
-                or orders.pending_orders(self.store, self.pid):
+                or (orders.pending_orders(self.store, self.pid) and (plan is None or problem or architects)):
             return 'plan'
         if model_roles.creates_content(roles, enabled) and self.last_work != 'content' \
                 and content.pending(self.cfg.cwd):
@@ -291,9 +298,15 @@ class GeminiScheduler:
         able = [i for i, (on, role) in enumerate(zip(enabled, roles))
                 if on and model_roles.covers(role, work)]
         experts = [i for i in able if not model_roles.is_general(roles[i])]
-        if experts and (self.store.project(self.pid).get('role_fallback') or 'general') == 'wait':
+        project = self.store.project(self.pid)
+        if experts and (project.get('role_fallback') or 'general') == 'wait':
             able = experts
-        return sorted(able, key=lambda i: (forced and i != hint, i not in experts,
+        # A document project in Auto: Gemini takes the writing, so reviews (reading-heavy, where its agent loop
+        # re-reads the most) go to the partner by alternation. Each Gemini review cost ~1.2M tokens (PR21).
+        writer = {i for i in able if self.names[i] == 'gemini' and work == 'implement'
+                  and (project.get('gemini_selection') or 'manual') != 'manual'
+                  and prompts.project_kind(project) == 'document'}
+        return sorted(able, key=lambda i: (forced and i != hint, i not in experts, bool(writer) and i not in writer,
                                            self.spoke.get(self.names[i], 0), i != hint))
 
     def _availability(self, force: bool = False) -> list:
@@ -497,7 +510,11 @@ class GeminiScheduler:
         self.usage_before = self._usage(name)
         if choice.mode == 'self_review':
             self.session_turns[name] = 0
-        elif self.session_turns[name] >= ROTATE_AFTER or name in self.force_fresh:
+        elif self.session_turns[name] >= ROTATE_AFTER or name in self.force_fresh or (
+                ROTATE_AFTER <= 1 and self.cfg.agents[index].session_id):
+            # The last condition: a resumed project (new engine, counters at zero) carried the previous run's
+            # session ids, and the first turn of each model went back to its long session (2026-11-08:
+            # PR15 Claude 441k tokens of context per step, PR17 Gemini 4.3M tokens in four turns).
             # A resumed session re-reads its whole history every turn: start a new one now and
             # then, and let the plan, the handoff and the repository carry the context.
             self.cfg.agents[index].session_id = None
@@ -831,7 +848,7 @@ class GeminiScheduler:
             lines.append(project_plan.text(self.lang, 'overrun', item=item['id'], used=used,
                                            budget=project_plan.budget(item)))
         if any(note.get('kind') == 'order' for note in notes):
-            lines.append(project_plan.text(self.lang, 'replan'))
+            lines.append(project_plan.text(self.lang, 'replan' if self.work == 'plan' else 'add_order'))
         lines.append(project_plan.text(self.lang, 'rules'))
         return lines
 
@@ -1121,6 +1138,12 @@ class GeminiScheduler:
             changes = changes[:CHANGES_LIMIT] + '\n' + T('changes_cut')
         if changes:
             lines += [T('changes'), changes]
+        if self.work == 'review':
+            patch = self.git.run('diff', '--no-color', '-U2', since, 'HEAD', '--', '.', ':(exclude).sol83', check=False)
+            if patch.strip():
+                if len(patch) > REVIEW_DIFF_LIMIT:
+                    patch = patch[:REVIEW_DIFF_LIMIT] + '\n' + T('changes_cut')
+                lines += [T('review_diff'), patch]
         status = self.git.dirty()
         if status:
             lines += [T('unsaved'), status]
