@@ -137,9 +137,24 @@ Patrz [AKTUALIZACJE.md](AKTUALIZACJE.md).
 | `gemini_app/prompts.py` | wszystkie teksty dla agentów PL/EN |
 | `gemini_app/migrate.py` | przeniesienie danych starszej instalacji |
 | `bin/claude`, `bin/gemini` | adaptery CLI |
+| `gemini_app/web/` | panel: `panel.js` i `panel.css` (wspólne), `index.html` (Classic), `pro.html` (Pro) |
 
 Testy nie zużywają abonamentów: silnik i koordynator rozmawiają z atrapami CLI, które mówią formatem prawdziwych narzędzi.
 
 ```bash
 python3 -m unittest discover -s tests
 ```
+
+## 17. Wygląd panelu: Classic i Pro
+
+Panel ma dwa wyglądy z tymi samymi funkcjami i danymi. Przełącznik CLASSIC / PRO jest w obu (w Classic obok PL/EN, w Pro w prawym górnym rogu i w Ustawieniach); wybór zostaje zapamiętany w tej przeglądarce. Classic działa pod `http://127.0.0.1:8765/`, Pro pod `/pro`. Gdy wybrany jest Pro, adres `/` też go otwiera; `/?classic` zawsze pokazuje Classic.
+
+Pro, w skrócie:
+
+- **Widoki.** Focus: jeden projekt z wszystkimi zakładkami i przyciskami Classic (przebieg, plan, pytania i testy, wersje, treści, efektywność, ustawienia, zadanie, RUN, GitHub). Grid: kafle wszystkich projektów. Canvas: okna do przeciągania za pasek tytułu, przesuwanie tła myszą lub gładzikiem, powiększanie Ctrl/Cmd + kółko albo przyciskami w prawym dolnym rogu; układ zostaje zapamiętany. Kliknięcie okna wybiera projekt (okno świeci), podwójne kliknięcie paska albo ⤢ otwiera go w Focus.
+- **Okno projektu** pokazuje klucz i tytuł, „led by @model” (kto ma albo miał ostatnią turę), ostatnie zdarzenia, stan słowem i ikoną, wersję i pytania czekające na Ciebie. Pole „❯” wysyła wiadomość do koordynatora, tak jak „Wiadomość” w Focus (bez przerywania pracy). W Canvas wybrany projekt ma okna podrzędne swoich modeli (@claude, @gemini, @codex) z rolą, zużyciem limitu i stanem; linia do modelu, który właśnie pracuje, jest animowana.
+- **Lewa szyna:** projekty (ta sama lista co w Classic, z repozytoriami GitHub), historia (ostatnie zdarzenia wszystkich projektów), pytania i testy (wszystko, co czeka na Ciebie, z licznikiem), limity (te same ustawienia co w Classic: progi, konta, bezpieczeństwo, Full Power), ustawienia wyglądu.
+- **Powiadomienia** w prawym górnym rogu: pytanie albo prośba o test z przyciskami odpowiedzi, przerwa limitu ze „Spróbuj teraz”, skrypt przygotowania do akceptacji (z podglądem treści). ✕ ukrywa powiadomienie w tej przeglądarce; wszystko zostaje w szufladzie „Pytania i testy”.
+- **Pasek stanu:** liczba projektów, ile pracuje i ile czeka (na limit, na model, na Ciebie), zużycie limitów Claude i Codex z datą odnowienia okna 5 h, przerwy Codex i Gemini z datą końca.
+- **Palety:** BURSZTYN, FOSFOR (domyślna), CYJAN, SAKURA, LIGHT. **Efekty:** linie skanowania i znaki w tle (włącz/wyłącz, intensywność, domyślnie 60%), przezroczystość paneli (domyślnie 45%, jak w zaakceptowanej makiecie). Przy systemowym „ogranicz ruch” efekty są wyłączone, a gdy karta jest niewidoczna, animacje stoją.
+- **Klawiatura:** F, G, C (widoki), [ i ] (poprzedni i następny projekt), N (nowy projekt), +, −, 0 (powiększenie i dopasowanie w Canvas), strzałki (przesuwanie widoku), Alt + strzałki (przesuwanie zaznaczonego okna), Enter na oknie (Focus), Esc (zamyka panel boczny), ? (ustawienia i lista skrótów). Stan zawsze ma słowo i ikonę, nie tylko kolor; przy wąskim oknie przyciski widoków skracają się do ikon, a palety do listy.

@@ -1,0 +1,973 @@
+<!doctype html>
+<html lang="pl" data-palette="green">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sol-83 Pro</title>
+<link rel="stylesheet" href="/panel.css">
+<style>
+/* Sol-83 Pro (2026-11-09): a futuristic terminal look over the same panel. The shared components
+   (panel.css, panel.js) keep every function of Classic; this file gives them palettes, glass panes,
+   the canvas, the grid and the notifications. Palettes set three colour triplets and a background. */
+:root{
+  color-scheme:dark;
+  --ph:57,255,106;--wr:255,196,64;--bd:255,96,96;--bgc:2,6,3;--solid:.6;--fx:.6;
+  --bg:rgb(var(--bgc));--ink:rgba(var(--ph),.93);--dim:rgba(var(--ph),.7);--faint:rgba(var(--ph),.56);
+  --pline:rgba(var(--ph),.3);--tint:rgba(var(--ph),.045);--tint-hi:rgba(var(--ph),.09);
+  --pane:rgba(var(--bgc),var(--solid));--top:rgba(var(--bgc),.74);--onph:#010;--glow:rgba(var(--ph),.24);
+  --scan:rgba(0,0,0,calc(.3 * var(--fx)));--vig:rgba(0,0,0,calc(.85 * var(--fx)));
+  /* The variables of the shared components, on this palette. */
+  --surface:rgba(var(--ph),.035);--surface-2:rgba(var(--ph),.075);--line:rgba(var(--ph),.22);--line-strong:rgba(var(--ph),.45);
+  --text:var(--ink);--text-2:var(--dim);--text-3:var(--faint);--track:rgba(var(--ph),.14);
+  --claude:rgb(var(--ph));--codex:rgba(var(--ph),.66);--gemini:rgba(var(--ph),.42);
+  --good:rgb(var(--ph));--warn:rgb(var(--wr));--bad:rgb(var(--bd));--good-ink:var(--ink);--warn-ink:rgb(var(--wr));--bad-ink:rgb(var(--bd));
+  --good-soft:rgba(var(--ph),.1);--warn-soft:rgba(var(--wr),.12);--bad-soft:rgba(var(--bd),.13);
+  --primary:rgba(var(--ph),.88);--on-primary:var(--onph);
+}
+:root[data-palette=amber]{--ph:255,176,46;--wr:255,112,82;--bd:255,74,74;--bgc:7,5,2}
+:root[data-palette=cyan]{--ph:72,226,255;--wr:255,190,80;--bd:255,96,120;--bgc:2,6,10}
+:root[data-palette=sakura]{--ph:255,138,192;--wr:255,214,120;--bd:255,99,99;--bgc:12,4,10}
+/* Light: frosted white glass on a pale background, dark ink, a deep teal accent. */
+:root[data-palette=light]{color-scheme:light;--ph:0,122,92;--wr:168,82,0;--bd:186,36,36;--bgc:233,239,236;
+  --ink:#12302a;--dim:rgba(18,48,42,.76);--faint:rgba(18,48,42,.6);--pline:rgba(18,48,42,.22);
+  --tint:rgba(255,255,255,.3);--tint-hi:rgba(255,255,255,.55);--pane:rgba(255,255,255,var(--solid));--top:rgba(255,255,255,.66);
+  --onph:#fff;--glow:rgba(0,90,66,.16);--scan:rgba(0,0,0,calc(.06 * var(--fx)));--vig:rgba(0,40,30,calc(.16 * var(--fx)));
+  --surface:rgba(255,255,255,.5);--surface-2:rgba(0,70,52,.06);--line:rgba(18,48,42,.16);--line-strong:rgba(18,48,42,.34);
+  --good-ink:#0a6a50;--codex:rgba(0,122,92,.7);--gemini:rgba(0,122,92,.45)}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font:12.5px/1.5 ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+button,input,textarea,select{font:inherit;color:inherit}
+select option{background:var(--bg);color:var(--ink)}
+/* Atmosphere: grid, glyphs, scan lines, vignette. Off with the effects switch and with reduced motion. */
+.bg{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse at 50% 40%,rgba(var(--ph),.07),transparent 65%),
+  linear-gradient(rgba(var(--ph),.035) 1px,transparent 1px) 0 0/44px 44px,linear-gradient(90deg,rgba(var(--ph),.035) 1px,transparent 1px) 0 0/44px 44px}
+#rain{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:calc(.36 * var(--fx))}
+.scan{position:fixed;inset:0;z-index:60;pointer-events:none;background:repeating-linear-gradient(0deg,var(--scan) 0 1px,transparent 1px 3px);mix-blend-mode:multiply}
+.vignette{position:fixed;inset:0;z-index:59;pointer-events:none;box-shadow:inset 0 0 180px var(--vig)}
+:root.fx-off #rain,:root.fx-off .scan{display:none}
+:root.tab-hidden *{animation-play-state:paused!important}
+/* Top bar */
+.top{position:fixed;top:0;left:0;right:0;height:52px;z-index:20;display:flex;align-items:center;gap:14px;padding:0 14px;border-bottom:1px solid var(--pline);background:var(--top);backdrop-filter:blur(8px)}
+.logo{display:flex;align-items:center;gap:9px;font-weight:700;letter-spacing:.12em;text-shadow:0 0 8px rgba(var(--ph),.6);text-decoration:none;color:var(--ink);white-space:nowrap;flex:none}
+.logo svg{width:22px;height:22px}
+.logo small{color:var(--dim);font-weight:400;font-size:inherit}
+.ctx{color:var(--dim);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1 1 0}
+.ctx b{color:var(--ink);font-weight:500}
+.seg{display:flex;border:1px solid var(--pline);border-radius:4px;overflow:hidden;flex:none}
+.seg button{border:0;background:none;padding:6px 14px;color:var(--dim);cursor:pointer;white-space:nowrap}
+.seg button+button{border-left:1px solid var(--pline)}
+.seg button[aria-pressed=true]{background:rgba(var(--ph),.85);color:var(--onph);font-weight:700;box-shadow:0 0 18px rgba(var(--ph),.45)}
+.seg button:focus-visible{outline:2px solid rgb(var(--ph));outline-offset:-3px}
+.tools{display:flex;gap:6px;align-items:center;flex:1 1 0;justify-content:flex-end;min-width:0}
+.pals,.looks{display:flex;gap:6px}
+.chip{border:1px solid var(--pline);background:none;border-radius:3px;padding:3px 8px;color:var(--dim);cursor:pointer;font-size:11.5px;letter-spacing:.04em;white-space:nowrap}
+.chip:hover{color:var(--ink)}
+.chip[aria-pressed=true]{color:var(--ink);border-color:rgba(var(--ph),.75);text-shadow:0 0 6px rgba(var(--ph),.6);box-shadow:inset 0 0 10px rgba(var(--ph),.12)}
+.chip:focus-visible,.icon:focus-visible,.navrail button:focus-visible,.navrail a:focus-visible{outline:2px solid rgb(var(--ph));outline-offset:1px}
+.sep{color:var(--faint)}
+select.pal-select{display:none;width:auto;min-height:28px;margin:0;padding:2px 6px;font-size:11.5px}
+/* Left rail and its drawers */
+.navrail{position:fixed;top:52px;bottom:30px;left:0;width:46px;z-index:22;border-right:1px solid var(--pline);display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:12px;background:var(--top);backdrop-filter:blur(6px)}
+.navrail button,.navrail a{position:relative;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:1px solid transparent;border-radius:4px;background:none;color:var(--dim);cursor:pointer;text-decoration:none;font-size:14px}
+.navrail button:hover,.navrail a:hover{color:var(--ink)}
+.navrail [aria-expanded=true]{color:var(--ink);border-color:rgba(var(--ph),.6);text-shadow:0 0 8px rgba(var(--ph),.7);box-shadow:inset 0 0 12px rgba(var(--ph),.15)}
+.navrail .counter{position:absolute;top:-4px;right:-7px;margin:0;font-family:inherit}
+.drawer{position:fixed;top:52px;bottom:30px;left:46px;width:min(390px,calc(100vw - 46px));z-index:25;display:flex;flex-direction:column;
+  border-right:1px solid rgba(var(--ph),.5);background:linear-gradient(var(--tint),var(--tint)),rgba(var(--bgc),.9);backdrop-filter:blur(14px) saturate(130%);box-shadow:0 0 40px rgba(0,0,0,.35),0 0 24px var(--glow)}
+.drawer[hidden]{display:none}
+.dhead{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--pline)}
+.dhead h2{font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;margin:0;outline:none;text-shadow:0 0 8px rgba(var(--ph),.5)}
+.dhead .icon{margin-left:auto}
+.dbody{overflow:auto;padding:14px;flex:1}
+.dbody > section{display:flex;flex-direction:column;gap:14px}
+.dbody > section[hidden]{display:none}
+.dbody h3{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:6px 0 2px}
+.dbody .projects{margin:0}
+.hrow{display:grid;grid-template-columns:44px auto minmax(0,1fr);gap:8px;padding:4px 6px;border-radius:3px;text-decoration:none;color:var(--dim);align-items:baseline}
+.hrow:hover,.hrow:focus-visible{background:var(--surface-2);color:var(--ink);outline:none}
+.hrow time{color:var(--faint)}.hrow .k{color:var(--ink)}
+.hrow .tx{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.setting{display:flex;flex-direction:column;gap:4px}
+.setting input[type=range]{width:100%;accent-color:rgb(var(--ph))}
+.keys{margin:0;padding-left:16px;color:var(--dim)}
+.keys li{margin:2px 0}
+/* Stage: canvas, grid and focus */
+.stage{position:fixed;top:52px;left:46px;right:0;bottom:30px;z-index:5;overflow:hidden}
+#world{position:absolute;left:0;top:0;transform-origin:0 0}
+#links{position:absolute;left:0;top:0;width:1px;height:1px;overflow:visible;pointer-events:none}
+#links path{fill:none;stroke:rgba(var(--ph),.55);stroke-width:1.5;filter:drop-shadow(0 0 3px rgba(var(--ph),.6))}
+#links path.on{stroke:rgb(var(--ph));stroke-dasharray:6 6;animation:flow 1s linear infinite}
+#links circle{fill:rgb(var(--ph))}
+@keyframes flow{to{stroke-dashoffset:-12}}
+.stage[data-view=canvas]{cursor:grab;touch-action:none}
+.stage.panning{cursor:grabbing}
+.stage[data-view=grid]{overflow:auto}
+.stage[data-view=grid] #world{position:static;transform:none!important;padding:18px}
+.stage[data-view=grid] #panes{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(330px,100%),1fr));gap:16px;align-items:start}
+.stage[data-view=grid] .pane.project{position:relative;left:auto!important;top:auto!important;width:auto}
+.stage[data-view=grid] #links,.stage[data-view=grid] .pane.model,.stage[data-view=grid] .zoombar{display:none}
+.stage[data-view=focus] #world,.stage[data-view=focus] .zoombar{display:none}
+.stage:not([data-view=focus]) #focus{display:none}
+.empty-stage{position:absolute;left:24px;top:24px;color:var(--dim)}
+/* Panes: glass terminals */
+.pane{position:absolute;width:360px;border:1px solid var(--pline);border-radius:6px;background:linear-gradient(var(--tint),var(--tint)),var(--pane);
+  backdrop-filter:blur(10px) saturate(130%);box-shadow:inset 0 1px 0 rgba(var(--ph),.1),0 10px 30px rgba(0,0,0,.4);transition:box-shadow .2s,border-color .2s;cursor:default}
+:root[data-palette=light] .pane{box-shadow:0 10px 30px rgba(0,40,30,.12)}
+.pane:focus-visible{outline:2px solid rgb(var(--ph));outline-offset:2px}
+.pane.active{border-color:rgba(var(--ph),.85);background:linear-gradient(var(--tint-hi),var(--tint-hi)),var(--pane);box-shadow:0 0 0 1px rgba(var(--ph),.35),0 0 34px var(--glow),inset 0 0 40px rgba(var(--ph),.05);z-index:2}
+:root[data-palette=light] .pane.active{box-shadow:0 0 0 1px rgba(var(--ph),.35),0 14px 36px rgba(0,60,45,.18)}
+.pane.model{width:250px;z-index:3}
+.pane.model.working{border-color:rgba(var(--ph),.7)}
+.ph{display:flex;align-items:center;gap:8px;padding:6px 8px 6px 10px;border-bottom:1px solid var(--pline);background:linear-gradient(rgba(var(--ph),.08),transparent);min-width:0;border-radius:6px 6px 0 0}
+.stage[data-view=canvas] .ph[data-drag]{cursor:grab}
+.ph .k{color:var(--dim);flex:none}
+.ph .t{font-weight:700;letter-spacing:.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.ph .led{color:var(--dim);font-size:11px;white-space:nowrap;flex:none}
+.ph .ctl{margin-left:auto;display:flex;gap:2px;flex:none}
+.icon{border:0;background:none;color:var(--faint);cursor:pointer;padding:2px 6px;border-radius:3px;line-height:1.2;min-width:22px}
+.icon:hover{color:var(--ink);background:rgba(var(--ph),.12)}
+.icon:disabled{opacity:.35;cursor:default}
+.pb{padding:8px 12px 6px}
+.pb p{margin:0 0 3px}
+.pane.folded .pb,.pane.folded .prompt{display:none}
+.log p{color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.log time{color:var(--faint)}
+.log .turn,.log .major{color:var(--ink)}
+.log .turn{font-weight:600}
+.pane .pstate{margin-top:6px}
+.vtag{color:var(--dim);font-size:11px}
+.pane .why{margin-top:5px}
+.acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.qlink{display:inline-flex;gap:5px;align-items:center;margin-top:6px;border:1px solid rgba(var(--bd),.55);color:var(--bad-ink);background:var(--bad-soft);border-radius:3px;padding:1px 7px;cursor:pointer;font-size:11.5px}
+.qlink svg{width:12px;height:12px}
+.mrow{display:flex;flex-wrap:wrap;gap:3px 12px;margin-top:6px;color:var(--faint);font-size:11px}
+.mrow span{display:inline-flex;gap:4px;align-items:center}
+.mrow svg,.mstate svg,.status svg,.toast .h svg{width:11px;height:11px;flex:none}
+.mrow .on,.mstate.on{color:var(--ink);text-shadow:0 0 6px rgba(var(--ph),.6)}
+.mrow .w,.mstate.w,.pb .w{color:var(--warn-ink)}
+.stage[data-view=canvas] .pane.active .mrow{display:none}
+.mstate{display:flex;gap:5px;align-items:center;margin-top:4px;overflow-wrap:anywhere}
+.bar{height:4px;background:rgba(var(--ph),.12);border-radius:2px;margin:3px 0 6px}
+.bar i{display:block;height:100%;background:rgb(var(--ph));box-shadow:0 0 6px rgb(var(--ph));border-radius:2px}
+.bar.w i{background:rgb(var(--wr));box-shadow:0 0 6px rgb(var(--wr))}
+.prompt{display:flex;gap:6px;align-items:center;margin:4px 12px 9px;padding-top:6px;border-top:1px solid var(--pline);color:var(--ink)}
+.prompt:focus-within{border-top-color:rgba(var(--ph),.75)}
+.prompt input[type=text]{flex:1;min-width:0;border:0;background:none;padding:2px 0;min-height:0;border-radius:0;color:var(--ink);caret-color:rgb(var(--ph));outline:none}
+.prompt input::placeholder{color:var(--faint)}
+.prompt .sent{color:var(--faint);font-size:11px;white-space:nowrap}
+.cur{width:7px;height:14px;background:rgb(var(--ph));animation:blink 1s steps(1) infinite;box-shadow:0 0 6px rgb(var(--ph));flex:none}
+.prompt:focus-within .cur,.prompt input:not(:placeholder-shown) ~ .cur{display:none}
+@keyframes blink{50%{opacity:0}}
+.zoombar{position:absolute;right:14px;bottom:12px;z-index:6;display:flex;gap:2px;align-items:center;border:1px solid var(--pline);border-radius:4px;padding:3px;background:var(--top);backdrop-filter:blur(6px)}
+.zoombar output{min-width:46px;text-align:center;color:var(--dim)}
+#focus{position:absolute;inset:0;overflow:auto;padding:18px 18px 40px}
+.pane.focus-pane{position:relative;width:min(1240px,100%);margin:0 auto;opacity:1}
+.fbody{padding:16px 20px 24px}
+/* Shared components (panel.css) in this look */
+.card{background:linear-gradient(var(--tint),var(--tint)),rgba(var(--bgc),calc(var(--solid) * .6));border-color:var(--line);border-radius:6px}
+.btn{border-radius:3px;background:transparent;border-color:rgba(var(--ph),.45);min-height:30px;font-weight:500}
+.btn:hover{background:rgba(var(--ph),.12)}
+.btn.primary{background:var(--primary);border-color:transparent;color:var(--on-primary);font-weight:700;box-shadow:0 0 14px rgba(var(--ph),.3)}
+.btn.primary:hover{background:rgb(var(--ph));opacity:1}
+.btn.danger{border-color:rgba(var(--bd),.7)}
+.btn.ok{border-color:rgba(var(--ph),.75)}
+.btn:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,.proj:focus-visible,.tab:focus-visible,.pcard:focus-visible,.prow:focus-visible{outline:2px solid rgb(var(--ph));outline-offset:1px}
+textarea,input[type=text],input[type=number],select{border-radius:3px;background:rgba(var(--bgc),.55)}
+.tab{text-transform:uppercase;letter-spacing:.06em;font-size:11.5px}
+.tab[aria-selected=true]{border-bottom-color:rgb(var(--ph));text-shadow:0 0 8px rgba(var(--ph),.6)}
+.pill,.state,.turn-head,.lang{border-radius:3px}
+.eyebrow{text-transform:uppercase;letter-spacing:.06em;font-size:11px}
+.head h2{font-size:19px;letter-spacing:.02em;text-shadow:0 0 10px rgba(var(--ph),.35)}
+.vnum{text-shadow:0 0 12px rgba(var(--ph),.5)}
+.qcard,.vcard,.pcard{border-radius:6px}
+.pcard{background:var(--surface)}
+.limit{padding:10px 0}
+.power.on{border-color:rgb(var(--wr))}
+dialog{background:linear-gradient(var(--tint),var(--tint)),rgba(var(--bgc),.96);border-color:rgba(var(--ph),.6);border-radius:6px;box-shadow:0 0 40px var(--glow)}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+/* Notifications (top right) and the same cards in the "Questions and tests" drawer */
+.toasts{position:fixed;top:62px;right:16px;z-index:30;width:min(400px,calc(100vw - 62px));display:flex;flex-direction:column;gap:10px;pointer-events:none}
+.toasts > *{pointer-events:auto}
+.toast{padding:10px 13px 10px;border:1px solid rgba(var(--ph),.55);border-radius:6px;background:linear-gradient(rgba(var(--ph),.07),rgba(var(--ph),.07)),rgba(var(--bgc),.84);
+  backdrop-filter:blur(14px) saturate(140%);box-shadow:0 0 0 1px rgba(0,0,0,.25),0 0 30px rgba(var(--ph),.16)}
+.toast.w{border-color:rgba(var(--wr),.65)}
+.toast .h{display:flex;gap:7px;align-items:center;color:var(--dim);min-width:0}
+.toast .h b{color:var(--ink);font-weight:600;min-width:0}
+.toast .h em{margin-left:auto;font-style:normal;color:var(--faint);white-space:nowrap}
+.toast .h em + .icon{margin-left:0}
+.toast .h .icon:first-of-type:last-child{margin-left:auto}
+.toast .c{margin:6px 0 8px;color:var(--ink);text-shadow:0 0 6px rgba(var(--ph),.35);overflow-wrap:anywhere}
+.toast .a{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.toast .a .push{margin-left:auto}
+.toast details{margin:-2px 0 8px}
+.toast pre{max-height:220px;overflow:auto;margin:6px 0 0}
+.toasts .more{align-self:flex-end;background:var(--top);backdrop-filter:blur(8px)}
+.dbody .toast{backdrop-filter:none;box-shadow:none;background:var(--surface)}
+/* Status bar */
+.status{position:fixed;left:0;right:0;bottom:0;height:30px;z-index:20;border-top:1px solid var(--pline);display:flex;gap:12px;align-items:center;padding:0 12px;color:var(--dim);font-size:11.5px;background:var(--top);backdrop-filter:blur(6px)}
+#sb-info{display:flex;gap:16px;align-items:center;overflow-x:auto;scrollbar-width:none;white-space:nowrap;min-width:0;flex:1}
+#sb-info::-webkit-scrollbar{display:none}
+#sb-info > span{display:inline-flex;gap:5px;align-items:center}
+.status b{color:var(--ink);font-weight:600}
+.status .w,.status .w b{color:var(--warn-ink)}
+.status .lang{flex:none}
+.status .lang button{padding:1px 7px}
+.dimmed{color:var(--faint)}
+@media (prefers-reduced-motion:reduce){#rain,.scan{display:none}.cur,#links path.on,.dot.run{animation:none}}
+@media (max-width:1100px){.ctx{display:none}.pals{display:none}select.pal-select{display:block}}
+@media (max-width:700px){
+  .top{gap:8px;padding:0 8px}.logo .word{display:none}
+  .seg button{padding:6px 9px}.seg .lbl{display:none}
+  .chip{padding:3px 5px}.tools .sep{display:none}
+  .navrail{width:40px}.stage{left:40px}.drawer{left:40px;width:calc(100vw - 40px)}
+  .toasts{right:8px;top:58px;width:calc(100vw - 56px)}
+  #focus{padding:8px}.fbody{padding:12px}
+  .stage[data-view=grid] #world{padding:10px}
+}
+</style>
+</head>
+<body>
+<div class="bg" aria-hidden="true"></div><canvas id="rain" aria-hidden="true"></canvas>
+<header class="top">
+  <a class="logo" href="#/" data-t-title="heroTitle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 2 22 12 12 22 2 12z"/><path d="M12 7v10M7 12h10"/></svg><span class="word">SOL-83</span><small>PRO</small></a>
+  <div class="ctx" id="ctx"></div>
+  <div class="seg" role="group" data-t-aria="viewLabel">
+    <button type="button" data-view="focus" aria-pressed="false" data-t-title="keyFocus">▢<span class="lbl"> Focus</span></button><button type="button" data-view="grid" aria-pressed="false" data-t-title="keyGrid">▦<span class="lbl"> Grid</span></button><button type="button" data-view="canvas" aria-pressed="true" data-t-title="keyCanvas">⌗<span class="lbl"> Canvas</span></button>
+  </div>
+  <div class="tools">
+    <div class="pals" role="group" data-t-aria="palLabel">
+      <button type="button" class="chip" data-pal="amber" data-t="pal_amber"></button><button type="button" class="chip" data-pal="green" data-t="pal_green"></button><button type="button" class="chip" data-pal="cyan" data-t="pal_cyan"></button><button type="button" class="chip" data-pal="sakura" data-t="pal_sakura"></button><button type="button" class="chip" data-pal="light" data-t="pal_light"></button>
+    </div>
+    <select class="pal-select" id="pal-pick" data-t-aria="palLabel">
+      <option value="amber" data-t="pal_amber"></option><option value="green" data-t="pal_green"></option><option value="cyan" data-t="pal_cyan"></option><option value="sakura" data-t="pal_sakura"></option><option value="light" data-t="pal_light"></option>
+    </select>
+    <span class="sep" aria-hidden="true">│</span>
+    <div class="looks" role="group" data-t-aria="lookLabel"><button type="button" class="chip" data-look="classic" aria-pressed="false" data-t-title="toClassic">CLASSIC</button><button type="button" class="chip" data-look="pro" aria-pressed="true">PRO</button></div>
+  </div>
+</header>
+
+<nav class="navrail" data-t-aria="navLabel">
+  <button type="button" data-drawer="projects" aria-expanded="false" aria-controls="drawer" data-t-title="navProjects" data-t-aria="navProjects">&gt;_</button>
+  <button type="button" data-drawer="history" aria-expanded="false" aria-controls="drawer" data-t-title="navHistory" data-t-aria="navHistory">⟲</button>
+  <button type="button" data-drawer="questions" aria-expanded="false" aria-controls="drawer" data-t-title="navQuestions" data-t-aria="navQuestions">✉<span class="counter" id="q-count" hidden></span></button>
+  <button type="button" data-drawer="limits" aria-expanded="false" aria-controls="drawer" data-t-title="navLimits" data-t-aria="navLimits">▤</button>
+  <button type="button" data-drawer="settings" aria-expanded="false" aria-controls="drawer" data-t-title="navSettings" data-t-aria="navSettings">⚙</button>
+  <a href="#/nowy" data-t-title="newProject" data-t-aria="newProject">＋</a>
+</nav>
+
+<aside class="drawer" id="drawer" hidden>
+  <div class="dhead"><h2 id="drawer-title" tabindex="-1"></h2><button type="button" class="icon" data-pro="close-drawer" data-t-title="close" data-t-aria="close">✕</button></div>
+  <div class="dbody">
+    <section data-panel="projects" hidden>
+      <a class="btn primary small" href="#/nowy" data-t="newProject"></a>
+      <nav class="projects" id="projects"></nav>
+      <section id="repos-section" hidden>
+        <div class="eyebrow"><span data-t="ghRepos"></span></div>
+        <input id="repo-filter" type="text" data-t-placeholder="ghFilter" style="margin-bottom:6px">
+        <nav class="projects" id="repos"></nav>
+      </section>
+    </section>
+    <section data-panel="history" hidden><div id="history"></div></section>
+    <section data-panel="questions" hidden><div id="waiting"></div></section>
+    <section data-panel="limits" hidden>
+      <div class="eyebrow"><span data-t="limits"></span><button class="linkbtn" id="refresh" data-t="refresh"></button></div>
+      <div id="limits"></div>
+      <details class="thresholds" id="security-box"><summary data-t="securityTitle"></summary>
+        <p class="hint" id="sandbox-state"></p>
+        <label class="check"><input type="checkbox" id="sec-network"> <span data-t="secNetwork"></span></label>
+        <label class="check"><input type="checkbox" id="sec-unsandboxed"> <span data-t="secUnsandboxed"></span></label>
+      </details>
+      <details class="thresholds" id="providers-box"><summary data-t="accounts"></summary>
+        <div id="providers"></div>
+        <button class="btn small" id="check-providers" data-t="checkConnection"></button>
+        <p class="hint" data-t="checkHint"></p>
+      </details>
+      <details class="thresholds">
+        <summary data-t="handoffAt"></summary>
+        <div class="grid2">
+          <div><label for="th-claude"><span>Claude · </span><span data-t="window5"></span> (%)</label><input id="th-claude" type="number" min="50" max="100"></div>
+          <div><label for="wk-claude"><span>Claude · </span><span data-t="week"></span> (%)</label><input id="wk-claude" type="number" min="50" max="100"></div>
+          <div><label for="th-codex"><span>Codex · </span><span data-t="window5"></span> (%)</label><input id="th-codex" type="number" min="50" max="100"></div>
+          <div><label for="wk-codex"><span>Codex · </span><span data-t="week"></span> (%)</label><input id="wk-codex" type="number" min="50" max="100"></div>
+        </div>
+        <p class="hint" data-t="thresholdHint"></p>
+      </details>
+      <label class="power" id="power"><input type="checkbox" id="full-power"><b>Full Power</b>
+        <span class="hint" id="power-hint"></span></label>
+    </section>
+    <section data-panel="settings" hidden>
+      <div class="setting"><h3 data-t="langTitle"></h3><div class="lang" role="group" aria-label="Language" style="align-self:flex-start"><button data-lang="pl" aria-pressed="true">PL</button><button data-lang="en" aria-pressed="false">EN</button></div></div>
+      <div class="setting"><h3 data-t="lookLabel"></h3><div class="looks" role="group" data-t-aria="lookLabel"><button type="button" class="chip" data-look="classic" aria-pressed="false">CLASSIC</button><button type="button" class="chip" data-look="pro" aria-pressed="true">PRO</button></div></div>
+      <div class="setting"><h3 data-t="palLabel"></h3><div class="pals" role="group" data-t-aria="palLabel" style="display:flex;flex-wrap:wrap">
+        <button type="button" class="chip" data-pal="amber" data-t="pal_amber"></button><button type="button" class="chip" data-pal="green" data-t="pal_green"></button><button type="button" class="chip" data-pal="cyan" data-t="pal_cyan"></button><button type="button" class="chip" data-pal="sakura" data-t="pal_sakura"></button><button type="button" class="chip" data-pal="light" data-t="pal_light"></button></div></div>
+      <div class="setting"><h3 data-t="fxTitle"></h3>
+        <label class="check"><input type="checkbox" id="fx-on"> <span data-t="fxOn"></span></label>
+        <p class="hint" id="fx-reduced" data-t="fxReduced" hidden></p>
+        <label for="fx-level" class="hint" data-t="fxLevel"></label><input type="range" id="fx-level" min="0" max="100" step="5">
+        <label for="glass-level" class="hint" data-t="glassLevel"></label><input type="range" id="glass-level" min="0" max="100" step="5">
+      </div>
+      <div class="setting"><h3>Canvas</h3><div class="row" style="justify-content:flex-start;margin:0">
+        <button type="button" class="btn small" data-pro="fit" data-t="fit"></button><button type="button" class="btn small" data-pro="reset-layout" data-t="layoutReset"></button></div></div>
+      <div class="setting"><h3 data-t="keysTitle"></h3><ul class="keys" id="keys"></ul></div>
+      <p class="hint" data-t="proHint"></p>
+    </section>
+  </div>
+</aside>
+
+<div class="stage" id="stage" role="main" data-view="canvas">
+  <div id="world"><svg id="links" aria-hidden="true"></svg><div id="panes"></div></div>
+  <p class="empty-stage" id="empty-stage" hidden></p>
+  <div class="zoombar" role="group" aria-label="Zoom">
+    <button type="button" class="icon" data-pro="zoom-out" data-t-title="zoomOut" data-t-aria="zoomOut">−</button><output id="zoom-level">100%</output><button type="button" class="icon" data-pro="zoom-in" data-t-title="zoomIn" data-t-aria="zoomIn">+</button><button type="button" class="icon" data-pro="fit" data-t-title="fit" data-t-aria="fit">⤧</button>
+  </div>
+  <div id="focus">
+    <section class="pane focus-pane active">
+      <header class="ph"><button type="button" class="icon" data-pro="prev" data-t-title="prev" data-t-aria="prev">‹</button><span class="k" id="focus-key"></span><span class="t" id="focus-title"></span><span class="led" id="focus-led"></span>
+        <span class="ctl"><button type="button" class="icon" data-pro="next" data-t-title="next" data-t-aria="next">›</button></span></header>
+      <div class="fbody"><div class="wrap" id="view"></div></div>
+    </section>
+  </div>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<footer class="status"><div id="sb-info"></div>
+  <div class="lang" role="group" aria-label="Language"><button data-lang="pl" aria-pressed="true">PL</button><button data-lang="en" aria-pressed="false">EN</button></div></footer>
+<div class="vignette" aria-hidden="true"></div><div class="scan" aria-hidden="true"></div>
+
+<dialog id="reject">
+  <form method="dialog">
+    <h3 id="reject-title" style="margin-bottom:6px"></h3>
+    <p class="hint" style="margin-bottom:10px" data-t="rejectHint"></p>
+    <textarea id="reject-text" rows="5" data-t-placeholder="rejectPlaceholder"></textarea>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn" value="cancel" data-t="cancel"></button>
+      <button class="btn primary" value="send" data-t="sendBack"></button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="power-dialog">
+  <form method="dialog">
+    <h3 style="margin-bottom:8px" data-t="powerTitle"></h3>
+    <div class="alert warn"><b data-t="powerWarn"></b></div>
+    <p style="margin-bottom:8px" data-t="powerOne"></p>
+    <p style="margin-bottom:8px" data-t="powerTwo"></p>
+    <p class="hint" data-t="powerThree"></p>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn" value="cancel" data-t="cancel"></button>
+      <button class="btn danger" value="on" data-t="powerConfirm"></button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="delete-dialog">
+  <form method="dialog">
+    <h3 style="margin-bottom:8px" id="delete-title"></h3>
+    <div class="alert"><b data-t="deleteWarn"></b></div>
+    <p style="margin-bottom:8px" data-t="deleteWhat"></p>
+    <p style="margin-bottom:8px" id="delete-repo"></p>
+    <p class="hint" data-t="deleteKeeps"></p>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn" value="cancel" data-t="cancel"></button>
+      <button class="btn danger" value="delete" data-t="deleteConfirm"></button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="public-dialog">
+  <form method="dialog">
+    <h3 style="margin-bottom:8px" data-t="publicTitle"></h3>
+    <div class="alert warn"><b data-t="publicWarn"></b></div>
+    <p style="margin-bottom:8px" data-t="publicOne"></p>
+    <p class="hint" data-t="publicTwo"></p>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn" value="cancel" data-t="cancel"></button>
+      <button class="btn danger" value="on" data-t="publicConfirm"></button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+// Texts of the Pro look, added to the shared ones by panel.js.
+window.SOL83_TEXT = {
+pl:{
+  viewLabel:'Widok', keyFocus:'Focus: jeden projekt ze wszystkimi funkcjami (F)', keyGrid:'Grid: kafle projektów (G)', keyCanvas:'Canvas: okna do przeciągania (C)',
+  palLabel:'Paleta', pal_amber:'BURSZTYN', pal_green:'FOSFOR', pal_cyan:'CYJAN', pal_sakura:'SAKURA', pal_light:'LIGHT',
+  toClassic:'Wróć do wyglądu Classic', navLabel:'Nawigacja', navProjects:'Projekty', navHistory:'Historia', navQuestions:'Pytania i testy',
+  navLimits:'Limity', navSettings:'Ustawienia', close:'Zamknij', langTitle:'Język',
+  ledBy:m=>`led by @${m}`, promptPh:'wiadomość do koordynatora', promptAria:k=>`Wiadomość do koordynatora: ${k}`, msgSent:'wysłano ✓',
+  openFocus:'Otwórz w widoku Focus (Enter)', foldIt:'Zwiń okno', unfoldIt:'Rozwiń okno', noEventsShort:'brak zdarzeń',
+  projectsWord:n=>n === 1 ? 'projekt' : [2,3,4].includes(n % 10) && ![12,13,14].includes(n % 100) ? 'projekty' : 'projektów',
+  sbWorking:'pracuje', sbLimit:'czeka na limit', sbModel:'czeka na model', sbUser:'czeka na Ciebie', sbError:'błąd',
+  sbOffline:'brak połączenia z serwerem', weekShort:'tydz.', sbReset:w=>`odnowienie ${w}`, sbConnecting:'łączenie…',
+  mReady:'gotowy do tury', roleShort:'rola', gNoReadingShort:'Antigravity nie podaje zużycia limitu',
+  toastTest:w=>`${w} prosi o test`, toastQuestion:w=>`${w} pyta`, toastLimit:'przerwa limitu', toastSetup:'skrypt przygotowania czeka na akceptację',
+  showScript:'Pokaż treść skryptu', approve:'Akceptuję tę treść', openIt:'Otwórz ↗', runIt:n=>`▶ RUN v${n}`, more:n=>`+${n} więcej`, dismiss:'Ukryj powiadomienie',
+  historyEmpty:'Brak zdarzeń.', waitingEmpty:'Nic nie czeka na Ciebie.',
+  fxTitle:'Efekty', fxOn:'Linie skanowania i znaki w tle', fxLevel:'Intensywność efektów', glassLevel:'Przezroczystość paneli',
+  fxReduced:'System prosi o ograniczenie ruchu: linie skanowania i znaki w tle są wyłączone.',
+  layoutReset:'Ułóż okna od nowa', fit:'Dopasuj widok (0)', zoomIn:'Powiększ (+)', zoomOut:'Pomniejsz (−)',
+  keysTitle:'Klawiatura', keysList:'F, G, C — widok Focus, Grid, Canvas|[ i ] — poprzedni i następny projekt|N — nowy projekt|+, −, 0 — powiększenie i dopasowanie (Canvas)|Strzałki — przesuwanie widoku (Canvas)|Alt + strzałki — przesuwanie zaznaczonego okna (Canvas)|Enter na oknie — otwórz w widoku Focus|Esc — zamknij panel boczny|? — ten panel',
+  prev:'Poprzedni projekt ([)', next:'Następny projekt (])', canvasEmpty:'Brak projektów. Zleć pierwszy przyciskiem ＋ po lewej.',
+  paneAria:(k,n,s)=>`${k} ${n}: ${s}`, proHint:'Wygląd Pro: te same funkcje, dane i ustawienia co Classic; zmienia się tylko wygląd. Układ okien, paleta i efekty są zapamiętane w tej przeglądarce.',
+},
+en:{
+  viewLabel:'View', keyFocus:'Focus: one project with every function (F)', keyGrid:'Grid: project tiles (G)', keyCanvas:'Canvas: windows you can drag (C)',
+  palLabel:'Palette', pal_amber:'AMBER', pal_green:'PHOSPHOR', pal_cyan:'CYAN', pal_sakura:'SAKURA', pal_light:'LIGHT',
+  toClassic:'Back to the Classic look', navLabel:'Navigation', navProjects:'Projects', navHistory:'History', navQuestions:'Questions and tests',
+  navLimits:'Limits', navSettings:'Settings', close:'Close', langTitle:'Language',
+  ledBy:m=>`led by @${m}`, promptPh:'message to the coordinator', promptAria:k=>`Message to the coordinator: ${k}`, msgSent:'sent ✓',
+  openFocus:'Open in the Focus view (Enter)', foldIt:'Fold the window', unfoldIt:'Unfold the window', noEventsShort:'no events',
+  projectsWord:n=>n === 1 ? 'project' : 'projects',
+  sbWorking:'working', sbLimit:'waiting for a limit', sbModel:'waiting for a model', sbUser:'waiting for you', sbError:'error',
+  sbOffline:'no connection to the server', weekShort:'week', sbReset:w=>`resets ${w}`, sbConnecting:'connecting…',
+  mReady:'ready for a turn', roleShort:'role', gNoReadingShort:'Antigravity reports no limit usage',
+  toastTest:w=>`${w} asks for a test`, toastQuestion:w=>`${w} asks`, toastLimit:'limit pause', toastSetup:'a setup script waits for approval',
+  showScript:'Show the script', approve:'I approve this content', openIt:'Open ↗', runIt:n=>`▶ RUN v${n}`, more:n=>`+${n} more`, dismiss:'Hide the notification',
+  historyEmpty:'No events.', waitingEmpty:'Nothing waits for you.',
+  fxTitle:'Effects', fxOn:'Scan lines and background glyphs', fxLevel:'Effect intensity', glassLevel:'Panel transparency',
+  fxReduced:'The system asks for reduced motion: scan lines and background glyphs are off.',
+  layoutReset:'Lay the windows out again', fit:'Fit the view (0)', zoomIn:'Zoom in (+)', zoomOut:'Zoom out (−)',
+  keysTitle:'Keyboard', keysList:'F, G, C — Focus, Grid, Canvas view|[ and ] — previous and next project|N — new project|+, −, 0 — zoom and fit (Canvas)|Arrows — move the view (Canvas)|Alt + arrows — move the selected window (Canvas)|Enter on a window — open it in the Focus view|Esc — close the side panel|? — this panel',
+  prev:'Previous project ([)', next:'Next project (])', canvasEmpty:'No projects yet. Start one with ＋ on the left.',
+  paneAria:(k,n,s)=>`${k} ${n}: ${s}`, proHint:'The Pro look: the same functions, data and settings as Classic; only the look differs. Window layout, palette and effects are remembered in this browser.',
+}};
+</script>
+<script src="/panel.js"></script>
+<script>
+// ---- Pro look ----------------------------------------------------------------------------------------
+// Everything below only arranges and shows what panel.js already reads; actions go through the same API.
+// Inside a function: the shared script's global names stay untouched.
+(() => {
+const root = document.documentElement, $ = id => document.getElementById(id);
+const saved = (key, fallback) => { try{ const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); }catch(error){ return fallback; } };
+const keep = (key, value) => { try{ localStorage.setItem(key, JSON.stringify(value)); }catch(error){} };
+const PALETTES = ['amber','green','cyan','sakura','light'], VIEWS = ['focus','grid','canvas'], MODEL_SIDES = ['claude','gemini','codex'];
+const COL = 400, ROW = 300, LOG_LINES = 4;
+const pro = {
+  view: VIEWS.includes(saved('sol83-pro-view')) ? saved('sol83-pro-view') : (innerWidth < 760 ? 'grid' : 'canvas'),
+  palette: PALETTES.includes(saved('sol83-pro-palette')) ? saved('sol83-pro-palette') : 'green',
+  fx: saved('sol83-pro-fx', true) !== false, fxLevel: Number(saved('sol83-pro-fx-level', 60)), glass: Number(saved('sol83-pro-glass', 45)),
+  layout: Object.assign({panes:{}, models:{}, cam:null}, saved('sol83-pro-layout', {})),
+  folded: saved('sol83-pro-folded', {}), dismissed: saved('sol83-pro-dismissed', []),
+  recent: {}, drawer: null, online: true, center: false, html: {}, lastProject: null, sent: {},
+};
+const setPro = (id, html) => { const el = $(id); if(el && pro.html[id] !== html){ el.innerHTML = html; pro.html[id] = html; } };
+const effectiveView = () => route() === 'new' ? 'focus' : pro.view;
+const projects = () => state.overview?.projects || [];
+const usedOf = w => !w ? null : (w.resets_at && w.resets_at <= Date.now()/1000) ? 0 : Math.round(w.used);
+const sides = p => MODEL_SIDES.filter(s => p[s+'_model'] && p[s+'_model'] !== 'none');
+const leader = p => (p.live?.phase === 'turn_running' ? p.live.speaker : null) || pro.recent[p.id]?.leader || null;
+
+// ---- Palette and effects -------------------------------------------------------------------------------
+function setPalette(name){
+  pro.palette = name; keep('sol83-pro-palette', name);
+  root.dataset.palette = name;
+  document.querySelectorAll('[data-pal]').forEach(b => b.setAttribute('aria-pressed', b.dataset.pal === name));
+  $('pal-pick').value = name;
+  rain.recolor();
+}
+const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+function applyFx(){
+  const on = pro.fx && !reduced.matches;
+  root.classList.toggle('fx-off', !on);
+  root.style.setProperty('--fx', (pro.fxLevel / 100).toFixed(2));
+  // Transparency 0 = nearly solid panes, 100 = mostly glass; the default 45 is the accepted mock-up.
+  root.style.setProperty('--solid', (0.92 - pro.glass / 100 * 0.72).toFixed(2));
+  $('fx-on').checked = on; $('fx-on').disabled = reduced.matches; $('fx-reduced').hidden = !reduced.matches;
+  $('fx-level').value = pro.fxLevel; $('glass-level').value = pro.glass;
+  rain.run(on && !document.hidden);
+}
+// Glyphs falling in the background: slow, faint, drawn only while the tab is visible and effects are on.
+const rain = (() => {
+  const canvas = $('rain'), ctx = canvas.getContext('2d'), GLYPHS = '01アカサタナハマヤラワ<>/{}#=*+';
+  let cols = [], timer = null, color = null;
+  const size = () => { canvas.width = innerWidth; canvas.height = innerHeight; cols = Array.from({length: Math.ceil(innerWidth / 18)}, () => Math.random() * innerHeight / 18); };
+  function frame(){
+    ctx.globalCompositeOperation = 'destination-out'; ctx.fillStyle = 'rgba(0,0,0,.14)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.globalCompositeOperation = 'source-over';
+    color = color || `rgba(${getComputedStyle(root).getPropertyValue('--ph').trim()},.85)`;
+    ctx.fillStyle = color; ctx.font = '13px ui-monospace,Menlo,monospace';
+    cols.forEach((y, i) => { ctx.fillText(GLYPHS[Math.random() * GLYPHS.length | 0], i * 18, y * 18); cols[i] = y * 18 > canvas.height && Math.random() > .975 ? 0 : y + 1; });
+  }
+  return {
+    run(on){
+      if(on && !timer){ size(); timer = setInterval(frame, 110); }
+      if(!on && timer){ clearInterval(timer); timer = null; ctx.clearRect(0, 0, canvas.width, canvas.height); }
+    },
+    recolor(){ color = null; },
+    resize(){ if(timer) size(); },
+  };
+})();
+reduced.addEventListener('change', applyFx);
+document.addEventListener('visibilitychange', () => { root.classList.toggle('tab-hidden', document.hidden); applyFx(); });
+
+// ---- Views ---------------------------------------------------------------------------------------------
+function setView(view){
+  pro.view = view; keep('sol83-pro-view', view);
+  if(route() === 'new' && view !== 'focus') location.hash = pro.lastProject ? '#/p/' + pro.lastProject : '#/';
+  render();
+  if(view === 'canvas' && !pro.layout.cam) fit(.6);
+}
+function openFocus(id, tab){
+  if(tab) state.tab = tab;
+  if(id && route() !== id) location.hash = '#/p/' + id;
+  else if(tab) document.querySelector(`#view [data-tab="${tab}"]`)?.click();
+  setView('focus');
+}
+function step(direction){
+  const list = sorted(); if(!list.length) return;
+  const index = list.findIndex(p => p.id === route());
+  const next = list[(index + direction + list.length) % list.length] || list[0];
+  pro.center = true; location.hash = '#/p/' + next.id;
+}
+// The same order as the project list: in progress first, then needs attention, stopped and finished.
+const groupOf = p => ['running','stopping','queued'].includes(p.status) ? 0 : (p.status === 'attention' || p.state_kind === 'error') ? 1 : p.status === 'done' ? 3 : 2;
+function sorted(){
+  return projects().map((p, i) => [p, i]).sort(([a, i], [b, j]) => groupOf(a) - groupOf(b)
+    || (groupOf(a) === 0 ? (NOW_ORDER[projectState(a).key] ?? 9) - (NOW_ORDER[projectState(b).key] ?? 9) : 0) || i - j).map(([p]) => p);
+}
+
+// ---- Rendering -----------------------------------------------------------------------------------------
+function render(){
+  const view = effectiveView();
+  $('stage').dataset.view = view;
+  document.querySelectorAll('[data-view]').forEach(b => b.setAttribute('aria-pressed', b.dataset.view === view));
+  renderStatus();
+  if(!state.overview) return;
+  renderPanes(); renderToasts(); renderDrawers(); renderContext();
+  applyCam(); drawLinks();
+}
+function logLine(e){
+  const time = new Date(e.ts * 1000).toLocaleTimeString(t('locale'), {hour:'2-digit', minute:'2-digit'}), text = local(e, 'text');
+  const cls = e.kind === 'turn_start' ? 'turn' : MAJOR.has(e.kind) ? 'major' : '';
+  return `<p class="${cls}" title="${esc(text)}"><time>${time}</time> ${e.agent ? '@' + esc(e.agent) : '•'} ${esc(text)}</p>`;
+}
+function sideState(p, side){
+  const live = p.live || {}, limit = state.overview?.limits?.[side] || {};
+  if(['running','stopping'].includes(p.status) && live.phase === 'turn_running' && live.speaker === side) return {icon:'play', tone:'on', text:t('k_working'), working:true};
+  const held = (liveDetail(live)?.sides || []).find(s => s.side === side && (s.state === 'limit' || s.state === 'down'));
+  if(held) return {icon:'pause', tone:'w', text:cap(local(held, 'reason')) + (held.until ? ' · ' + t('untilShort', dateTime(held.until)) : '')};
+  if(limit.available === false) return {icon:'pause', tone:'w', text:t('paused') + (limit.until ? ' · ' + t('untilShort', dateTime(limit.until)) : '')};
+  return {icon:'clock', tone:'', text:t('mReady')};
+}
+const modelLabel = (p, side) => p[side+'_selection'] && p[side+'_selection'] !== 'manual' ? t('sel_' + p[side+'_selection'])
+  : `${p[side+'_model']}${p[side+'_reasoning'] ? ' · ' + p[side+'_reasoning'] : ''}`;
+function paneBody(p){
+  const events = (pro.recent[p.id]?.events || []).slice(0, LOG_LINES).reverse();
+  const st = projectState(p), why = waitWhy(p), detail = local(p, 'status_detail');
+  const version = p.recommended ? `<span class="vtag">v${p.recommended}${p.run?.state === 'running' ? ' · ▶ RUN' : ''}</span>` : '';
+  const retry = (['running','stopping'].includes(p.status) ? pausedSides(p) : []).map(side => `<button class="btn small" data-act="retry" data-provider="${side}">↻ ${esc(t('retryNowFor', NAME[side]))}</button>`).join('');
+  const questions = p.questions_open ? `<button type="button" class="qlink" data-pro="questions" data-id="${esc(p.id)}">${SVG.user} ${esc(t('qWaitingYou', p.questions_open))}</button>` : '';
+  const models = sides(p).map(side => { const s = sideState(p, side); return `<span class="${s.tone}">${SVG[s.icon]}@${side} ${esc(modelLabel(p, side))}</span>`; }).join('');
+  return `<div class="log">${events.length ? events.map(logLine).join('') : `<p>${esc(t('noEventsShort'))}</p>`}</div>
+    <div class="pstate">${stateChip(st)}${p.monitor_level === 'warn' ? `<span class="state k-wait">${SVG.warn}${esc(t('monSidebar'))}</span>` : ''}${version}</div>
+    ${why ? `<div class="why">${why}</div>` : detail ? `<div class="why">${esc(detail)}</div>` : ''}${retry ? `<div class="acts">${retry}</div>` : ''}${questions}
+    ${models ? `<div class="mrow">${models}</div>` : ''}`;
+}
+function renderPanes(){
+  const host = $('panes'), current = route(), list = sorted(), shown = new Set();
+  list.forEach((p, i) => {
+    let el = $('pane-' + p.id);
+    if(!el){
+      el = document.createElement('section');
+      el.className = 'pane project'; el.id = 'pane-' + p.id; el.dataset.id = p.id; el.tabIndex = 0;
+      el.innerHTML = `<header class="ph" data-drag><span class="k"></span><span class="t"></span><span class="led"></span><span class="ctl">
+          <button type="button" class="icon" data-pro="fold"></button><button type="button" class="icon" data-pro="focus">⤢</button></span></header>
+        <div class="pb"></div>
+        <form class="prompt" data-id="${esc(p.id)}"><span aria-hidden="true">❯</span><input type="text" autocomplete="off" placeholder=" "><span class="cur" aria-hidden="true"></span><span class="sent" hidden></span></form>`;
+      host.appendChild(el);
+    }
+    shown.add(el);
+    const st = projectState(p), lead = leader(p), folded = !!pro.folded[p.id], fold = el.querySelector('[data-pro=fold]');
+    el.querySelector('.k').textContent = p.key || '';
+    el.querySelector('.t').textContent = p.title;
+    el.querySelector('.led').textContent = lead ? t('ledBy', lead) : '';
+    el.setAttribute('aria-label', t('paneAria', p.key || '', p.title, t(st.key)));
+    el.classList.toggle('active', p.id === current);
+    el.classList.toggle('folded', folded);
+    fold.textContent = folded ? '+' : '−'; fold.title = t(folded ? 'unfoldIt' : 'foldIt'); fold.setAttribute('aria-expanded', !folded); fold.setAttribute('aria-label', fold.title);
+    const focus = el.querySelector('[data-pro=focus]'); focus.title = t('openFocus'); focus.setAttribute('aria-label', focus.title);
+    const input = el.querySelector('.prompt input'); input.placeholder = t('promptPh'); input.setAttribute('aria-label', t('promptAria', `${p.key || ''} ${p.title}`));
+    el.style.order = i;
+    const body = paneBody(p);
+    if(el._body !== body){ el.querySelector('.pb').innerHTML = body; el._body = body; }
+  });
+  host.querySelectorAll('.pane.project').forEach(el => { if(!shown.has(el)) el.remove(); });
+  $('empty-stage').hidden = list.length > 0; $('empty-stage').textContent = t('canvasEmpty');
+  placeMissing(list);
+  for(const p of list){ const el = $('pane-' + p.id), [x, y] = pro.layout.panes[p.id]; el.style.left = x + 'px'; el.style.top = y + 'px'; }
+  renderModelPanes(list.find(p => p.id === current));
+}
+// A new project takes the first free place of a grid, in list order; deleted projects are forgotten.
+function placeMissing(list){
+  const panes = pro.layout.panes, slot = ([x, y]) => `${Math.round(x / COL)},${Math.round(y / ROW)}`;
+  const used = new Set(Object.values(panes).map(slot));
+  const cols = Math.max(2, Math.min(6, Math.round(Math.sqrt(list.length * 1.4))));
+  let n = 0, changed = false;
+  for(const p of list){
+    if(panes[p.id]) continue;
+    while(used.has(`${n % cols},${Math.floor(n / cols)}`)) n++;
+    panes[p.id] = [(n % cols) * COL, Math.floor(n / cols) * ROW]; used.add(slot(panes[p.id])); changed = true;
+  }
+  for(const id of Object.keys(panes)) if(!list.some(p => p.id === id)){ delete panes[id]; changed = true; }
+  if(changed) saveLayout();
+}
+// The models of the open project as its child windows (canvas only), joined to it by lines.
+function modelBody(p, side){
+  const limit = state.overview.limits[side] || {}, st = sideState(p, side);
+  const roles = (p[side+'_role'] || 'general').split(',').map(r => t('r_' + r)).join(', ');
+  let usage;
+  if(side === 'gemini') usage = `<p class="hint">${esc(limit.problem ? local(limit, 'problem') : t('gNoReadingShort'))}</p>`;
+  else {
+    const five = usedOf(limit.windows?.five_hour), week = usedOf(limit.windows?.seven_day);
+    usage = five === null ? `<p class="hint">${esc(t('noReading'))}</p>`
+      : `<p>5 h <b>${five}%</b> · ${esc(t('weekShort'))} <b>${week ?? '–'}%</b></p><div class="bar ${limit.available === false ? 'w' : ''}" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${five}" aria-label="${esc(NAME[side])}: ${esc(t('window5'))} ${five}%"><i style="width:${Math.min(100, five)}%"></i></div>`;
+  }
+  return `<p>${esc(t('roleShort'))}: ${esc(roles)}</p>${usage}<div class="mstate ${st.tone}">${SVG[st.icon]} ${esc(st.text)}</div>`;
+}
+function renderModelPanes(p){
+  const host = $('panes'), list = p && effectiveView() === 'canvas' ? sides(p) : [];
+  host.querySelectorAll('.pane.model').forEach(el => { if(!list.includes(el.dataset.side) || el.dataset.parent !== p.id) el.remove(); });
+  list.forEach(side => {
+    let el = $('mpane-' + side);
+    if(!el){
+      el = document.createElement('section');
+      el.className = 'pane model'; el.id = 'mpane-' + side; el.dataset.side = side; el.tabIndex = 0;
+      el.innerHTML = `<header class="ph" data-drag><span class="t">@${side}</span><span class="led"></span></header><div class="pb"></div>`;
+      host.appendChild(el);
+    }
+    el.dataset.parent = p.id;
+    const st = sideState(p, side);
+    el.classList.toggle('working', !!st.working);
+    el.querySelector('.led').textContent = modelLabel(p, side);
+    el.setAttribute('aria-label', `@${side} ${modelLabel(p, side)}: ${st.text}`);
+    const body = modelBody(p, side);
+    if(el._body !== body){ el.querySelector('.pb').innerHTML = body; el._body = body; }
+  });
+  positionModels();
+}
+function positionModels(){
+  const models = [...document.querySelectorAll('#panes .pane.model')];
+  models.forEach((el, i) => {
+    const parent = $('pane-' + el.dataset.parent); if(!parent) return;
+    const [px, py] = pro.layout.panes[el.dataset.parent] || [0, 0];
+    const [dx, dy] = pro.layout.models[el.dataset.parent + ':' + el.dataset.side]
+      || [Math.round((i - (models.length - 1) / 2) * 274 + (parent.offsetWidth - 250) / 2), parent.offsetHeight + 56];
+    el.style.left = (px + dx) + 'px'; el.style.top = (py + dy) + 'px';
+  });
+}
+function drawLinks(){
+  const svg = $('links');
+  if(effectiveView() !== 'canvas'){ if(svg.innerHTML) svg.innerHTML = ''; return; }
+  svg.innerHTML = [...document.querySelectorAll('#panes .pane.model')].map(m => {
+    const parent = $('pane-' + m.dataset.parent); if(!parent) return '';
+    const x1 = parent.offsetLeft + parent.offsetWidth / 2, y1 = parent.offsetTop + parent.offsetHeight;
+    const x2 = m.offsetLeft + m.offsetWidth / 2, y2 = m.offsetTop, middle = (y1 + y2) / 2;
+    return `<path class="${m.classList.contains('working') ? 'on' : ''}" d="M${x1},${y1} V${middle} H${x2} V${y2}"/><circle cx="${x1}" cy="${y1}" r="3"/><circle cx="${x2}" cy="${y2}" r="3"/>`;
+  }).join('');
+}
+// ---- Status bar, context, drawers ----------------------------------------------------------------------
+function limitLine(side){
+  const l = state.overview.limits[side] || {}, name = NAME[side];
+  if(side === 'gemini'){
+    if(l.problem) return `<span class="w" title="${esc(local(l, 'problem'))}">${SVG.warn} ${name} ${esc(t('gNotReady'))}</span>`;
+    if(!l.available) return `<span class="w" title="${esc(cap(local(l, 'reason')))}">${SVG.pause} ${name} ${esc(t('untilShort', dateTime(l.until)))}</span>`;
+    return `<span title="${esc(t('gNoReading'))}">${SVG.check} ${name} ${esc(t('available'))}</span>`;
+  }
+  if(l.error) return `<span class="w" title="${esc(l.error)}">${SVG.warn} ${name} ${esc(t('noReading'))}</span>`;
+  if(!l.available) return `<span class="w" title="${esc(cap(local(l, 'reason')))}">${SVG.pause} ${name} ${esc(t('untilShort', dateTime(l.until)))}</span>`;
+  const five = l.windows?.five_hour, week = l.windows?.seven_day;
+  return `<span>${name} 5 h <b>${usedOf(five) ?? '–'}%</b> · ${esc(t('weekShort'))} <b>${usedOf(week) ?? '–'}%</b>${five?.resets_at ? ` <span class="dimmed">${esc(t('sbReset', dateTime(five.resets_at)))}</span>` : ''}</span>`;
+}
+function renderStatus(){
+  if(!state.overview){ setPro('sb-info', `<span>${esc(t(pro.online ? 'sbConnecting' : 'sbOffline'))}</span>`); return; }
+  const list = projects(), keys = list.map(p => projectState(p).key), count = names => keys.filter(k => names.includes(k)).length;
+  const working = count(['k_working','k_starting']), limit = count(['k_limit']), model = count(['k_review','k_role']), errors = count(['k_error']);
+  const user = list.filter(p => p.state_kind === 'user' || p.questions_open).length;
+  setPro('sb-info', [pro.online ? '' : `<span class="w">${SVG.warn} ${esc(t('sbOffline'))}</span>`,
+    `<span><b>${list.length}</b> ${esc(t('projectsWord', list.length))}</span>`,
+    `<span>${SVG.play} ${esc(t('sbWorking'))}: <b>${working}</b></span>`,
+    limit ? `<span class="w">${SVG.pause} ${esc(t('sbLimit'))}: <b>${limit}</b></span>` : '',
+    model ? `<span class="w">${SVG.clock} ${esc(t('sbModel'))}: <b>${model}</b></span>` : '',
+    user ? `<span class="w">${SVG.user} ${esc(t('sbUser'))}: <b>${user}</b></span>` : '',
+    errors ? `<span class="w">${SVG.warn} ${esc(t('sbError'))}: <b>${errors}</b></span>` : '',
+    '<span class="sep" aria-hidden="true">│</span>', ...['claude','codex','gemini'].map(limitLine)].join(''));
+}
+function renderContext(){
+  const list = projects(), p = list.find(x => x.id === route());
+  setPro('ctx', p ? `▣ <b>${esc(p.key || '')}</b> ${esc(p.title)}` : `▣ <b>${list.length}</b> ${esc(t('projectsWord', list.length))}`);
+  $('focus-key').textContent = p ? p.key || '' : '';
+  $('focus-title').textContent = p ? p.title : route() === 'new' ? t('newProject') : 'SOL-83';
+  $('focus-led').textContent = p && leader(p) ? t('ledBy', leader(p)) : '';
+  document.querySelectorAll('[data-pro=prev],[data-pro=next]').forEach(b => { b.disabled = !list.length; });
+}
+const DRAWERS = {projects:'navProjects', history:'navHistory', questions:'navQuestions', limits:'navLimits', settings:'navSettings'};
+function openDrawer(name){
+  if(pro.drawer === name) return closeDrawer();
+  pro.drawer = name;
+  $('drawer').hidden = false;
+  document.querySelectorAll('[data-drawer]').forEach(b => b.setAttribute('aria-expanded', b.dataset.drawer === name));
+  document.querySelectorAll('#drawer [data-panel]').forEach(s => { s.hidden = s.dataset.panel !== name; });
+  $('drawer-title').textContent = t(DRAWERS[name]);
+  renderDrawers(); $('drawer-title').focus();
+}
+function closeDrawer(){
+  if(!pro.drawer) return;
+  const name = pro.drawer; pro.drawer = null; $('drawer').hidden = true;
+  document.querySelectorAll('[data-drawer]').forEach(b => b.setAttribute('aria-expanded', false));
+  document.querySelector(`.navrail [data-drawer="${name}"]`)?.focus();
+}
+function renderDrawers(){
+  if(pro.drawer) $('drawer-title').textContent = t(DRAWERS[pro.drawer]);
+  const byId = Object.fromEntries(projects().map(p => [p.id, p]));
+  const rows = Object.entries(pro.recent).flatMap(([id, r]) => (r.events || []).map(e => ({e, p:byId[id]}))).filter(row => row.p)
+    .sort((a, b) => b.e.ts - a.e.ts).slice(0, 60);
+  setPro('history', rows.length ? rows.map(({e, p}) => `<a class="hrow" href="#/p/${esc(p.id)}" title="${esc(p.title + ' — ' + local(e, 'text'))}"><time>${esc(new Date(e.ts * 1000).toLocaleTimeString(t('locale'), {hour:'2-digit', minute:'2-digit'}))}</time><span class="k">${esc(p.key || '')}</span><span class="tx">${e.agent ? '@' + esc(e.agent) + ' ' : ''}${esc(local(e, 'text'))}</span></a>`).join('')
+    : `<p class="empty">${esc(t('historyEmpty'))}</p>`);
+  const items = waitItems();
+  setPro('waiting', items.length ? items.map(item => waitCard(item, false)).join('') : `<p class="empty">${esc(t('waitingEmpty'))}</p>`);
+  const total = items.filter(item => item.kind !== 'limit').length;
+  $('q-count').hidden = !total; $('q-count').textContent = total;
+  setPro('keys', t('keysList').split('|').map(k => `<li>${esc(k)}</li>`).join(''));
+}
+// ---- Notifications: what waits for the user ------------------------------------------------------------
+function waitItems(){
+  const items = [];
+  for(const p of sorted()){
+    const r = pro.recent[p.id] || {};
+    for(const q of r.waiting || []) items.push({key:'q' + q.id, kind:'q', p, q, ts:q.created_at || 0});
+    if(r.setup) items.push({key:'s' + p.id + r.setup.sha.slice(0, 12), kind:'setup', p, s:r.setup, ts:Infinity});
+  }
+  items.sort((a, b) => b.ts - a.ts);
+  for(const side of MODEL_SIDES){
+    const l = state.overview?.limits?.[side];
+    if(l?.paused) items.push({key:`l:${side}:${Math.round(l.until || 0)}`, kind:'limit', side, l});
+  }
+  return items;
+}
+function waitCard(item, toast){
+  const close = toast ? `<button type="button" class="icon" data-pro="dismiss" data-key="${esc(item.key)}" title="${esc(t('dismiss'))}" aria-label="${esc(t('dismiss'))}">✕</button>` : '';
+  if(item.kind === 'limit'){
+    const {side, l} = item;
+    return `<div class="toast w" role="group" aria-label="${esc(NAME[side] + ': ' + t('toastLimit'))}"><div class="h">${SVG.pause}<b>@${side} · ${esc(t('toastLimit'))}</b><em>${esc(t('untilShort', dateTime(l.until)))}</em>${close}</div>
+      <div class="c">${esc(cap(local(l, 'reason')) || t('paused'))}${l.estimate ? ' ' + esc(t('estimateShort')) : ''}</div>
+      <div class="a"><button class="btn small" data-act="retry" data-provider="${side}" title="${esc(t('estimateHelp'))}">↻ ${esc(t('retryNow'))}</button></div></div>`;
+  }
+  const p = item.p, id = esc(p.id);
+  if(item.kind === 'setup'){
+    const s = item.s;
+    return `<div class="toast w" role="group" aria-label="${esc((p.key || '') + ': ' + t('toastSetup'))}"><div class="h">${SVG.warn}<span>${esc(p.key || '')}</span><b>${esc(t('toastSetup'))}</b>${close}</div>
+      <div class="c path">${esc(s.path)}</div>
+      <details><summary>${esc(t('showScript'))}</summary><pre class="steps">${esc(s.content)}</pre></details>
+      <div class="a">${s.sandbox ? `<button class="btn small ok" data-pro="setup" data-id="${id}" data-sha="${esc(s.sha)}">${SVG.check} ${esc(t('approve'))}</button>` : `<span class="hint">${esc(t('setupNoSandbox'))}</span>`}
+        <button class="btn small push" data-pro="open" data-id="${id}" data-tab="ustawienia">${esc(t('openIt'))}</button></div></div>`;
+  }
+  const q = item.q, test = q.type === 'manual_test', who = q.author === 'version' ? t('versionCheck') : '@' + (q.author || '?');
+  const answers = test
+    ? ['works','fails'].map(r => `<button class="btn small ${r === 'works' ? 'ok' : 'danger'}" data-pro="result" data-id="${id}" data-q="${q.id}" data-result="${r}">${SVG[RESULT_ICON[r]]} ${esc(cap(t('res_' + r)))}</button>`).join('')
+    : (q.options || []).slice(0, 4).map(o => `<button class="btn small" data-pro="answer" data-id="${id}" data-q="${q.id}" data-value="${esc(o)}">${esc(o)}${q.recommendation === o ? ' ★' : ''}</button>`).join('');
+  const run = test && q.version_number ? `<button class="btn small" data-pro="run" data-id="${id}" data-n="${q.version_number}">${esc(t('runIt', q.version_number))}</button>` : '';
+  return `<div class="toast" role="group" aria-label="${esc((p.key || '') + ': ' + (test ? t('toastTest', who) : t('toastQuestion', who)))}"><div class="h">${SVG[test ? 'check' : 'user']}<span>${esc(p.key || '')}</span><b>${esc(test ? t('toastTest', who) : t('toastQuestion', who))}</b><em>${esc(q.created_at ? ago(q.created_at) : '')}</em>${close}</div>
+    <div class="c">❯ ${q.version_number ? 'v' + q.version_number + ' · ' : ''}„${esc(qTitle(q))}”</div>
+    <div class="a">${answers}${run}<button class="btn small push" data-pro="open" data-id="${id}" data-tab="pytania">${esc(t('openIt'))}</button></div></div>`;
+}
+function renderToasts(){
+  const items = waitItems().filter(item => !pro.dismissed.includes(item.key)), first = items.slice(0, innerWidth < 700 ? 1 : 3);
+  setPro('toasts', first.map(item => waitCard(item, true)).join('')
+    + (items.length > first.length ? `<button type="button" class="btn small more" data-pro="more">${esc(t('more', items.length - first.length))}</button>` : ''));
+}
+
+// ---- Canvas: camera, dragging, zoom; the layout is remembered in this browser --------------------------
+let layoutTimer = null;
+const saveLayout = () => { clearTimeout(layoutTimer); keep('sol83-pro-layout', pro.layout); };
+const saveLayoutSoon = () => { clearTimeout(layoutTimer); layoutTimer = setTimeout(() => keep('sol83-pro-layout', pro.layout), 300); };
+const cam = () => pro.layout.cam || {x:40, y:30, z:1};
+function applyCam(){
+  const c = cam();
+  $('world').style.transform = effectiveView() === 'canvas' ? `translate(${c.x}px,${c.y}px) scale(${c.z})` : '';
+  $('zoom-level').textContent = Math.round(c.z * 100) + '%';
+}
+function zoomAt(factor, x, y){
+  const c = {...cam()}, z = Math.min(2, Math.max(.25, c.z * factor));
+  c.x = x - (x - c.x) * z / c.z; c.y = y - (y - c.y) * z / c.z; c.z = z;
+  pro.layout.cam = c; applyCam(); saveLayoutSoon();
+}
+const zoomCenter = factor => zoomAt(factor, $('stage').clientWidth / 2, $('stage').clientHeight / 2);
+// Fit every window; the first view of a canvas keeps them readable (at least 60%) and starts at the top left.
+function fit(least = .25){
+  if(effectiveView() !== 'canvas') return;
+  const panes = [...document.querySelectorAll('#panes .pane')], stage = $('stage');
+  if(!panes.length) return;
+  const box = panes.reduce((b, el) => ({l:Math.min(b.l, el.offsetLeft), t:Math.min(b.t, el.offsetTop), r:Math.max(b.r, el.offsetLeft + el.offsetWidth), b:Math.max(b.b, el.offsetTop + el.offsetHeight)}),
+    {l:Infinity, t:Infinity, r:-Infinity, b:-Infinity});
+  const whole = Math.min(1.1, (stage.clientWidth - 60) / (box.r - box.l), (stage.clientHeight - 60) / (box.b - box.t)), z = Math.max(least, .25, whole);
+  pro.layout.cam = z > whole ? {z, x:30 - box.l * z, y:24 - box.t * z}
+    : {z, x:(stage.clientWidth - (box.r - box.l) * z) / 2 - box.l * z, y:Math.max(24, (stage.clientHeight - (box.b - box.t) * z) / 2) - box.t * z};
+  applyCam(); saveLayout();
+}
+function centerOn(id){
+  const el = $('pane-' + id), stage = $('stage');
+  if(!el || effectiveView() !== 'canvas') return;
+  const c = {...cam()};
+  c.x = stage.clientWidth / 2 - (el.offsetLeft + el.offsetWidth / 2) * c.z;
+  c.y = Math.min(80, stage.clientHeight / 4) - el.offsetTop * c.z;
+  pro.layout.cam = c; applyCam(); saveLayoutSoon();
+}
+function resetLayout(){ pro.layout = {panes:{}, models:{}, cam:null}; saveLayout(); render(); fit(.6); }
+function movePane(el, x, y){
+  el.style.left = x + 'px'; el.style.top = y + 'px';
+  if(el.classList.contains('model')){
+    const [px, py] = pro.layout.panes[el.dataset.parent] || [0, 0];
+    pro.layout.models[el.dataset.parent + ':' + el.dataset.side] = [x - px, y - py];
+  } else { pro.layout.panes[el.dataset.id] = [x, y]; positionModels(); }
+  drawLinks();
+}
+let drag = null;
+const stage = $('stage');
+stage.addEventListener('pointerdown', e => {
+  if(effectiveView() !== 'canvas' || e.button !== 0 || e.target.closest('button,a,input,select,textarea,summary,label,.zoombar,.prompt')) return;
+  const pane = e.target.closest('.pane'), head = e.target.closest('.ph[data-drag]');
+  if(pane && !head) return;
+  const c = cam();
+  drag = pane ? {pane, sx:e.clientX, sy:e.clientY, x:pane.offsetLeft, y:pane.offsetTop, id:e.pointerId}
+              : {sx:e.clientX, sy:e.clientY, x:c.x, y:c.y, id:e.pointerId};
+});
+stage.addEventListener('pointermove', e => {
+  if(!drag) return;
+  const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+  if(!drag.moved){
+    if(Math.hypot(dx, dy) < 4) return;
+    drag.moved = true; stage.setPointerCapture(drag.id); stage.classList.add('panning');
+  }
+  if(drag.pane){ const z = cam().z; movePane(drag.pane, Math.round(drag.x + dx / z), Math.round(drag.y + dy / z)); }
+  else { pro.layout.cam = {...cam(), x:drag.x + dx, y:drag.y + dy}; applyCam(); }
+});
+const endDrag = () => {
+  if(!drag) return;
+  stage.classList.remove('panning');
+  if(drag.moved){ pro.dragged = true; setTimeout(() => { pro.dragged = false; }, 0); saveLayout(); }
+  drag = null;
+};
+stage.addEventListener('pointerup', endDrag);
+stage.addEventListener('pointercancel', endDrag);
+stage.addEventListener('wheel', e => {
+  if(effectiveView() !== 'canvas') return;
+  e.preventDefault();
+  const r = stage.getBoundingClientRect();
+  if(e.ctrlKey || e.metaKey) zoomAt(Math.exp(-e.deltaY * .0025), e.clientX - r.left, e.clientY - r.top);
+  else { const c = cam(); pro.layout.cam = {...c, x:c.x - e.deltaX, y:c.y - e.deltaY}; applyCam(); saveLayoutSoon(); }
+}, {passive:false});
+// A click on a window opens its project (the window glows); a double click on its bar opens Focus.
+stage.addEventListener('click', e => {
+  if(pro.dragged) return;
+  const pane = e.target.closest('.pane.project');
+  if(!pane || e.target.closest('button,a,input,select,textarea,label,summary')) return;
+  if(route() !== pane.dataset.id) location.hash = '#/p/' + pane.dataset.id;
+});
+stage.addEventListener('dblclick', e => {
+  const head = e.target.closest('.pane.project .ph');
+  if(head && !e.target.closest('button')) openFocus(head.closest('.pane').dataset.id);
+});
+
+// ---- Input -------------------------------------------------------------------------------------------
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-pro],[data-view],[data-pal],[data-drawer]');
+  if(!b) return;
+  if(b.dataset.view) return setView(b.dataset.view);
+  if(b.dataset.pal) return setPalette(b.dataset.pal);
+  if(b.dataset.drawer) return openDrawer(b.dataset.drawer);
+  const act = b.dataset.pro, id = b.dataset.id || b.closest('[data-id]')?.dataset.id;
+  const local_ = {
+    focus: () => openFocus(id), questions: () => openFocus(id, 'pytania'), open: () => { closeDrawer(); openFocus(id, b.dataset.tab); },
+    fold: () => { if(pro.folded[id]) delete pro.folded[id]; else pro.folded[id] = true; keep('sol83-pro-folded', pro.folded); render(); },
+    dismiss: () => { pro.dismissed = [...pro.dismissed.filter(k => k !== b.dataset.key), b.dataset.key].slice(-300); keep('sol83-pro-dismissed', pro.dismissed); renderToasts(); },
+    more: () => openDrawer('questions'), 'close-drawer': closeDrawer, prev: () => step(-1), next: () => step(1),
+    'zoom-in': () => zoomCenter(1.2), 'zoom-out': () => zoomCenter(1 / 1.2), fit: () => fit(), 'reset-layout': resetLayout,
+  };
+  if(local_[act]) return local_[act]();
+  // Actions from a notification or a window name their project: it need not be the open one.
+  const call = {answer:['answer', {interaction:Number(b.dataset.q), value:b.dataset.value || '', request_key:requestKey()}],
+    result:['answer', {interaction:Number(b.dataset.q), result:b.dataset.result, request_key:requestKey()}],
+    run:['run', {number:Number(b.dataset.n)}], setup:['setup-approve', {sha:b.dataset.sha}]}[act];
+  if(!call || !id) return;
+  if(act === 'result' && b.dataset.result !== 'works'){ const comment = prompt(t('qCommentFail')); if(comment === null) return; call[1].comment = comment; }
+  b.disabled = true;
+  try{ await api(`/api/projects/${id}/${call[0]}`, call[1]); await poll(); }
+  catch(error){ alert(error.message); b.disabled = false; }
+});
+$('pal-pick').addEventListener('change', e => setPalette(e.target.value));
+$('fx-on').addEventListener('change', e => { pro.fx = e.target.checked; keep('sol83-pro-fx', pro.fx); applyFx(); });
+$('fx-level').addEventListener('input', e => { pro.fxLevel = Number(e.target.value); keep('sol83-pro-fx-level', pro.fxLevel); applyFx(); });
+$('glass-level').addEventListener('input', e => { pro.glass = Number(e.target.value); keep('sol83-pro-glass', pro.glass); applyFx(); });
+// A link in a drawer (project list, history) brings its window into view.
+$('drawer').addEventListener('click', e => {
+  if(!e.target.closest('a[href^="#/"]')) return;
+  pro.center = true;
+  if(innerWidth < 900) closeDrawer();
+});
+// "❯" in a window: a message to the coordinator of that project (as "Message" in Focus, without interrupting).
+document.addEventListener('submit', async e => {
+  const form = e.target.closest('form.prompt');
+  if(!form) return;
+  e.preventDefault();
+  const input = form.querySelector('input'), sent = form.querySelector('.sent'), text = input.value.trim();
+  if(!text) return;
+  input.value = ''; input.disabled = true;
+  try{
+    await api(`/api/projects/${form.dataset.id}/message`, {text, interrupt:false, lang:state.lang});
+    sent.textContent = t('msgSent'); sent.hidden = false; setTimeout(() => { sent.hidden = true; }, 4000);
+  }catch(error){ input.value = text; alert(error.message); }
+  input.disabled = false; input.focus(); poll();
+});
+document.addEventListener('keydown', e => {
+  if(document.querySelector('dialog[open]') || e.metaKey || e.ctrlKey) return;
+  if(e.target.closest?.('input,textarea,select,[contenteditable]')){ if(e.key === 'Escape') e.target.blur(); return; }
+  const pane = e.target.closest?.('.pane.project,.pane.model'), view = effectiveView();
+  const arrows = {ArrowLeft:[-1, 0], ArrowRight:[1, 0], ArrowUp:[0, -1], ArrowDown:[0, 1]};
+  if(view === 'canvas' && arrows[e.key]){
+    const [dx, dy] = arrows[e.key];
+    if(pane && e.altKey){ movePane(pane, pane.offsetLeft + dx * 20, pane.offsetTop + dy * 20); saveLayoutSoon(); }
+    else if(!e.altKey){ const c = cam(); pro.layout.cam = {...c, x:c.x - dx * 60, y:c.y - dy * 60}; applyCam(); saveLayoutSoon(); }
+    e.preventDefault(); return;
+  }
+  if(e.altKey) return;
+  if(pane && e.key === 'Enter' && e.target === pane && pane.dataset.id){ openFocus(pane.dataset.id); return; }
+  const keys = {f:() => setView('focus'), g:() => setView('grid'), c:() => setView('canvas'), '[':() => step(-1), ']':() => step(1),
+    n:() => { location.hash = '#/nowy'; }, '?':() => openDrawer('settings'), Escape:closeDrawer};
+  if(view === 'canvas') Object.assign(keys, {'+':() => zoomCenter(1.2), '=':() => zoomCenter(1.2), '-':() => zoomCenter(1 / 1.2), '0':() => fit()});
+  const run = keys[e.key] || keys[e.key.toLowerCase?.()];
+  if(run && !(e.key === 'Escape' && !pro.drawer)){ e.preventDefault(); run(); }
+});
+window.addEventListener('hashchange', () => {
+  const id = route();
+  if(id && id !== 'new') pro.lastProject = id;
+  render();
+  if(pro.center && id && id !== 'new'){
+    pro.center = false;
+    if(effectiveView() === 'canvas') centerOn(id);
+    else if(effectiveView() === 'grid') $('pane-' + id)?.scrollIntoView({block:'nearest', behavior:reduced.matches ? 'auto' : 'smooth'});
+  }
+});
+addEventListener('resize', () => { rain.resize(); drawLinks(); if(state.overview) renderToasts(); });
+// After each refresh of the shared panel (every 3 s): the last events and what waits for the user.
+let loading = false;
+document.addEventListener('sol83:poll', async e => {
+  pro.online = e.detail?.ok !== false;
+  if(pro.online && !loading){
+    loading = true;
+    try{ pro.recent = (await api('/api/recent')).projects || {}; }catch(error){}
+    loading = false;
+  }
+  const first = !pro.rendered; pro.rendered = true;
+  render();
+  if(first && effectiveView() === 'canvas' && !pro.layout.cam) fit(.6);
+});
+// Start: palette, effects and view of this browser; the shared script has loaded the data already.
+if(route() && route() !== 'new') pro.lastProject = route();
+setPalette(pro.palette); applyFx(); applyStatic(); render();
+})();
+</script>
+</body>
+</html>

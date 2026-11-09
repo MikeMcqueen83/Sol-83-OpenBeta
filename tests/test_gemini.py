@@ -2358,3 +2358,83 @@ class UserInteractions(Base):
         self.supervisor.set_verdict(project_id, 1, True, 'działa', request_key='v1-ok')
         check = next(row for row in self.supervisor.detail(project_id)['interactions'] if row['author'] == 'version')
         self.assertEqual(check['answers'][-1]['result'], 'works')
+
+
+class PanelLooks(Base):
+    """Two looks of one panel (2026-11-09): Classic at /, Pro at /pro, one shared script and stylesheet,
+    and the single read-only point the Pro windows add (/api/recent)."""
+    WEB = ROOT / 'gemini_app/web'
+
+    def setUp(self):
+        super().setUp()
+        from http.server import ThreadingHTTPServer
+        self.server = ThreadingHTTPServer(('127.0.0.1', 0), None)
+        port = self.server.server_address[1]
+        self.server.RequestHandlerClass = type('H', (Handler,), {'supervisor': self.supervisor, 'port': port})
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.url = f'http://127.0.0.1:{port}'
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        super().tearDown()
+
+    def get(self, path):
+        with urllib.request.urlopen(self.url + path) as response:
+            return response.headers['Content-Type'], response.read().decode()
+
+    def test_both_looks_load_the_shared_files_and_offer_the_switch(self):
+        pages = {}
+        for path, kind in (('/', 'text/html'), ('/pro', 'text/html'), ('/panel.js', 'text/javascript'),
+                           ('/panel.css', 'text/css')):
+            content_type, pages[path] = self.get(path)
+            self.assertTrue(content_type.startswith(kind), path)
+        for path in ('/', '/pro'):
+            self.assertIn('<script src="/panel.js"></script>', pages[path])
+            self.assertIn('href="/panel.css"', pages[path])
+            self.assertIn('data-look="classic"', pages[path])
+            self.assertIn('data-look="pro"', pages[path])
+        self.assertIn("localStorage.getItem('sol83-look') === 'pro'", pages['/'], 'the remembered look opens Pro')
+        self.assertIn("document.dispatchEvent(new CustomEvent('sol83:poll'", pages['/panel.js'])
+
+    def test_pro_has_every_element_of_classic(self):
+        """The shared script finds the same elements in both looks, so no function of Classic is lost in Pro."""
+        ids = lambda name: set(re.findall(r'\bid="([\w-]+)"', (self.WEB / name).read_text()))
+        missing = ids('index.html') - ids('pro.html') - {'side-resize', 'skin-pick'}
+        self.assertEqual(missing, set())
+
+    def test_every_text_of_pro_exists_in_polish_and_english(self):
+        shared = (self.WEB / 'panel.js').read_text()
+        pro = (self.WEB / 'pro.html').read_text()
+        own = pro[pro.index('window.SOL83_TEXT'):pro.index('<script src="/panel.js">')]
+        blocks = {'pl': shared[shared.index('pl:{'):shared.index('\nen:{')] + own[own.index('pl:{'):own.index('\nen:{')],
+                  'en': shared[shared.index('\nen:{'):shared.index('\n}};')] + own[own.index('\nen:{'):]}
+        keys = set(re.findall(r'data-t(?:-title|-aria|-placeholder)?="(\w+)"', pro))
+        keys |= set(re.findall(r"\bt\('(\w+)'[,)]", pro))
+        self.assertGreater(len(keys), 40)
+        for lang, block in blocks.items():
+            self.assertEqual({key for key in keys if not re.search(rf'\b{key}:', block)}, set(), lang)
+
+    def test_recent_lists_events_leader_and_what_waits_for_the_user(self):
+        from gemini_app import interactions
+        project_id = self.supervisor.create_project(task='Zadanie do okna Pro')['id']
+        self.store.update_project(project_id, status='stopped')
+        for turn in range(1, 9):
+            self.store.event(project_id, 'turn_start', f'Tura {turn}', agent='claude' if turn % 2 else 'codex',
+                             data={'turn': turn})
+        question = interactions.add(self.store, project_id, 'decision', 'Która biblioteka?', author='claude',
+                                    options=['A', 'B'])
+        answered = interactions.add(self.store, project_id, 'manual_test', 'Czy działa?', author='gemini')
+        interactions.answer(self.store, answered['id'], result='works')
+        _, body = self.get('/api/recent')
+        row = json.loads(body)['projects'][project_id]
+        self.assertEqual(row['leader'], 'codex', 'the model of the last turn leads a stopped project')
+        self.assertEqual(len(row['events']), 6)
+        self.assertEqual(row['events'][0]['text'], 'Tura 8')
+        self.assertNotIn('body', row['events'][0])
+        self.assertEqual([(q['id'], q['options']) for q in row['waiting']], [(question['id'], ['A', 'B'])])
+        self.assertIsNone(row['setup'])
+        request = urllib.request.Request(self.url + '/api/recent', data=b'{}', headers={'Content-Type': 'application/json'})
+        with self.assertRaises(urllib.error.HTTPError) as caught:
+            urllib.request.urlopen(request)
+        self.assertEqual(caught.exception.code, 404, 'read only')

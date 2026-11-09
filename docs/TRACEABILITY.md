@@ -74,6 +74,24 @@ Diagnoza na prawdziwych danych (kopia bazy przed restartem: `~/Sol-83-backups/ge
 | Przepływ przy awariach (0.7.4) | `scheduler._on_failure` (nowa sesja, błędy per model, brak wymuszonego przejęcia przez model, który zaakceptował kod), `limits.failure_pause`, `limits.choose_among` (zaakceptowany model nie dostaje tury za samą kolejność) | `FailureFlow` | zrobione | Odpowiedź Antigravity ze statusem błędu nadal jest traktowana jako nieudana tura (ostrożnie). |
 | Rzadszy przegląd (0.7.3) | `scheduler._review_due`, `_since_review`, `_stage_finished`, `REVIEW_EVERY`, `REVIEW_LINES`; `projects.review_mode` (stage/each), `Supervisor.set_options`, Ustawienia projektu | `tests/test_gemini.py`: `ReviewCadence` (etap, 3 tury, tryb „po każdej zmianie”); `Roles.test_architect_only_plans_and_the_general_model_does_the_rest` | zrobione | Etap zależy od tego, czy model aktualizuje status zadań w planie (kontrakt planu tego wymaga); tura bez podanej pozycji idzie do przeglądu od razu. Dług czeka na serię 3 tur. |
 
+## Etap 11: wygląd Pro panelu (9 listopada 2026)
+
+Decyzja o budowie: bez kopiowania panelu. Logika i komponenty Classic przeniesione bez zmian działania do `gemini_app/web/panel.js` i `panel.css`; oba wyglądy dostarczają te same identyfikatory elementów, a Pro dokłada tylko układ, palety i własne widoki. Dzięki temu każda funkcja Classic działa w Focus Pro tym samym kodem. Punkty zaczepienia w `panel.js`: teksty wyglądu (`window.SOL83_TEXT`), atrybuty `data-t-title` / `data-t-aria`, zdarzenie `sol83:poll` po każdym odświeżeniu, przełącznik `data-look`.
+
+Rozstrzygnięte pytania otwarte: domyślna paleta FOSFOR; przezroczystość paneli ustawialna (suwak 0–100, domyślnie 45 = makieta); efekty ustawialne (włącz/wyłącz, intensywność 0–100, domyślnie 60), wyłączone przy `prefers-reduced-motion`; okna modeli w Canvas tylko dla wybranego projektu (przy kilkunastu projektach trzy okna na każdy zasłoniłyby plan); pierwszy widok Canvas w powiększeniu co najmniej 60% od lewego górnego rogu.
+
+| Wymaganie | Implementacja | Test | Wynik | Ograniczenia |
+|---|---|---|---|---|
+| Przełącznik CLASSIC / PRO w obu wyglądach, zapamiętany | `panel.js`: `LOOK`, nasłuch `[data-look]`, `localStorage sol83-look`; `index.html`: przekierowanie na `/pro`; `server.PAGES` | `PanelLooks.test_both_looks_load_the_shared_files_and_offer_the_switch`; sprawdzone w przeglądarce (`/` → `/pro` z zachowanym `#/p/…`, powrót do Classic) | zrobione | |
+| Pro jako osobny plik bez narzędzi budujących | `gemini_app/web/pro.html` (CSS i JS w pliku), `/pro` | jak wyżej | zrobione | |
+| Wszystkie funkcje Classic w Focus | wspólne `panel.js` / `panel.css`; te same elementy i okna dialogowe w `pro.html` | `PanelLooks.test_pro_has_every_element_of_classic`; w przeglądarce: 8 zakładek Focus na kopii danych, bez błędów konsoli | zrobione | |
+| Palety, półprzezroczyste panele, efekty | zmienne `--ph`, `--wr`, `--bd`, `--bgc`, `--solid`, `--fx` i mapowanie zmiennych Classic w `pro.html`; `rain`, `applyFx`, `visibilitychange` | sprawdzone w przeglądarce: 5 palet, PL i EN | zrobione | Rozmycie tła wymaga przeglądarki z `backdrop-filter` (Safari, Chrome). |
+| Układ: pasek, szyna, pasek stanu, powiadomienia | `renderStatus`, `renderDrawers`, `waitItems`, `waitCard`, `renderToasts` | w przeglądarce na kopii danych: odpowiedź z powiadomienia zapisana przy właściwym projekcie (decyzja i test ręczny) | zrobione | Ukrycie powiadomienia jest zapamiętane tylko w tej przeglądarce. |
+| Okna projektów i modeli, linie | `renderPanes`, `paneBody`, `renderModelPanes`, `drawLinks`; „❯” → `POST /api/projects/<id>/message` | w przeglądarce (wysyłka sprawdzona z przechwyconym żądaniem, bez wywołania koordynatora) | zrobione | |
+| Canvas, Grid, Focus | przeciąganie, `zoomAt`, `fit`, `centerOn`, `localStorage sol83-pro-layout`; Grid w CSS | w przeglądarce, także 375 px szerokości | zrobione | Powiększanie gestem w Safari działa przez Ctrl + kółko i przyciski, nie przez gest szczypania. |
+| Teksty PL i EN, klawiatura, stan nie tylko kolorem | `window.SOL83_TEXT`; skróty F/G/C, [ ], N, + − 0, strzałki, Alt + strzałki, Enter, Esc, ? | `PanelLooks.test_every_text_of_pro_exists_in_polish_and_english` | zrobione | |
+| Jeden punkt API tylko do odczytu | `server.recent`, `GET /api/recent` | `PanelLooks.test_recent_lists_events_leader_and_what_waits_for_the_user` | zrobione | |
+
 ## Wymagania specyfikacji
 
 | Punkt | Wymaganie | Implementacja | Test | Wynik | Ograniczenia |

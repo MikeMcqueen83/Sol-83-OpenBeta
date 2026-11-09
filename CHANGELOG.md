@@ -1,5 +1,16 @@
 # Changelog
 
+## OpenBeta 0.7.6 — 2026-11-09
+
+Drugi wygląd panelu: Pro (futurystyczny terminal), przełączany z dotychczasowym Classic. Funkcje, dane i API bez zmian.
+
+- Przełącznik CLASSIC / PRO w obu wyglądach, zapamiętany w przeglądarce: Classic pod `/`, Pro pod `/pro` (zapamiętany Pro otwiera się też z `/`; `/?classic` zawsze pokazuje Classic).
+- Wspólna logika i komponenty obu wyglądów w `gemini_app/web/panel.js` i `panel.css` (przeniesione z `index.html` bez zmian działania). Pro ładuje te same pliki, więc widok Focus ma wszystkie zakładki i akcje Classic.
+- Pro: górny pasek (widoki Focus / Grid / Canvas, palety BURSZTYN, FOSFOR, CYJAN, SAKURA, LIGHT), lewa szyna (projekty, historia, pytania i testy z licznikiem, limity, ustawienia), pasek stanu (liczby projektów i stanów, limity Claude, Codex, Gemini z datą odnowienia), powiadomienia w prawym górnym rogu (pytania i testy z przyciskami, przerwa limitu ze „Spróbuj teraz”, akceptacja skryptu przygotowania).
+- Okna projektów jak terminale: klucz, tytuł, „led by @model”, ostatnie zdarzenia, stan słowem i ikoną, „❯” wysyła wiadomość do koordynatora. W Canvas okna modeli otwartego projektu są oknami podrzędnymi połączonymi liniami (animowana, gdy model pracuje); przeciąganie, powiększanie i układ zapisany w przeglądarce.
+- Półprzezroczyste panele z rozmyciem tła i poświatą aktywnego okna; linie skanowania i znaki w tle z przełącznikiem, suwakami intensywności i przezroczystości; wyłączone przy `prefers-reduced-motion`, zatrzymane, gdy karta jest niewidoczna.
+- Nowy punkt API tylko do odczytu `GET /api/recent`: ostatnie zdarzenia każdego projektu, model prowadzący, otwarte pytania i testy, skrypt czekający na akceptację.
+
 ## OpenBeta 0.7.5 — 2026-11-08
 
 Wycieki tokenów znalezione w audycie projektów po wersji 0.7.4 (PR15–PR21).

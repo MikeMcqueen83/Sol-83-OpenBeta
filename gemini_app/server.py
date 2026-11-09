@@ -9,7 +9,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import assets as content
-from . import catalog, github, licenses, limits, model_catalog, monitor, observer, plan, providers, sandbox
+from . import catalog, github, interactions, licenses, limits, model_catalog, monitor, observer, plan, providers, sandbox
 from .messages import Msg, en
 from .paths import WEB
 from .scheduler import AGENT_LABEL
@@ -18,6 +18,11 @@ from . import supervisor as supervisor_module
 from .supervisor import Supervisor, preview, recommended_version, state_kind
 
 MAX_BODY = 2_000_000
+# The panel's files: two looks (Classic at /, Pro at /pro) sharing one script and one component stylesheet.
+PAGES = {'/': ('index.html', 'text/html; charset=utf-8'), '/pro': ('pro.html', 'text/html; charset=utf-8'),
+         '/panel.js': ('panel.js', 'text/javascript; charset=utf-8'), '/panel.css': ('panel.css', 'text/css; charset=utf-8')}
+QUESTION_FIELDS = ('id', 'ref', 'type', 'text', 'author', 'options', 'recommendation', 'version_number', 'mandatory',
+                   'created_at')
 PROVIDER_THRESHOLDS = {f'{kind}_{name}' for name in limits.PROVIDERS
                        for kind in ('threshold', 'weekly')}
 
@@ -50,6 +55,25 @@ def overview(supervisor: Supervisor) -> dict:
                          'allow_unsandboxed': bool(store.setting('allow_unsandboxed', 0))},
             'agents': AGENT_LABEL, 'full_power': store.full_power(),
             'coordinator': observer.coordinator_view(store)}
+
+
+def recent(supervisor: Supervisor, limit: int = 6) -> dict:
+    """Read only, for the Pro look's project windows: the last events of each project, the model that leads
+    the work, the questions and tests waiting for the user and a setup script waiting for approval."""
+    store = supervisor.store
+    projects = {}
+    for project in store.projects():
+        live = store.live(project['id']) or {}
+        last = store.last_event(project['id'], 'turn_start')
+        setup = supervisor.setup_view(project)
+        projects[project['id']] = {
+            'leader': live['speaker'] if live.get('phase') == 'turn_running' else (last['agent'] if last else None),
+            'events': [{key: event[key] for key in ('id', 'ts', 'kind', 'agent', 'text', 'text_en')}
+                       for event in store.events(project['id'], limit)],
+            'waiting': [{key: item.get(key) for key in QUESTION_FIELDS}
+                        for item in interactions.listing(store, project['id']) if item['state'] == 'open'],
+            'setup': setup if setup and not setup['approved'] else None}
+    return {'now': time.time(), 'projects': projects}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -97,11 +121,13 @@ class Handler(BaseHTTPRequestHandler):
             return self._error(ValueError(Msg('err_host')), 403)
         path = urllib.parse.urlparse(self.path).path
         try:
-            if path == '/':
-                return self._send(200, (WEB / 'index.html').read_bytes(),
-                                  'text/html; charset=utf-8')
+            if path in PAGES:
+                name, kind = PAGES[path]
+                return self._send(200, (WEB / name).read_bytes(), kind)
             if path == '/api/overview':
                 return self._json(overview(self.supervisor))
+            if path == '/api/recent':
+                return self._json(recent(self.supervisor))
             if path == '/api/catalog':
                 store = self.supervisor.store
                 return self._json({**catalog.read(), 'catalog': model_catalog.current(store),
