@@ -61,12 +61,12 @@ Panel ma **dwa wyglądy z tymi samymi funkcjami**, przełączane przyciskiem **C
   </p>
     <p align="center">
     <img src="Assets/sc10.png" alt="Interfejs w nowej wersjo PRO" width="100%"><br>
-    <sub></sub>
+    <sub>Interfejs w wersji PRO</sub>
   </p>
    </p>
     <p align="center">
     <img src="Assets/sc11.png" alt="Interfejs w nowej wersjo PRO" width="100%"><br>
-    <sub>.</sub>
+    <sub>Interfejs w wersji PRO</sub>
   </p>
 </details>
 
