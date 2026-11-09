@@ -2394,7 +2394,7 @@ class PanelLooks(Base):
             self.assertIn('href="/panel.css"', pages[path])
             self.assertIn('data-look="classic"', pages[path])
             self.assertIn('data-look="pro"', pages[path])
-        self.assertIn("localStorage.getItem('sol83-look') === 'pro'", pages['/'], 'the remembered look opens Pro')
+        self.assertIn("look !== 'classic'", pages['/'], 'Pro is the default look; Classic only when chosen')
         self.assertIn("document.dispatchEvent(new CustomEvent('sol83:poll'", pages['/panel.js'])
 
     def test_pro_has_every_element_of_classic(self):
@@ -2475,3 +2475,11 @@ class PanelLooks(Base):
         self.assertEqual(self.post('/api/groups', {'groups': {'groups': 'x'}})[0], 400)
         self.assertEqual(self.post('/api/groups', {'groups': {'groups': [{'name': 'x' * 200_000}]}})[0], 400)
         self.assertEqual(json.loads(self.get('/api/recent')[1])['groups'], groups, 'a rejected save changes nothing')
+
+    def test_canvas_notes_are_kept_on_the_server(self):
+        notes = [{'id': 'n1', 'text': 'Pomysł: ' + 'ż' * 100, 'created': 1.0}, {'id': 'n2', 'text': 'Drugi', 'project': 'abc'}]
+        self.assertEqual(self.post('/api/canvas-notes', {'notes': notes}), (200, {'notes': notes}))
+        self.assertEqual(json.loads(self.get('/api/recent')[1])['notes'], notes)
+        self.assertEqual(self.post('/api/canvas-notes', {'notes': [{'text': 'bez id'}]})[0], 400)
+        self.assertEqual(self.post('/api/canvas-notes', {'notes': [{'id': 'x', 'text': 'y' * 500_000}]})[0], 400)
+        self.assertEqual(json.loads(self.get('/api/recent')[1])['notes'], notes, 'a rejected save changes nothing')

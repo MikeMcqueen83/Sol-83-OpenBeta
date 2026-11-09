@@ -105,6 +105,16 @@ Zgłoszenie użytkownika: aktywny projekt po lewej z miejscem pod nim na projekt
 | Powiadomienia systemowe, które zostają | `systemNotify` (Notification API, `requireInteraction`) | w przeglądarce: ustawienie i stan uprawnień | częściowo | Działa, gdy panel jest otwarty w karcie; czas wyświetlania zależy od stylu powiadomień przeglądarki w macOS. |
 | Bez animowanego tła i mrugania, lekka strona | usunięty deszcz znaków, `.cur` i `.dot.run` bez animacji; na Canvas 2 okna projektów zamiast wszystkich | w przeglądarce: 3–8 MB pamięci JS, ok. 1,7 tys. elementów | zrobione | |
 
+## Etap 13: notatki, RUN, Pro domyślnie (10 listopada 2026)
+
+| Wymaganie | Implementacja | Test | Wynik | Ograniczenia |
+|---|---|---|---|---|
+| Pro domyślnym wyglądem | `index.html`: przekierowanie na `/pro`, gdy nie wybrano Classic | `PanelLooks.test_both_looks_load_the_shared_files_and_offer_the_switch`; w przeglądarce | zrobione | |
+| Bez Grid | `pro.html`: widoki Focus i Canvas; zapamiętany „grid” przechodzi w Canvas | w przeglądarce | zrobione | |
+| Notatka → projekt w trybie ekonomicznym | `server.save_notes`, `POST /api/canvas-notes`; panel: `renderNotes`, `noteProject`, `weeklyOut` (limit tygodniowy albo przerwa ponad 12 h = model wyłączony) | `PanelLooks.test_canvas_notes_are_kept_on_the_server`; w przeglądarce na kopii danych: PR23/26 z Codex i Gemini w Auto — ekonomiczny, Claude wyłączony (81% tygodnia przy progu 80%) | zrobione | Zadaniem projektu jest cała treść notatki; zmiana notatki po założeniu projektu nie zmienia jego zadania. |
+| Oznaczenie działającego RUN | `runTag` (stos, okno, notatka), licznik w pasku stanu | w przeglądarce; zgodność z portami sprawdzona na żywych danych | zrobione | |
+| Szerokość formularza | klasa `.slot-models` zamiast `.models` | w przeglądarce: trzy równe kolumny modeli | zrobione | |
+
 ## Wymagania specyfikacji
 
 | Punkt | Wymaganie | Implementacja | Test | Wynik | Ograniczenia |

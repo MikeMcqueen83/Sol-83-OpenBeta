@@ -26,10 +26,10 @@ Korzysta wyłącznie z abonamentów: bez kluczy API i bez płatnego rozszerzenia
 <a id="zrzuty-ekranu"></a>
 ## Jak to wygląda
 
-Panel ma **dwa wyglądy z tymi samymi funkcjami**, przełączane przyciskiem **CLASSIC / PRO** (wybór zostaje zapamiętany w przeglądarce):
+Panel ma **dwa wyglądy z tymi samymi funkcjami**, przełączane przyciskiem **CLASSIC / PRO** (domyślny jest Pro; wybór zostaje zapamiętany w przeglądarce):
 
 - **Classic** (`http://127.0.0.1:8765/`): lista projektów z boku i szczegóły projektu, skórki LIGHT, DARK, SAKURA, TERMINAL.
-- **Pro** (`http://127.0.0.1:8765/pro`): futurystyczny terminal z półprzezroczystymi oknami. Widoki **Focus** (jeden projekt ze wszystkimi funkcjami Classic), **Grid** (kafle projektów) i **Canvas** (aktywny projekt z oknami modeli połączonymi liniami, animowanymi, gdy model pracuje, pod nim projekt wybrany ze stosu, obok stos zwiniętych projektów z kolejką do przeciągania, grupami i archiwum; całość przesuwasz i powiększasz). Okno projektu pokazuje, kto prowadzi pracę („led by @claude”), ostatnie zdarzenia i stan, a pole **❯** wysyła wiadomość do koordynatora. Powiadomienia w prawym górnym rogu (pytania i testy z przyciskami, przerwa limitu ze „Spróbuj teraz”, skrypt do akceptacji), pasek stanu z limitami i datami odnowienia, palety BURSZTYN, FOSFOR, CYJAN, SAKURA, LIGHT, linie skanowania z przełącznikiem (wyłączone przy „ogranicz ruch”), powiadomienia systemowe o nowych pytaniach. Opis: [przewodnik, sekcja 17](docs/pl/PRZEWODNIK.md#17-wygląd-panelu-classic-i-pro).
+- **Pro** (`http://127.0.0.1:8765/pro`): futurystyczny terminal z półprzezroczystymi oknami. Widoki **Focus** (jeden projekt ze wszystkimi funkcjami Classic) i **Canvas** (aktywny projekt z oknami modeli połączonymi liniami, animowanymi, gdy model pracuje, pod nim projekt wybrany ze stosu, obok stos zwiniętych projektów z kolejką do przeciągania, grupami i archiwum, a także notatki, z których jednym kliknięciem powstaje projekt; projekty z działającym RUN mają migającą plakietkę; całość przesuwasz i powiększasz). Okno projektu pokazuje, kto prowadzi pracę („led by @claude”), ostatnie zdarzenia i stan, a pole **❯** wysyła wiadomość do koordynatora. Powiadomienia w prawym górnym rogu (pytania i testy z przyciskami, przerwa limitu ze „Spróbuj teraz”, skrypt do akceptacji), pasek stanu z limitami i datami odnowienia, palety BURSZTYN, FOSFOR, CYJAN, SAKURA, LIGHT, linie skanowania z przełącznikiem (wyłączone przy „ogranicz ruch”), powiadomienia systemowe o nowych pytaniach. Opis: [przewodnik, sekcja 17](docs/pl/PRZEWODNIK.md#17-wygląd-panelu-classic-i-pro).
 
 <p align="center">
   <img width="100%" src="Assets/sc11.png" alt="Sol-83 Pro, widok Focus w palecie CYJAN: formularz nowego projektu z modelami, poziomem myślenia i rolami"><br>
@@ -97,7 +97,7 @@ Potem otwórz http://127.0.0.1:8765 i kliknij **Nowy projekt**.
 - Wersje z testami, RUN (kontrolowane uruchomienie wybranej wersji), Git w kontekście projektu, licencja projektu.
 - Panel kont i limitów, tokeny liczone poprawnie dla każdego dostawcy.
 - Piaskownica systemu dla kodu z repozytoriów, skan sekretów przed każdą wysyłką.
-- Dwa wyglądy panelu: Classic (skórki LIGHT, DARK, SAKURA, TERMINAL) i Pro (Focus / Grid / Canvas, palety BURSZTYN, FOSFOR, CYJAN, SAKURA, LIGHT), przełączane CLASSIC / PRO.
+- Dwa wyglądy panelu: Classic (skórki LIGHT, DARK, SAKURA, TERMINAL) i Pro (Focus / Canvas z notatkami, palety BURSZTYN, FOSFOR, CYJAN, SAKURA, LIGHT), przełączane CLASSIC / PRO.
 
 ## Dokumentacja
 

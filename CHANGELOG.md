@@ -1,5 +1,13 @@
 # Changelog
 
+## OpenBeta 0.7.8 — 2026-11-10
+
+- Pro jest domyślnym wyglądem: `/` otwiera Pro, Classic tylko po wybraniu przełącznikiem (`/?classic` zawsze Classic).
+- Bez widoku Grid: Pro ma Focus i Canvas.
+- Notatki na Canvas: stały blok z przewijanym tekstem, zapisywany na serwerze (`POST /api/canvas-notes`, `GET /api/recent` → `notes`). „▶ Utwórz projekt” zakłada z notatki projekt (zadanie = treść notatki) z dostępnymi modelami w trybie Auto — ekonomiczny; model z wyczerpanym limitem tygodniowym albo niedostępny jest wyłączony, wyczerpane okno 5 h nie. Notatka pokazuje potem numer i stan projektu.
+- Migająca plakietka ▶ RUN przy projektach z działającą aplikacją (stos, okno projektu, notatka) i ich liczba w pasku stanu.
+- Poprawka: formularz nowego projektu i ustawienia modeli w Pro miały rozjechaną szerokość (klasa okien modeli na Canvas kolidowała z klasą formularza).
+
 ## OpenBeta 0.7.7 — 2026-11-10
 
 Porządek w widoku Canvas wyglądu Pro; wygląd (przesuwanie, powiększanie, rozmyte panele) bez zmian.

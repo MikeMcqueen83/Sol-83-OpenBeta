@@ -22,6 +22,7 @@ MAX_BODY = 2_000_000
 PAGES = {'/': ('index.html', 'text/html; charset=utf-8'), '/pro': ('pro.html', 'text/html; charset=utf-8'),
          '/panel.js': ('panel.js', 'text/javascript; charset=utf-8'), '/panel.css': ('panel.css', 'text/css; charset=utf-8')}
 GROUPS_LIMIT = 100_000
+NOTES_LIMIT = 400_000
 QUESTION_FIELDS = ('id', 'ref', 'type', 'text', 'author', 'options', 'recommendation', 'version_number', 'mandatory',
                    'created_at')
 PROVIDER_THRESHOLDS = {f'{kind}_{name}' for name in limits.PROVIDERS
@@ -78,7 +79,8 @@ def recent(supervisor: Supervisor, limit: int = 6) -> dict:
                         for item in interactions.listing(store, project['id']) if item['state'] == 'open'],
             'setup': setup if setup and not setup['approved'] else None,
             'tokens': tokens.get(project['id'], 0)}
-    return {'now': time.time(), 'projects': projects, 'groups': json.loads(store.text_setting('project_groups') or '{}')}
+    return {'now': time.time(), 'projects': projects, 'groups': json.loads(store.text_setting('project_groups') or '{}'),
+            'notes': json.loads(store.text_setting('canvas_notes') or '[]')}
 
 
 def save_groups(store: Store, groups) -> dict:
@@ -90,6 +92,18 @@ def save_groups(store: Store, groups) -> dict:
         raise ValueError(Msg('err_groups'))
     store.set_setting('project_groups', text)
     return groups
+
+
+def save_notes(store: Store, notes) -> list:
+    """The Pro Canvas notes: [{"id", "text", "project"?, "created"}]. A note becomes a project only by the
+    user's click (POST /api/projects); here only the text and that link are kept."""
+    text = json.dumps(notes, ensure_ascii=False)
+    valid = isinstance(notes, list) and all(isinstance(note, dict) and isinstance(note.get('id'), str)
+                                            and isinstance(note.get('text', ''), str) for note in notes)
+    if not valid or len(text) > NOTES_LIMIT:
+        raise ValueError(Msg('err_notes'))
+    store.set_setting('canvas_notes', text)
+    return notes
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -219,6 +233,8 @@ class Handler(BaseHTTPRequestHandler):
             return {'id': project['id']}
         if path == ['api', 'groups']:
             return {'groups': save_groups(supervisor.store, body.get('groups'))}
+        if path == ['api', 'canvas-notes']:
+            return {'notes': save_notes(supervisor.store, body.get('notes'))}
         if path == ['api', 'queue', 'order']:
             return {'queue': supervisor.set_queue_order(list(body.get('ids') or []))}
         if path == ['api', 'limits', 'refresh']:

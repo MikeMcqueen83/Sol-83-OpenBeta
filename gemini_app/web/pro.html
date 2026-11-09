@@ -8,7 +8,7 @@
 <style>
 /* Sol-83 Pro (2026-11-09): a futuristic terminal look over the same panel. The shared components
    (panel.css, panel.js) keep every function of Classic; this file gives them palettes, glass panes,
-   the canvas, the grid and the notifications. Palettes set three colour triplets and a background. */
+   the Canvas and the notifications. Palettes set three colour triplets and a background. */
 :root{
   color-scheme:dark;
   --ph:57,255,106;--wr:255,196,64;--bd:255,96,96;--bgc:2,6,3;--solid:.6;--fx:.6;
@@ -24,7 +24,7 @@
   --good-soft:rgba(var(--ph),.1);--warn-soft:rgba(var(--wr),.12);--bad-soft:rgba(var(--bd),.13);
   --primary:rgba(var(--ph),.88);--on-primary:var(--onph);
   /* Steady state lights: working, waiting, stopped (orange), finished (green). */
-  --l-wait:255,200,60;--l-stop:255,140,30;--l-done:60,232,110;
+  --l-wait:255,200,60;--l-stop:255,140,30;--l-done:60,232,110;--l-run:190,120,255;
 }
 :root[data-palette=amber]{--ph:255,176,46;--wr:255,112,82;--bd:255,74,74;--bgc:7,5,2}
 :root[data-palette=cyan]{--ph:72,226,255;--wr:255,190,80;--bd:255,96,120;--bgc:2,6,10}
@@ -35,7 +35,7 @@
   --tint:rgba(255,255,255,.3);--tint-hi:rgba(255,255,255,.55);--pane:rgba(255,255,255,var(--solid));--top:rgba(255,255,255,.66);
   --onph:#fff;--glow:rgba(0,90,66,.16);--scan:rgba(0,0,0,calc(.06 * var(--fx)));--vig:rgba(0,40,30,calc(.16 * var(--fx)));
   --surface:rgba(255,255,255,.5);--surface-2:rgba(0,70,52,.06);--line:rgba(18,48,42,.16);--line-strong:rgba(18,48,42,.34);
-  --good-ink:#0a6a50;--codex:rgba(0,122,92,.7);--gemini:rgba(0,122,92,.45);--l-wait:160,115,0;--l-stop:200,96,0;--l-done:0,140,64}
+  --good-ink:#0a6a50;--codex:rgba(0,122,92,.7);--gemini:rgba(0,122,92,.45);--l-wait:160,115,0;--l-stop:200,96,0;--l-done:0,140,64;--l-run:120,60,200}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden}
 body{background:var(--bg);color:var(--ink);font:12.5px/1.5 ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
@@ -93,19 +93,14 @@ select.pal-select{display:none;width:auto;min-height:28px;margin:0;padding:2px 6
 .setting input[type=range]{width:100%;accent-color:rgb(var(--ph))}
 .keys{margin:0;padding-left:16px;color:var(--dim)}
 .keys li{margin:2px 0}
-/* Stage: the Canvas (blocks you move, pan and zoom), the Grid of tiles and Focus */
+/* Stage: the Canvas (blocks you move, pan and zoom) and Focus */
 .stage{position:fixed;top:52px;left:46px;right:0;bottom:30px;z-index:5;overflow:hidden}
 #world{position:absolute;left:0;top:0;transform-origin:0 0}
 @keyframes flow{to{stroke-dashoffset:-12}}
 .stage[data-view=canvas]{cursor:grab;touch-action:none}
 .stage.panning{cursor:grabbing}
 .stage:not([data-view=canvas]) #world,.stage:not([data-view=canvas]) .zoombar{display:none}
-.stage:not([data-view=grid]) #gridwrap{display:none}
-.stage[data-view=grid]{overflow:auto}
 .stage:not([data-view=focus]) #focus{display:none}
-#gridwrap{padding:18px}
-#panes{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(330px,100%),1fr));gap:16px;align-items:start}
-.empty-stage{color:var(--dim)}
 .block{position:absolute;cursor:default}
 .slot{width:820px;display:flex;flex-direction:column;align-items:center}
 .ph.slot-head{align-self:stretch;border:0;background:none;padding:0 0 8px;color:var(--faint);font-size:11px;letter-spacing:.1em;text-transform:uppercase;border-radius:0}
@@ -117,8 +112,8 @@ select.pal-select{display:none;width:auto;min-height:28px;margin:0;padding:2px 6
 .slot .links path{fill:none;stroke:rgba(var(--ph),.55);stroke-width:1.5;filter:drop-shadow(0 0 3px rgba(var(--ph),.6))}
 .slot .links path.on{stroke:rgb(var(--ph));stroke-dasharray:6 6;animation:flow 1s linear infinite}
 .slot .links circle{fill:rgb(var(--ph))}
-.models{display:flex;gap:22px;justify-content:center;flex-wrap:wrap;margin-top:52px}
-.models:empty{margin:0}
+.slot-models{display:flex;gap:22px;justify-content:center;flex-wrap:wrap;margin-top:52px}
+.slot-models:empty{margin:0}
 /* The stack: one glass panel; the bars inside have no blur of their own (lighter for the browser). */
 .stackblock{width:500px;border:1px solid var(--pline);border-radius:6px;background:linear-gradient(var(--tint),var(--tint)),var(--pane);backdrop-filter:blur(10px) saturate(130%);box-shadow:inset 0 1px 0 rgba(var(--ph),.1),0 10px 30px rgba(0,0,0,.4)}
 .stackblock .ph .ctl .btn{min-height:24px;padding:1px 8px}
@@ -162,6 +157,18 @@ select.pal-select{display:none;width:auto;min-height:28px;margin:0;padding:2px 6
 .qhint{margin:0 0 4px;font-size:11px;color:var(--faint)}
 .move-menu{display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding:6px;margin:-2px 0 2px;border:1px solid var(--pline);border-radius:4px;background:rgba(var(--bgc),.6)}
 .move-menu .hint{margin:0 4px 0 0}
+/* Canvas notes: a thought that becomes a project with one click. */
+.memo{width:340px;border:1px solid var(--pline);border-radius:6px;background:linear-gradient(var(--tint),var(--tint)),var(--pane);backdrop-filter:blur(10px) saturate(130%);box-shadow:inset 0 1px 0 rgba(var(--ph),.1),0 10px 30px rgba(0,0,0,.4)}
+.memo textarea.memo-text{display:block;width:100%;height:220px;min-height:120px;resize:vertical;overflow:auto;border:0;border-radius:0;background:transparent;padding:10px 12px;color:var(--ink);font:inherit;line-height:1.5}
+.memo textarea.memo-text:focus-visible{outline:none;box-shadow:inset 0 0 0 1px rgba(var(--ph),.6)}
+.memo textarea.memo-text::placeholder{color:var(--faint)}
+.memo-foot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 10px 9px;border-top:1px solid var(--pline)}
+.memo-foot .hint{margin:0;font-size:11px}
+.memo-link{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--pline);border-radius:4px;padding:2px 8px;background:rgba(var(--bgc),.35);color:var(--ink);cursor:pointer;font:inherit}
+.memo-link:hover,.memo-link:focus-visible{border-color:rgba(var(--ph),.75)}
+/* A running app (RUN) is easy to lose track of, so its tag blinks slowly; the only blinking in this look. */
+.runtag{display:inline-flex;align-items:center;gap:3px;padding:0 5px;border:1px solid rgba(var(--l-run),.85);border-radius:3px;color:rgb(var(--l-run));font-size:10.5px;font-weight:700;letter-spacing:.06em;white-space:nowrap;text-shadow:0 0 6px rgba(var(--l-run),.7);box-shadow:0 0 8px rgba(var(--l-run),.35);animation:runblink 1.6s ease-in-out infinite;flex:none}
+@keyframes runblink{50%{opacity:.3}}
 /* Panes: glass terminals */
 .pane{position:relative;border:1px solid var(--pline);border-radius:6px;background:linear-gradient(var(--tint),var(--tint)),var(--pane);
   backdrop-filter:blur(10px) saturate(130%);box-shadow:inset 0 1px 0 rgba(var(--ph),.1),0 10px 30px rgba(0,0,0,.4);transition:box-shadow .2s,border-color .2s;cursor:default}
@@ -268,9 +275,9 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 .status .credit a:hover,.status .credit a:focus-visible{color:var(--ink);text-decoration:underline}
 .status .lang button{padding:1px 7px}
 .dimmed{color:var(--faint)}
-/* Lights glow steadily: no blinking anywhere in this look. */
+/* Lights glow steadily: only the RUN tag blinks. */
 .dot.run{animation:none}
-@media (prefers-reduced-motion:reduce){.scan{display:none}.slot .links path.on{animation:none}}
+@media (prefers-reduced-motion:reduce){.scan{display:none}.slot .links path.on,.runtag{animation:none}}
 @media (max-width:1240px){.top .pals{display:none}select.pal-select{display:block}}
 @media (max-width:1100px){.status .credit-by{display:none}.ctx{display:none}}
 @media (max-width:700px){
@@ -280,7 +287,6 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
   .navrail{width:40px}.stage{left:40px}.drawer{left:40px;width:calc(100vw - 40px)}
   .toasts{right:8px;top:58px;width:calc(100vw - 56px)}
   #focus{padding:8px}.fbody{padding:12px}
-  #gridwrap{padding:10px}
   .status .credit{display:none}
 }
 </style>
@@ -291,7 +297,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
   <a class="logo" href="#/" data-t-title="heroTitle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 2 22 12 12 22 2 12z"/><path d="M12 7v10M7 12h10"/></svg><span class="word">SOL-83</span><small>PRO</small></a>
   <div class="ctx" id="ctx"></div>
   <div class="seg" role="group" data-t-aria="viewLabel">
-    <button type="button" data-view="focus" aria-pressed="false" data-t-title="keyFocus">▢<span class="lbl"> Focus</span></button><button type="button" data-view="grid" aria-pressed="false" data-t-title="keyGrid">▦<span class="lbl"> Grid</span></button><button type="button" data-view="canvas" aria-pressed="true" data-t-title="keyCanvas">⌗<span class="lbl"> Canvas</span></button>
+    <button type="button" data-view="focus" aria-pressed="false" data-t-title="keyFocus">▢<span class="lbl"> Focus</span></button><button type="button" data-view="canvas" aria-pressed="true" data-t-title="keyCanvas">⌗<span class="lbl"> Canvas</span></button>
   </div>
   <div class="tools">
     <div class="pals" role="group" data-t-aria="palLabel">
@@ -383,7 +389,6 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
     <div class="block slot" id="slot-b" data-block="b"></div>
     <div class="block stackblock" id="stack" data-block="stack"></div>
   </div>
-  <div id="gridwrap"><div id="panes"></div><p class="empty-stage" id="empty-stage" hidden></p></div>
   <div class="zoombar" role="group" aria-label="Zoom">
     <button type="button" class="icon" data-pro="zoom-out" data-t-title="zoomOut" data-t-aria="zoomOut">−</button><output id="zoom-level">100%</output><button type="button" class="icon" data-pro="zoom-in" data-t-title="zoomIn" data-t-aria="zoomIn">+</button><button type="button" class="icon" data-pro="fit" data-t-title="fit" data-t-aria="fit">⤧</button>
   </div>
@@ -459,7 +464,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 // Texts of the Pro look, added to the shared ones by panel.js.
 window.SOL83_TEXT = {
 pl:{
-  viewLabel:'Widok', keyFocus:'Focus: jeden projekt ze wszystkimi funkcjami (F)', keyGrid:'Grid: kafle projektów (G)', keyCanvas:'Canvas: aktywny i wybrany projekt, stos projektów (C)',
+  viewLabel:'Widok', keyFocus:'Focus: jeden projekt ze wszystkimi funkcjami (F)', keyCanvas:'Canvas: aktywny i wybrany projekt, stos projektów, notatki (C)',
   palLabel:'Paleta', pal_amber:'BURSZTYN', pal_green:'FOSFOR', pal_cyan:'CYJAN', pal_sakura:'SAKURA', pal_light:'LIGHT',
   toClassic:'Wróć do wyglądu Classic', navLabel:'Nawigacja', navProjects:'Projekty', navHistory:'Historia', navQuestions:'Pytania i testy',
   navLimits:'Limity', navSettings:'Ustawienia', close:'Zamknij', langTitle:'Język',
@@ -475,7 +480,7 @@ pl:{
   fxTitle:'Efekty', fxOn:'Linie skanowania', fxLevel:'Intensywność linii skanowania', glassLevel:'Przezroczystość paneli',
   fxReduced:'System prosi o ograniczenie ruchu: linie skanowania są wyłączone.',
   layoutReset:'Ułóż Canvas od nowa', fit:'Dopasuj widok (0)', zoomIn:'Powiększ (+)', zoomOut:'Pomniejsz (−)',
-  keysTitle:'Klawiatura', keysList:'F, G, C — widok Focus, Grid, Canvas|[ i ] — poprzedni i następny projekt|N — nowy projekt|+, −, 0 — powiększenie i dopasowanie (Canvas)|Strzałki — przesuwanie widoku (Canvas)|Alt + strzałki — przesuwanie zaznaczonego bloku (Canvas)|Alt + ↑ / ↓ na projekcie w kolejce — zmiana kolejności|Enter na oknie — otwórz w widoku Focus|Esc — zamknij panel boczny|? — ten panel',
+  keysTitle:'Klawiatura', keysList:'F, C — widok Focus, Canvas|[ i ] — poprzedni i następny projekt|N — nowy projekt|+, −, 0 — powiększenie i dopasowanie (Canvas)|Strzałki — przesuwanie widoku (Canvas)|Alt + strzałki — przesuwanie zaznaczonego bloku (Canvas)|Alt + ↑ / ↓ na projekcie w kolejce — zmiana kolejności|Enter na oknie — otwórz w widoku Focus|Esc — zamknij panel boczny|? — ten panel',
   prev:'Poprzedni projekt ([)', next:'Następny projekt (])', canvasEmpty:'Brak projektów. Zleć pierwszy przyciskiem ＋ po lewej.',
   paneAria:(k,n,s)=>`${k} ${n}: ${s}`, proHint:'Wygląd Pro: te same funkcje, dane i ustawienia co Classic; zmienia się tylko wygląd. Układ Canvas, paleta i efekty są zapamiętane w tej przeglądarce, a grupy projektów na serwerze.',
   slotActive:'Aktywny projekt', slotRecent:'Ostatnio aktywny', slotPicked:'Wybrany ze stosu', slotEmptyA:'Nic teraz nie pracuje.',
@@ -488,10 +493,16 @@ pl:{
   tokM:n=>`${n} mln`, tokK:n=>`${n} tys.`, ghOpen:r=>`Repozytorium ${r} na GitHubie (nowa karta)`,
   notifyTitle:'Powiadomienia systemowe', notifyOn:'Powiadamiaj o nowych pytaniach i testach',
   notifyHint:'Powiadomienie zostaje, dopóki go nie zamkniesz. Gdyby znikało po chwili: Ustawienia systemowe → Powiadomienia → Twoja przeglądarka → styl „Trwałe”. Działa, gdy panel jest otwarty w karcie przeglądarki.',
+  noteTitle:'Notatka', noteNew:'Notatka', notePh:'Zapisz myśl, pomysł albo zadanie. Z notatki jednym kliknięciem powstaje projekt.',
+  noteProject:'▶ Utwórz projekt', noteAsk:m=>`Utworzyć projekt z tej notatki? Treść notatki będzie zadaniem, a projekt ruszy od razu w trybie Auto — ekonomiczny:\n\n${m}`,
+  noteSideOn:n=>`${n}: Auto — ekonomiczny`, noteSideOff:n=>`${n}: wyłączony (wyczerpany limit tygodniowy albo model niedostępny)`,
+  noteNoModels:'Wszystkie modele mają wyczerpany limit tygodniowy albo są niedostępne: projektu nie da się teraz utworzyć.',
+  noteDelete:'Usuń notatkę', noteDeleteAsk:'Usunąć tę notatkę? Projekt, jeśli z niej powstał, zostaje.', noteGone:'Projekt z tej notatki został usunięty.',
+  noteEmpty:'Notatka jest pusta.', noteLinked:'Projekt z tej notatki: pokaż na Canvas', runTitle:(v,port)=>`RUN v${v} działa (port ${port})`, sbRun:n=>`RUN działa: ${n}`,
   notifyDenied:'Przeglądarka blokuje powiadomienia tej strony: zezwól na nie w ustawieniach witryny.', notifyUnsupported:'Ta przeglądarka nie obsługuje powiadomień.',
 },
 en:{
-  viewLabel:'View', keyFocus:'Focus: one project with every function (F)', keyGrid:'Grid: project tiles (G)', keyCanvas:'Canvas: the active and the picked project, the project stack (C)',
+  viewLabel:'View', keyFocus:'Focus: one project with every function (F)', keyCanvas:'Canvas: the active and the picked project, the project stack, notes (C)',
   palLabel:'Palette', pal_amber:'AMBER', pal_green:'PHOSPHOR', pal_cyan:'CYAN', pal_sakura:'SAKURA', pal_light:'LIGHT',
   toClassic:'Back to the Classic look', navLabel:'Navigation', navProjects:'Projects', navHistory:'History', navQuestions:'Questions and tests',
   navLimits:'Limits', navSettings:'Settings', close:'Close', langTitle:'Language',
@@ -507,7 +518,7 @@ en:{
   fxTitle:'Effects', fxOn:'Scan lines', fxLevel:'Scan line intensity', glassLevel:'Panel transparency',
   fxReduced:'The system asks for reduced motion: scan lines are off.',
   layoutReset:'Lay the Canvas out again', fit:'Fit the view (0)', zoomIn:'Zoom in (+)', zoomOut:'Zoom out (−)',
-  keysTitle:'Keyboard', keysList:'F, G, C — Focus, Grid, Canvas view|[ and ] — previous and next project|N — new project|+, −, 0 — zoom and fit (Canvas)|Arrows — move the view (Canvas)|Alt + arrows — move the selected block (Canvas)|Alt + ↑ / ↓ on a queued project — change the order|Enter on a window — open it in the Focus view|Esc — close the side panel|? — this panel',
+  keysTitle:'Keyboard', keysList:'F, C — Focus, Canvas view|[ and ] — previous and next project|N — new project|+, −, 0 — zoom and fit (Canvas)|Arrows — move the view (Canvas)|Alt + arrows — move the selected block (Canvas)|Alt + ↑ / ↓ on a queued project — change the order|Enter on a window — open it in the Focus view|Esc — close the side panel|? — this panel',
   prev:'Previous project ([)', next:'Next project (])', canvasEmpty:'No projects yet. Start one with ＋ on the left.',
   paneAria:(k,n,s)=>`${k} ${n}: ${s}`, proHint:'The Pro look: the same functions, data and settings as Classic; only the look differs. The Canvas layout, palette and effects are remembered in this browser, project groups on the server.',
   slotActive:'Active project', slotRecent:'Last active', slotPicked:'Picked from the stack', slotEmptyA:'Nothing is working right now.',
@@ -520,6 +531,12 @@ en:{
   tokM:n=>`${n}M`, tokK:n=>`${n}k`, ghOpen:r=>`Repository ${r} on GitHub (new tab)`,
   notifyTitle:'System notifications', notifyOn:'Notify me about new questions and tests',
   notifyHint:'A notification stays until you close it. If it disappears after a moment: System Settings → Notifications → your browser → style "Persistent". Works while the panel is open in a browser tab.',
+  noteTitle:'Note', noteNew:'Note', notePh:'Write down a thought, an idea or a task. One click turns the note into a project.',
+  noteProject:'▶ Create project', noteAsk:m=>`Create a project from this note? The note becomes the task and the project starts right away in Auto — economy:\n\n${m}`,
+  noteSideOn:n=>`${n}: Auto — economy`, noteSideOff:n=>`${n}: off (weekly limit used up or model unavailable)`,
+  noteNoModels:'Every model has used up its weekly limit or is unavailable: no project can be created now.',
+  noteDelete:'Delete the note', noteDeleteAsk:'Delete this note? The project made from it, if any, stays.', noteGone:'The project made from this note was deleted.',
+  noteEmpty:'The note is empty.', noteLinked:'Project made from this note: show it on the Canvas', runTitle:(v,port)=>`RUN v${v} is running (port ${port})`, sbRun:n=>`RUN running: ${n}`,
   notifyDenied:'The browser blocks notifications for this page: allow them in the site settings.', notifyUnsupported:'This browser does not support notifications.',
 }};
 </script>
@@ -533,17 +550,17 @@ const root = document.documentElement, $ = id => document.getElementById(id);
 const saved = (key, fallback) => { try{ const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); }catch(error){ return fallback; } };
 const keep = (key, value) => { try{ localStorage.setItem(key, JSON.stringify(value)); }catch(error){} };
 try{ localStorage.removeItem('sol83-pro-layout'); }catch(error){}  // the free layout of every window (before 0.7.7)
-const PALETTES = ['amber','green','cyan','sakura','light'], VIEWS = ['focus','grid','canvas'], MODEL_SIDES = ['claude','gemini','codex'];
+const PALETTES = ['amber','green','cyan','sakura','light'], VIEWS = ['focus','canvas'], MODEL_SIDES = ['claude','gemini','codex'];
 const LOG_LINES = 4, SLOT_W = 820, GAP = 70;
 const pro = {
-  view: VIEWS.includes(saved('sol83-pro-view')) ? saved('sol83-pro-view') : (innerWidth < 760 ? 'grid' : 'canvas'),
+  view: VIEWS.includes(saved('sol83-pro-view')) ? saved('sol83-pro-view') : 'canvas',
   palette: PALETTES.includes(saved('sol83-pro-palette')) ? saved('sol83-pro-palette') : 'green',
   fx: saved('sol83-pro-fx', true) !== false, fxLevel: Number(saved('sol83-pro-fx-level', 60)), glass: Number(saved('sol83-pro-glass', 45)),
   layout: Object.assign({blocks:{}, cam:null}, saved('sol83-pro-canvas', {})),
   folded: saved('sol83-pro-folded', {}), dismissed: saved('sol83-pro-dismissed', []), picked: saved('sol83-pro-picked', null),
   notify: saved('sol83-pro-notify', false) === true, notified: new Set(saved('sol83-pro-notified', [])), gopen: saved('sol83-pro-gopen', {}),
   groups: {groups:[], placement:{}}, groupsAt: 0, recent: {}, drawer: null, online: true, center: false, html: {},
-  lastProject: null, menu: null, activeId: null, dnd: null,
+  lastProject: null, menu: null, activeId: null, dnd: null, notes: [], notesAt: 0, noteDirty: {},
 };
 const setPro = (id, html) => { const el = $(id); if(el && pro.html[id] !== html){ el.innerHTML = html; pro.html[id] = html; } };
 const setIn = (el, html) => { if(el && el._html !== html){ el.innerHTML = html; el._html = html; } };
@@ -555,6 +572,7 @@ const leader = p => (p.live?.phase === 'turn_running' ? p.live.speaker : null) |
 const placementOf = id => pro.groups.placement?.[id] || '';
 const visible = () => sorted().filter(p => placementOf(p.id) !== 'archive');
 const isLive = p => ['running','stopping'].includes(p.status);
+const runTag = p => p.run?.state === 'running' ? `<span class="runtag" title="${esc(t('runTitle', p.run.version, p.run.port))}">▶ RUN</span>` : '';
 function tokensShort(n){
   if(!n) return '–';
   const f = (v, digits) => v.toLocaleString(t('locale'), {maximumFractionDigits:digits});
@@ -615,7 +633,6 @@ function render(){
   renderStatus();
   if(!state.overview) return;
   if(view === 'canvas') renderCanvas();
-  else if(view === 'grid') renderGrid();
   renderToasts(); renderDrawers(); renderContext(); applyCam(); systemNotify();
 }
 function logLine(e){
@@ -636,16 +653,16 @@ const modelLabel = (p, side) => p[side+'_selection'] && p[side+'_selection'] !==
 function paneBody(p){
   const events = (pro.recent[p.id]?.events || []).slice(0, LOG_LINES).reverse();
   const st = projectState(p), why = waitWhy(p), detail = local(p, 'status_detail');
-  const version = p.recommended ? `<span class="vtag">v${p.recommended}${p.run?.state === 'running' ? ' · ▶ RUN' : ''}</span>` : '';
+  const version = p.recommended ? `<span class="vtag">v${p.recommended}</span>` : '';
   const retry = (isLive(p) ? pausedSides(p) : []).map(side => `<button class="btn small" data-act="retry" data-provider="${side}">↻ ${esc(t('retryNowFor', NAME[side]))}</button>`).join('');
   const questions = p.questions_open ? `<button type="button" class="qlink" data-pro="questions" data-id="${esc(p.id)}">${SVG.user} ${esc(t('qWaitingYou', p.questions_open))}</button>` : '';
   const models = sides(p).map(side => { const s = sideState(p, side); return `<span class="${s.tone}">${SVG[s.icon]}@${side} ${esc(modelLabel(p, side))}</span>`; }).join('');
   return `<div class="log">${events.length ? events.map(logLine).join('') : `<p>${esc(t('noEventsShort'))}</p>`}</div>
-    <div class="pstate">${stateChip(st)}${p.monitor_level === 'warn' ? `<span class="state k-wait">${SVG.warn}${esc(t('monSidebar'))}</span>` : ''}${version}</div>
+    <div class="pstate">${stateChip(st)}${p.monitor_level === 'warn' ? `<span class="state k-wait">${SVG.warn}${esc(t('monSidebar'))}</span>` : ''}${version}${runTag(p)}</div>
     ${why ? `<div class="why">${why}</div>` : detail ? `<div class="why">${esc(detail)}</div>` : ''}${retry ? `<div class="acts">${retry}</div>` : ''}${questions}
     ${models ? `<div class="mrow">${models}</div>` : ''}`;
 }
-// One project window ("terminal"): used by the Grid and by the two Canvas slots.
+// One project window ("terminal"), in the two Canvas slots.
 function paneShell(p){
   const el = document.createElement('section');
   el.className = 'pane project'; el.dataset.id = p.id; el.tabIndex = 0;
@@ -669,17 +686,6 @@ function fillPane(el, p){
   const body = paneBody(p);
   if(el._body !== body){ el.querySelector('.pb').innerHTML = body; el._body = body; }
 }
-function renderGrid(){
-  const host = $('panes'), list = visible(), shown = new Set(), byId = {};
-  host.querySelectorAll(':scope > .pane').forEach(el => { byId[el.dataset.id] = el; });
-  list.forEach((p, i) => {
-    let el = byId[p.id];
-    if(!el){ el = paneShell(p); host.appendChild(el); }
-    shown.add(el); fillPane(el, p); el.style.order = i;
-  });
-  host.querySelectorAll(':scope > .pane').forEach(el => { if(!shown.has(el)) el.remove(); });
-  $('empty-stage').hidden = list.length > 0; $('empty-stage').textContent = t('canvasEmpty');
-}
 // ---- Canvas: the active project, the one picked from the stack, and the stack ------------------------------
 function slots(){
   const list = visible(), running = list.filter(isLive);
@@ -692,6 +698,7 @@ function renderCanvas(){
   renderSlot($('slot-a'), active, label, running.length > 1 ? running : []);
   renderSlot($('slot-b'), picked, 'slotPicked', []);
   if(!pro.dnd) renderStack();
+  renderNotes();
   placeBlocks();
   requestAnimationFrame(() => { drawSlotLinks($('slot-a')); drawSlotLinks($('slot-b')); });
 }
@@ -709,12 +716,12 @@ function modelBody(p, side){
 }
 function renderSlot(slot, p, label, choices){
   if(!slot._built){
-    slot.innerHTML = `<header class="ph slot-head" data-drag><span class="slot-label"></span><span class="slot-tabs"></span></header><svg class="links" aria-hidden="true"></svg><div class="slot-pane"></div><div class="models"></div>`;
+    slot.innerHTML = `<header class="ph slot-head" data-drag><span class="slot-label"></span><span class="slot-tabs"></span></header><svg class="links" aria-hidden="true"></svg><div class="slot-pane"></div><div class="slot-models"></div>`;
     slot._built = true;
   }
   slot.querySelector('.slot-label').textContent = t(label);
   setIn(slot.querySelector('.slot-tabs'), choices.map(c => `<button type="button" class="chip" data-pro="active" data-id="${esc(c.id)}" aria-pressed="${c.id === p?.id}">${esc(c.key || c.title)}</button>`).join(''));
-  const holder = slot.querySelector('.slot-pane'), models = slot.querySelector('.models');
+  const holder = slot.querySelector('.slot-pane'), models = slot.querySelector('.slot-models');
   slot.classList.toggle('empty', !p);
   if(!p){
     holder._pid = null; models.innerHTML = ''; slot.querySelector('.links').innerHTML = '';
@@ -742,7 +749,7 @@ function renderSlot(slot, p, label, choices){
 }
 function drawSlotLinks(slot){
   const svg = slot.querySelector('.links'), pane = slot.querySelector('.slot-pane > .pane');
-  const models = [...slot.querySelectorAll('.models > .pane.model')];
+  const models = [...slot.querySelectorAll('.slot-models > .pane.model')];
   if(!svg) return;
   if(!pane || !models.length){ svg.innerHTML = ''; return; }
   const x1 = pane.offsetLeft + pane.offsetWidth / 2, y1 = pane.offsetTop + pane.offsetHeight;
@@ -758,6 +765,11 @@ function placeBlocks(){
   pos.b = saved_.b || [pos.a[0], pos.a[1] + a.offsetHeight + GAP];
   pos.stack = saved_.stack || [pos.a[0] + SLOT_W + 90, pos.a[1]];
   for(const [name, el] of [['a', a], ['b', $('slot-b')], ['stack', $('stack')]]){ el.style.left = pos[name][0] + 'px'; el.style.top = pos[name][1] + 'px'; }
+  // Notes: a column beside the stack until the user moves them.
+  document.querySelectorAll('#world > .memo').forEach((el, i) => {
+    const [x, y] = saved_[el.dataset.block] || [pos.stack[0] + 540, pos.stack[1] + i * 330];
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+  });
 }
 // ---- The stack: folded project bars, the queue in order, the user's groups and the archive ----------------
 const GITHUB = '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
@@ -771,7 +783,7 @@ function bar(p, kind){
   const menuLabel = t(queued ? 'queueMenu' : live ? 'barMenuLive' : 'barMenu');
   return `<div class="pbar ${p.id === pro.picked ? 'picked' : ''}" data-bar="${esc(p.id)}" data-kind="${esc(kind)}" ${live ? '' : 'draggable="true"'}>
       <span class="lamp ${LAMP[st.key] || 'stop'}" role="img" aria-label="${esc(t(st.key))}" title="${esc(t(st.key))}">${SVG[st.icon]}</span>
-      <button type="button" class="pick" data-pro="pick" data-id="${esc(p.id)}" data-kind="${esc(kind)}" title="${esc(t('pickHint'))}"><span class="k">${esc(p.key || '')}</span><span class="t">${esc(p.title)}</span></button>
+      <button type="button" class="pick" data-pro="pick" data-id="${esc(p.id)}" data-kind="${esc(kind)}" title="${esc(t('pickHint'))}"><span class="k">${esc(p.key || '')}</span>${runTag(p)}<span class="t">${esc(p.title)}</span></button>
       <span class="pct" title="${esc(t('pctTitle'))}">${p.progress ? Math.round(p.progress.net) + '%' : '–'}</span>
       <span class="tok" title="${esc(t('tokTitle'))}">${esc(tokensShort(pro.recent[p.id]?.tokens))}</span>${gh}
       <button type="button" class="icon" data-pro="bar-menu" data-id="${esc(p.id)}" aria-expanded="${open}" title="${esc(menuLabel)}" aria-label="${esc(menuLabel)}">⋯</button>
@@ -806,9 +818,92 @@ function renderStack(){
     ...groups.map(g => [g.id, g.name, rest.filter(p => placementOf(p.id) === g.id), 'user']),
     ['archive', t('gArchive'), rest.filter(p => placementOf(p.id) === 'archive'), 'archive'],
   ].filter(([id, , items, cls]) => items.length || cls === 'user');
-  setIn($('stack'), `<header class="ph stack-head" data-drag><span class="t">${esc(t('stackTitle'))}</span><span class="led">${all.length}</span><span class="ctl"><button type="button" class="btn small" data-pro="group-add">+ ${esc(t('groupNew'))}</button></span></header>
+  setIn($('stack'), `<header class="ph stack-head" data-drag><span class="t">${esc(t('stackTitle'))}</span><span class="led">${all.length}</span><span class="ctl"><button type="button" class="btn small" data-pro="note-new">+ ${esc(t('noteNew'))}</button><button type="button" class="btn small" data-pro="group-add">+ ${esc(t('groupNew'))}</button></span></header>
     <div class="stack-body">${sections.map(([id, name, items, cls]) => section(id, name, items, cls)).join('')}</div>`);
 }
+// ---- Notes on the Canvas: kept on the server; one click turns a note into a project ----------------------
+function noteFoot(note){
+  const p = note.project && projects().find(x => x.id === note.project);
+  if(p){
+    const st = projectState(p);
+    return `<button type="button" class="memo-link" data-pro="pick" data-id="${esc(p.id)}" title="${esc(t('noteLinked'))}"><span class="lamp ${LAMP[st.key] || 'stop'}" role="img" aria-label="${esc(t(st.key))}">${SVG[st.icon]}</span><b>${esc(p.key || '')}</b> ${esc(t(st.key))}</button>${runTag(p)}`;
+  }
+  return `${note.project ? `<span class="hint">${esc(t('noteGone'))}</span>` : ''}<button type="button" class="btn primary small" data-pro="note-project" data-note="${esc(note.id)}">${esc(t('noteProject'))}</button>`;
+}
+function renderNotes(){
+  const world = $('world'), ids = new Set(pro.notes.map(n => n.id));
+  world.querySelectorAll(':scope > .memo').forEach(el => { if(!ids.has(el.dataset.note)) el.remove(); });
+  for(const note of pro.notes){
+    let el = [...world.querySelectorAll(':scope > .memo')].find(x => x.dataset.note === note.id);
+    if(!el){
+      el = document.createElement('div');
+      el.className = 'block memo'; el.dataset.note = note.id; el.dataset.block = 'note:' + note.id;
+      el.innerHTML = `<header class="ph" data-drag><span class="t"></span><span class="ctl"><button type="button" class="icon" data-pro="note-delete" data-note="${esc(note.id)}">✕</button></span></header><textarea class="memo-text" data-note="${esc(note.id)}"></textarea><div class="memo-foot"></div>`;
+      world.appendChild(el);
+      el.querySelector('textarea').value = note.text || '';
+    }
+    const area = el.querySelector('textarea'), remove = el.querySelector('[data-pro=note-delete]');
+    if(document.activeElement !== area && !pro.noteDirty[note.id] && area.value !== (note.text || '')) area.value = note.text || '';
+    area.placeholder = t('notePh'); area.setAttribute('aria-label', t('noteTitle'));
+    el.querySelector('.ph .t').textContent = '✎ ' + t('noteTitle');
+    remove.title = t('noteDelete'); remove.setAttribute('aria-label', remove.title);
+    setIn(el.querySelector('.memo-foot'), noteFoot(note));
+  }
+}
+let notesTimer = null;
+async function saveNotes(){
+  clearTimeout(notesTimer); pro.notesAt = Date.now();
+  try{ pro.notes = (await api('/api/canvas-notes', {notes:pro.notes})).notes; pro.noteDirty = {}; }catch(error){ alert(error.message); }
+}
+function addNote(){
+  const note = {id:'n' + Date.now().toString(36), text:'', created:Math.round(Date.now() / 1000)};
+  pro.notes = [...pro.notes, note];
+  render(); saveNotes();
+  requestAnimationFrame(() => { const el = [...document.querySelectorAll('#world > .memo')].find(x => x.dataset.note === note.id); centerOn(el); el?.querySelector('textarea').focus({preventScroll:true}); });
+}
+function deleteNote(id){
+  if(!confirm(t('noteDeleteAsk'))) return;
+  pro.notes = pro.notes.filter(n => n.id !== id);
+  delete pro.layout.blocks['note:' + id]; saveLayout();
+  render(); return saveNotes();
+}
+// A model whose weekly limit is used up (or a pause over half a day, which only the weekly limit gives) is off;
+// a used-up 5-hour window is not a reason: it comes back within hours.
+function weeklyOut(side){
+  const l = state.overview?.limits?.[side] || {};
+  if(side === 'gemini' && (state.catalog?.gemini_problem || l.problem)) return true;
+  const week = usedOf(l.windows?.seven_day);
+  if(week !== null && week >= Math.min(100, l.weekly_threshold || 100)) return true;
+  return l.available === false && !!l.until && l.until - Date.now() / 1000 > 12 * 3600;
+}
+async function noteProject(id, button){
+  const note = pro.notes.find(n => n.id === id); if(!note) return;
+  const area = [...document.querySelectorAll('textarea.memo-text')].find(x => x.dataset.note === id);
+  if(area) note.text = area.value;
+  const task = (note.text || '').trim();
+  if(!task) return alert(t('noteEmpty'));
+  const order = ['codex','claude','gemini'], on = Object.fromEntries(order.map(side => [side, !weeklyOut(side)]));
+  if(!order.some(side => on[side])) return alert(t('noteNoModels'));
+  if(!confirm(t('noteAsk', order.map(side => t(on[side] ? 'noteSideOn' : 'noteSideOff', NAME[side])).join('\n')))) return;
+  const body = {task, lang:state.lang, role_fallback:'general', max_turns:30};
+  for(const side of order){
+    const [model, effort] = DEFAULT_MODELS[side];
+    Object.assign(body, {[side+'_model']:on[side] ? model : 'none', [side+'_reasoning']:on[side] ? effort : '',
+                         [side+'_selection']:on[side] ? 'auto_economy' : 'manual', [side+'_role']:'general'});
+  }
+  if(button) button.disabled = true;
+  try{
+    const {id:projectId} = await api('/api/projects', body);
+    note.project = projectId;
+    await saveNotes(); await poll();
+  }catch(error){ alert(error.message); if(button) button.disabled = false; }
+}
+document.addEventListener('input', e => {
+  const area = e.target.closest?.('textarea.memo-text'); if(!area) return;
+  const note = pro.notes.find(n => n.id === area.dataset.note); if(!note) return;
+  note.text = area.value; pro.noteDirty[note.id] = true;
+  clearTimeout(notesTimer); notesTimer = setTimeout(saveNotes, 700);
+});
 function queueIds(){ return [...$('stack').querySelectorAll('.pbar[data-kind=queue]')].map(b => b.dataset.bar); }
 async function setQueue(ids){
   try{ await api('/api/queue/order', {ids}); }catch(error){ alert(error.message); }
@@ -911,7 +1006,7 @@ function renderStatus(){
   if(!state.overview){ setPro('sb-info', `<span>${esc(t(pro.online ? 'sbConnecting' : 'sbOffline'))}</span>`); return; }
   const list = projects(), keys = list.map(p => projectState(p).key), count = names => keys.filter(k => names.includes(k)).length;
   const working = count(['k_working','k_starting']), limit = count(['k_limit']), model = count(['k_review','k_role']), errors = count(['k_error']);
-  const user = list.filter(p => p.state_kind === 'user' || p.questions_open).length;
+  const user = list.filter(p => p.state_kind === 'user' || p.questions_open).length, runs = list.filter(p => p.run?.state === 'running');
   setPro('sb-info', [pro.online ? '' : `<span class="w">${SVG.warn} ${esc(t('sbOffline'))}</span>`,
     `<span><b>${list.length}</b> ${esc(t('projectsWord', list.length))}</span>`,
     `<span>${SVG.play} ${esc(t('sbWorking'))}: <b>${working}</b></span>`,
@@ -919,6 +1014,7 @@ function renderStatus(){
     model ? `<span class="w">${SVG.clock} ${esc(t('sbModel'))}: <b>${model}</b></span>` : '',
     user ? `<span class="w">${SVG.user} ${esc(t('sbUser'))}: <b>${user}</b></span>` : '',
     errors ? `<span class="w">${SVG.warn} ${esc(t('sbError'))}: <b>${errors}</b></span>` : '',
+    runs.length ? `<span class="runtag" title="${esc(runs.map(p => `${p.key || ''} ${p.title}`).join(' · '))}">▶ ${esc(t('sbRun', runs.length))}</span>` : '',
     '<span class="sep" aria-hidden="true">│</span>', ...['claude','codex','gemini'].map(limitLine)].join(''));
 }
 function renderContext(){
@@ -1097,7 +1193,7 @@ const endDrag = () => {
 stage.addEventListener('pointerup', endDrag);
 stage.addEventListener('pointercancel', endDrag);
 stage.addEventListener('wheel', e => {
-  if(effectiveView() !== 'canvas') return;
+  if(effectiveView() !== 'canvas' || e.target.closest('textarea')) return;
   e.preventDefault();
   const r = stage.getBoundingClientRect();
   if(e.ctrlKey || e.metaKey) zoomAt(Math.exp(-e.deltaY * .0025), e.clientX - r.left, e.clientY - r.top);
@@ -1141,6 +1237,7 @@ document.addEventListener('click', async e => {
     'bar-menu': () => { pro.menu = pro.menu === id ? null : id; render(); },
     move: () => moveTo(id, b.dataset.group), 'group-add': () => addGroup(b.dataset.id), 'group-rename': () => renameGroup(b.dataset.group),
     'group-delete': () => deleteGroup(b.dataset.group), 'queue-up': () => moveInQueue(id, -1), 'queue-down': () => moveInQueue(id, 1),
+    'note-new': addNote, 'note-delete': () => deleteNote(b.dataset.note), 'note-project': () => noteProject(b.dataset.note, b),
   };
   if(local_[act]) return local_[act]();
   // Actions from a notification or a window name their project: it need not be the open one.
@@ -1197,7 +1294,7 @@ document.addEventListener('keydown', e => {
   if(e.altKey) return;
   const pane = e.target.closest?.('.pane.project');
   if(pane && e.key === 'Enter' && e.target === pane){ openFocus(pane.dataset.id); return; }
-  const keys = {f:() => setView('focus'), g:() => setView('grid'), c:() => setView('canvas'), '[':() => step(-1), ']':() => step(1),
+  const keys = {f:() => setView('focus'), c:() => setView('canvas'), '[':() => step(-1), ']':() => step(1),
     n:() => { location.hash = '#/nowy'; }, '?':() => openDrawer('settings'), Escape:closeDrawer};
   if(view === 'canvas') Object.assign(keys, {'+':() => zoomCenter(1.2), '=':() => zoomCenter(1.2), '-':() => zoomCenter(1 / 1.2), '0':() => fit()});
   const run = keys[e.key] || keys[e.key.toLowerCase?.()];
@@ -1215,9 +1312,6 @@ window.addEventListener('hashchange', () => {
       requestAnimationFrame(() => centerOn(id === active?.id ? $('slot-a') : $('slot-b')));
       return;
     }
-    render();
-    if(effectiveView() === 'grid') $('panes').querySelector(`[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({block:'nearest', behavior:reduced.matches ? 'auto' : 'smooth'});
-    return;
   }
   render();
 });
@@ -1232,6 +1326,7 @@ document.addEventListener('sol83:poll', async e => {
       const data = await api('/api/recent');
       pro.recent = data.projects || {};
       if(Date.now() - pro.groupsAt > 4000) pro.groups = Object.assign({groups:[], placement:{}}, data.groups || {});
+      if(Date.now() - pro.notesAt > 4000 && !Object.keys(pro.noteDirty).length) pro.notes = Array.isArray(data.notes) ? data.notes : [];
     }catch(error){}
     loading = false;
   }

@@ -55,8 +55,9 @@
 :root[data-theme=terminal] textarea,:root[data-theme=terminal] select{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
 </style>
 <link rel="stylesheet" href="/panel.css">
-<script>/* Remembered look: Pro opens at /pro ("/?classic" always shows Classic). */
-try{ if(localStorage.getItem('sol83-look') === 'pro' && !/classic/.test(location.search)) location.replace('/pro' + location.hash); }catch(e){}</script>
+<script>/* Pro is the default look; Classic opens when chosen with the switch ("/?classic" always shows Classic). */
+(function(){ var look = null; try{ look = localStorage.getItem('sol83-look'); }catch(e){}
+  if(look !== 'classic' && !/classic/.test(location.search)) location.replace('/pro' + location.hash); })();</script>
 </head>
 <body>
 <div class="app">
