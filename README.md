@@ -28,8 +28,23 @@ Korzysta wyłącznie z abonamentów: bez kluczy API i bez płatnego rozszerzenia
 
 Panel ma **dwa wyglądy z tymi samymi funkcjami**, przełączane przyciskiem **CLASSIC / PRO** (wybór zostaje zapamiętany w przeglądarce):
 
-- **Classic** (`http://127.0.0.1:8765/`): lista projektów z boku i szczegóły projektu, skórki LIGHT, DARK, SAKURA, TERMINAL. Zrzuty poniżej.
+- **Classic** (`http://127.0.0.1:8765/`): lista projektów z boku i szczegóły projektu, skórki LIGHT, DARK, SAKURA, TERMINAL.
 - **Pro** (`http://127.0.0.1:8765/pro`): futurystyczny terminal z półprzezroczystymi oknami. Widoki **Focus** (jeden projekt ze wszystkimi funkcjami Classic), **Grid** (kafle projektów) i **Canvas** (okna do przeciągania i powiększania, z oknami modeli połączonymi liniami, animowanymi, gdy model pracuje). Okno projektu pokazuje, kto prowadzi pracę („led by @claude”), ostatnie zdarzenia i stan, a pole **❯** wysyła wiadomość do koordynatora. Powiadomienia w prawym górnym rogu (pytania i testy z przyciskami, przerwa limitu ze „Spróbuj teraz”, skrypt do akceptacji), pasek stanu z limitami i datami odnowienia, palety BURSZTYN, FOSFOR, CYJAN, SAKURA, LIGHT, linie skanowania i znaki w tle z przełącznikiem (wyłączone przy „ogranicz ruch”). Opis: [przewodnik, sekcja 17](docs/pl/PRZEWODNIK.md#17-wygląd-panelu-classic-i-pro).
+
+<table>
+  <tr>
+    <td width="50%" align="center" valign="top">
+      <img src="Assets/sc10.png" alt="Sol-83 Pro, widok Grid w palecie FOSFOR: kafle projektów z ostatnimi zdarzeniami, stanem i polem wiadomości do koordynatora"><br>
+      <sub>Pro, widok Grid (paleta FOSFOR): kafle projektów z ostatnimi zdarzeniami, „led by @model”, stanem i polem ❯ do koordynatora; na dole pasek stanu z limitami.</sub>
+    </td>
+    <td width="50%" align="center" valign="top">
+      <img src="Assets/sc11.png" alt="Sol-83 Pro, widok Focus w palecie CYJAN: formularz nowego projektu z modelami, poziomem myślenia i rolami"><br>
+      <sub>Pro, widok Focus (paleta CYJAN): nowy projekt z wyborem modeli, poziomu myślenia i ról, te same funkcje co w Classic.</sub>
+    </td>
+  </tr>
+</table>
+
+**Classic:**
 
 <p align="center">
   <img src="Assets/sc4.png" alt="Sol-83 w skórce SAKURA: limity abonamentów, karty projektów, plan z postępem netto" width="100%"><br>
@@ -58,15 +73,6 @@ Panel ma **dwa wyglądy z tymi samymi funkcjami**, przełączane przyciskiem **C
   <p align="center">
     <img src="Assets/sc5.png" alt="Interfejs po angielsku w skórce SAKURA" width="100%"><br>
     <sub>Interfejs po angielsku: język strony zmienia się niezależnie od stałego języka projektu.</sub>
-  </p>
-    <p align="center">
-    <img src="Assets/sc10.png" alt="Interfejs w nowej wersjo PRO" width="100%"><br>
-    <sub>Interfejs w wersji PRO</sub>
-  </p>
-   </p>
-    <p align="center">
-    <img src="Assets/sc11.png" alt="Interfejs w nowej wersjo PRO" width="100%"><br>
-    <sub>Interfejs w wersji PRO</sub>
   </p>
 </details>
 

@@ -28,8 +28,23 @@ Subscriptions only: no API keys, no paid extra usage.
 
 The panel has **two looks with the same functions**, switched with the **CLASSIC / PRO** button (the choice is remembered in the browser):
 
-- **Classic** (`http://127.0.0.1:8765/`): the project list on the side and the project details, skins LIGHT, DARK, SAKURA, TERMINAL. Screenshots below.
+- **Classic** (`http://127.0.0.1:8765/`): the project list on the side and the project details, skins LIGHT, DARK, SAKURA, TERMINAL.
 - **Pro** (`http://127.0.0.1:8765/pro`): a futuristic terminal with translucent windows. **Focus** (one project with every Classic function), **Grid** (project tiles) and **Canvas** (windows you drag and zoom, with the project's model windows joined by lines that animate while the model works). A project window shows who leads the work ("led by @claude"), the latest events and the state, and the **❯** field sends a message to the coordinator. Notifications in the top right corner (questions and tests with answer buttons, a limit pause with "Try now", a setup script to approve), a status bar with limits and reset dates, palettes AMBER, PHOSPHOR, CYAN, SAKURA, LIGHT, scan lines and background glyphs with a switch (off with reduced motion). Details: [guide, section 16](docs/en/GUIDE.md#16-panel-looks-classic-and-pro).
+
+<table>
+  <tr>
+    <td width="50%" align="center" valign="top">
+      <img src="Assets/sc10.png" alt="Sol-83 Pro, Grid view with the PHOSPHOR palette: project tiles with the latest events, the state and a message field to the coordinator"><br>
+      <sub>Pro, Grid view (PHOSPHOR palette): project tiles with the latest events, "led by @model", the state and the ❯ field to the coordinator; the status bar with limits at the bottom.</sub>
+    </td>
+    <td width="50%" align="center" valign="top">
+      <img src="Assets/sc11.png" alt="Sol-83 Pro, Focus view with the CYAN palette: the new project form with models, thinking level and roles"><br>
+      <sub>Pro, Focus view (CYAN palette): a new project with models, thinking level and roles, the same functions as in Classic.</sub>
+    </td>
+  </tr>
+</table>
+
+**Classic:**
 
 <p align="center">
   <img src="Assets/sc5.png" alt="Sol-83 in English with the SAKURA skin: model settings, several roles, Auto mode" width="100%"><br>
