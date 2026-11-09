@@ -672,12 +672,12 @@ class FailureFlow(Base):
 
     def test_document_projects_get_document_rules_and_apps_do_not(self):
         from gemini_app import prompts
-        self.assertEqual(prompts.project_kind({'title': 'MC TAF vs VISA DAF', 'task': 'Przygotuj kompendium / handbook'}),
+        self.assertEqual(prompts.project_kind({'title': 'Porównanie dwóch standardów', 'task': 'Przygotuj kompendium / handbook'}),
                          'document')
         self.assertEqual(prompts.project_kind({'title': 'Gra', 'task': 'Zbuduj grę RTS', 'project_kind': 'auto'}), 'app')
         self.assertEqual(prompts.project_kind({'title': 'Gra', 'task': 'handbook', 'project_kind': 'app'}), 'app')
         self.scenario(codex=[{'reply': 'plan'}], claude=[{'reply': 'x'}])
-        project_id = self.supervisor.create_project(task='Przygotuj handbook o płatnościach agentowych',
+        project_id = self.supervisor.create_project(task='Przygotuj handbook o integracji z API',
                                                     repo_path=str(self.repo))['id']
         self.wait_for(lambda: self.calls(), what='pierwsza tura')
         self.supervisor.stop(project_id, immediate=True)

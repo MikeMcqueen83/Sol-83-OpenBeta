@@ -6,9 +6,9 @@
 
 | Projekt | Razem | Podział |
 |---|---|---|
-| PR14/26 Handbook M.VI&V.TAP | 9,86 mln | przegląd Gemini 7,46 mln (76%), implementacja Claude 1,35 mln (14%), implementacja Gemini 1,05 mln (11%) |
-| PR13/26 Handbook AP2 | 4,44 mln | implementacja Gemini 2,42 mln (55%, jedna tura na początku sesji), Claude: implementacja 0,71, plan 0,57, przegląd 0,57 |
-| PR11/26 audyt bezpieczeństwa | 5,18 mln | przegląd Claude 1,91 mln (37%), implementacja Gemini 1,64, plan Gemini 1,42 |
+| PR14/26 | 9,86 mln | przegląd Gemini 7,46 mln (76%), implementacja Claude 1,35 mln (14%), implementacja Gemini 1,05 mln (11%) |
+| PR13/26 | 4,44 mln | implementacja Gemini 2,42 mln (55%, jedna tura na początku sesji), Claude: implementacja 0,71, plan 0,57, przegląd 0,57 |
+| PR11/26 | 5,18 mln | przegląd Claude 1,91 mln (37%), implementacja Gemini 1,64, plan Gemini 1,42 |
 
 Wnioski:
 
@@ -20,7 +20,7 @@ Wnioski:
 6. **Bez wycieków w oczekiwaniu i ponowieniach.** Czekanie na limit nie wywołuje modeli: odczyty limitów są darmowe, a odrzucona tura PR11 o 02:59 nie zużyła tokenów. Ponowień po chwilowych awariach nie było (0 zdarzeń `retry`). Przejęcia po limicie: 12 we wszystkich projektach, każde z zapisem częściowej pracy. Koordynator wiadomości odpowiadał 9 razy lokalnym modelem (bez abonamentu), 3 razy przez Codex, raz przez Claude.
 7. **Drobny błąd diagnozy.** Przejęcie w PR14 (tura 14, limit Claude) ma w danych diagnozę `not_logged_in`. Klasyfikacja przyczyny jest poprawna (`limit`), ale diagnoza czyta cały ogon logu i trafia na słowo „/login”. Nie wpływa na decyzje.
 
-## PR9/26 Sol-83 Terminal
+## PR9/26
 
 79 tur od 6.11 00:59 do 7.11 00:55: Gemini 41 tur, Codex 38. 8 wersji. Projekt wstrzymany z powodem „modele oceniły 4 kolejnych kroków jako nieprzybliżające do celu”.
 
