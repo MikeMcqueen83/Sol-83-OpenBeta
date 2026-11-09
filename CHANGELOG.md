@@ -1,5 +1,17 @@
 # Changelog
 
+## OpenBeta 0.7.7 — 2026-11-10
+
+Porządek w widoku Canvas wyglądu Pro; wygląd (przesuwanie, powiększanie, rozmyte panele) bez zmian.
+
+- Canvas: po lewej aktywny projekt (ten, który pracuje) z oknami modeli, pod nim projekt wybrany ze stosu; po prawej stos zwiniętych projektów. Trzy bloki przeciąga się za nagłówek, całość przesuwa i powiększa jak dotąd.
+- Belka projektu: klucz i nazwa, postęp netto, suma tokenów („2,3 mln”), ikona repozytorium GitHub (nowa karta). Lampka stanu świeci, nie mruga: pomarańczowa przy zatrzymanym, zielona przy ukończonym.
+- Kolejka w nawiasie: kolejność zmienia się przeciąganiem belek albo z menu ⋯ (Alt + ↑ / ↓). Przestawia tylko projekty czekające w kolejce; zatrzymanego nie uruchamia.
+- Grupy projektów i archiwum (przeciąganie na nagłówek albo menu ⋯), zapisane na serwerze; archiwum zwinięte, zarchiwizowane projekty nie zajmują miejsca w Grid.
+- Bez animowanego tła (spadające znaki) i bez mrugania; lżejsza strona: na Canvas są dwa okna projektów zamiast wszystkich.
+- Powiadomienia systemowe o nowych pytaniach i testach (Ustawienia Pro), które zostają do zamknięcia.
+- Serwer: `POST /api/queue/order`, `POST /api/groups`; `GET /api/recent` podaje też tokeny projektu i grupy.
+
 ## OpenBeta 0.7.6 — 2026-11-09
 
 Drugi wygląd panelu: Pro (futurystyczny terminal), przełączany z dotychczasowym Classic. Funkcje, dane i API bez zmian.

@@ -999,6 +999,15 @@ class Supervisor:
         self.store.update_project(project_id, queue_priority=time.time())
         self.store.event(project_id, 'note', Msg('queue_next'))
 
+    def set_queue_order(self, ids: list) -> list:
+        """The user's order of the queue (drag and drop in the panel). Only queued projects move, the first
+        starts first; a stopped project in the list is not queued. A later "run next" still goes in front."""
+        queued = {project['id'] for project in self.store.projects('queued')}
+        now = time.time()
+        for index, project_id in enumerate(i for i in dict.fromkeys(map(str, ids)) if i in queued):
+            self.store.update_project(project_id, queue_priority=now - index)
+        return [project['id'] for project in self.queue_order()]
+
     def _launch(self, project: dict) -> None:
         project_id = project['id']
         self.store.update_project(project_id, queue_priority=None)

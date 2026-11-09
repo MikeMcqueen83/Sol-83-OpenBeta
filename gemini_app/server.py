@@ -21,6 +21,7 @@ MAX_BODY = 2_000_000
 # The panel's files: two looks (Classic at /, Pro at /pro) sharing one script and one component stylesheet.
 PAGES = {'/': ('index.html', 'text/html; charset=utf-8'), '/pro': ('pro.html', 'text/html; charset=utf-8'),
          '/panel.js': ('panel.js', 'text/javascript; charset=utf-8'), '/panel.css': ('panel.css', 'text/css; charset=utf-8')}
+GROUPS_LIMIT = 100_000
 QUESTION_FIELDS = ('id', 'ref', 'type', 'text', 'author', 'options', 'recommendation', 'version_number', 'mandatory',
                    'created_at')
 PROVIDER_THRESHOLDS = {f'{kind}_{name}' for name in limits.PROVIDERS
@@ -59,8 +60,11 @@ def overview(supervisor: Supervisor) -> dict:
 
 def recent(supervisor: Supervisor, limit: int = 6) -> dict:
     """Read only, for the Pro look's project windows: the last events of each project, the model that leads
-    the work, the questions and tests waiting for the user and a setup script waiting for approval."""
+    the work, the tokens it used, the questions and tests waiting for the user, a setup script waiting for
+    approval, and the user's project groups."""
     store = supervisor.store
+    tokens = {row['project_id']: row['n'] for row in store._rows(
+        'SELECT project_id, SUM(COALESCE(d_total, 0)) AS n FROM usage GROUP BY project_id')}
     projects = {}
     for project in store.projects():
         live = store.live(project['id']) or {}
@@ -72,8 +76,20 @@ def recent(supervisor: Supervisor, limit: int = 6) -> dict:
                        for event in store.events(project['id'], limit)],
             'waiting': [{key: item.get(key) for key in QUESTION_FIELDS}
                         for item in interactions.listing(store, project['id']) if item['state'] == 'open'],
-            'setup': setup if setup and not setup['approved'] else None}
-    return {'now': time.time(), 'projects': projects}
+            'setup': setup if setup and not setup['approved'] else None,
+            'tokens': tokens.get(project['id'], 0)}
+    return {'now': time.time(), 'projects': projects, 'groups': json.loads(store.text_setting('project_groups') or '{}')}
+
+
+def save_groups(store: Store, groups) -> dict:
+    """The Pro look's project groups and archive: {"groups": [{"id", "name"}], "placement": {project: group}}.
+    Only the panel's arrangement: nothing about the projects themselves changes."""
+    text = json.dumps(groups, ensure_ascii=False)
+    if not isinstance(groups, dict) or len(text) > GROUPS_LIMIT or not isinstance(groups.get('groups', []), list) \
+            or not isinstance(groups.get('placement', {}), dict):
+        raise ValueError(Msg('err_groups'))
+    store.set_setting('project_groups', text)
+    return groups
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -201,6 +217,10 @@ class Handler(BaseHTTPRequestHandler):
                 confirm_top=str(body.get('confirm_top') or ''),
                 language='en' if body.get('lang') == 'en' else 'pl')
             return {'id': project['id']}
+        if path == ['api', 'groups']:
+            return {'groups': save_groups(supervisor.store, body.get('groups'))}
+        if path == ['api', 'queue', 'order']:
+            return {'queue': supervisor.set_queue_order(list(body.get('ids') or []))}
         if path == ['api', 'limits', 'refresh']:
             return {'limits': supervisor.limits_view(force=True)}
         if path == ['api', 'limits', 'retry']:

@@ -122,6 +122,7 @@ CATALOG = {
     'err_all_off': ('Przynajmniej jeden model musi zostać włączony.', 'At least one model must stay on.'),
     'err_role': ('Nieznana rola.', 'Unknown role.'),
     'err_coordinator': ('Nieznany koordynator.', 'Unknown coordinator.'),
+    'err_groups': ('Nieprawidłowe albo zbyt duże grupy projektów.', 'Invalid or too large project groups.'),
     'err_withdraw': ('Tej wiadomości nie da się już cofnąć: trafiła do tury albo nie była przekazana.',
                      'This message can no longer be taken back: a turn received it or it was not passed on.'),
     'note_withdrawn': ('Cofnięto przekazanie: {preview}', 'Taken back before any turn: {preview}'),

@@ -2438,3 +2438,40 @@ class PanelLooks(Base):
         with self.assertRaises(urllib.error.HTTPError) as caught:
             urllib.request.urlopen(request)
         self.assertEqual(caught.exception.code, 404, 'read only')
+
+    def post(self, path, payload):
+        request = urllib.request.Request(self.url + path, data=json.dumps(payload).encode(),
+                                         headers={'Content-Type': 'application/json'})
+        try:
+            with urllib.request.urlopen(request) as response:
+                return response.status, json.loads(response.read())
+        except urllib.error.HTTPError as error:
+            return error.code, json.loads(error.read())
+
+    def test_queue_order_follows_drag_and_drop_and_never_starts_a_stopped_project(self):
+        first, second, third, stopped = (self.supervisor.create_project(task=f'Zadanie {n}')['id'] for n in range(4))
+        self.store.update_project(stopped, status='stopped')
+        status, body = self.post('/api/queue/order', {'ids': [third, stopped, first, second]})
+        self.assertEqual(status, 200)
+        self.assertEqual(body['queue'], [third, first, second])
+        self.assertEqual(self.store.project(stopped)['status'], 'stopped')
+        self.supervisor.run_next(second)
+        self.assertEqual([p['id'] for p in self.supervisor.queue_order()], [second, third, first], '"run next" still wins')
+        for project_id in (first, second, third):
+            self.store.update_project(project_id, status='stopped')
+
+    def test_groups_are_kept_on_the_server_and_tokens_are_summed(self):
+        project_id = self.supervisor.create_project(task='Zadanie z tokenami')['id']
+        self.store.update_project(project_id, status='stopped')
+        with self.store._db() as db:
+            for turn, total in ((1, 1_200_000), (2, 1_100_000), (3, None)):
+                db.execute('INSERT INTO usage(project_id, turn, agent, d_total) VALUES(?,?,?,?)', (project_id, turn, 'claude', total))
+        groups = {'groups': [{'id': 'g1', 'name': 'Analizy'}], 'placement': {project_id: 'archive'}}
+        self.assertEqual(self.post('/api/groups', {'groups': groups}), (200, {'groups': groups}))
+        _, body = self.get('/api/recent')
+        recent = json.loads(body)
+        self.assertEqual(recent['groups'], groups)
+        self.assertEqual(recent['projects'][project_id]['tokens'], 2_300_000)
+        self.assertEqual(self.post('/api/groups', {'groups': {'groups': 'x'}})[0], 400)
+        self.assertEqual(self.post('/api/groups', {'groups': {'groups': [{'name': 'x' * 200_000}]}})[0], 400)
+        self.assertEqual(json.loads(self.get('/api/recent')[1])['groups'], groups, 'a rejected save changes nothing')

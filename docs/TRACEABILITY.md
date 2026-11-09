@@ -92,6 +92,19 @@ Rozstrzygnięte pytania otwarte: domyślna paleta FOSFOR; przezroczystość pane
 | Teksty PL i EN, klawiatura, stan nie tylko kolorem | `window.SOL83_TEXT`; skróty F/G/C, [ ], N, + − 0, strzałki, Alt + strzałki, Enter, Esc, ? | `PanelLooks.test_every_text_of_pro_exists_in_polish_and_english` | zrobione | |
 | Jeden punkt API tylko do odczytu | `server.recent`, `GET /api/recent` | `PanelLooks.test_recent_lists_events_leader_and_what_waits_for_the_user` | zrobione | |
 
+## Etap 12: porządek w Canvas Pro (10 listopada 2026)
+
+Zgłoszenie użytkownika: aktywny projekt po lewej z miejscem pod nim na projekt wybrany ze stosu, stos zwiniętych belek po prawej, lampki świecące (nie mrugające), tokeny i GitHub na belce, kolejka do przeciągania, grupy i archiwum, powiadomienia systemowe, bez animowanego tła i bez obciążania przeglądarki. Uproszczone na prośbę użytkownika: bez pulpitu z notatkami; przesuwanie, powiększanie i rozmyte panele zostają.
+
+| Wymaganie | Implementacja | Test | Wynik | Ograniczenia |
+|---|---|---|---|---|
+| Aktywny i wybrany projekt, stos po prawej | `pro.html`: `slots`, `renderSlot`, `renderStack`, `placeBlocks`, `drawSlotLinks` | w przeglądarce na kopii danych | zrobione | |
+| Belka: postęp, tokeny, GitHub, lampka | `bar`, `tokensShort`, `LAMP`; `server.recent` (`tokens` = suma `usage.d_total`) | `PanelLooks.test_groups_are_kept_on_the_server_and_tokens_are_summed` | zrobione | |
+| Kolejka przeciąganiem | `Supervisor.set_queue_order`, `POST /api/queue/order`; panel: przeciąganie, menu ⋯, Alt + ↑ / ↓ | `PanelLooks.test_queue_order_follows_drag_and_drop_and_never_starts_a_stopped_project`; w przeglądarce | zrobione | |
+| Grupy i archiwum | `server.save_groups`, `POST /api/groups` (ustawienie `project_groups`), panel: `moveTo`, `addGroup`, `renameGroup`, `deleteGroup` | jak wyżej; w przeglądarce | zrobione | Tylko układ w Pro; Classic pokazuje projekty jak dotąd. |
+| Powiadomienia systemowe, które zostają | `systemNotify` (Notification API, `requireInteraction`) | w przeglądarce: ustawienie i stan uprawnień | częściowo | Działa, gdy panel jest otwarty w karcie; czas wyświetlania zależy od stylu powiadomień przeglądarki w macOS. |
+| Bez animowanego tła i mrugania, lekka strona | usunięty deszcz znaków, `.cur` i `.dot.run` bez animacji; na Canvas 2 okna projektów zamiast wszystkich | w przeglądarce: 3–8 MB pamięci JS, ok. 1,7 tys. elementów | zrobione | |
+
 ## Wymagania specyfikacji
 
 | Punkt | Wymaganie | Implementacja | Test | Wynik | Ograniczenia |

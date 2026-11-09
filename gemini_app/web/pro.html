@@ -23,6 +23,8 @@
   --good:rgb(var(--ph));--warn:rgb(var(--wr));--bad:rgb(var(--bd));--good-ink:var(--ink);--warn-ink:rgb(var(--wr));--bad-ink:rgb(var(--bd));
   --good-soft:rgba(var(--ph),.1);--warn-soft:rgba(var(--wr),.12);--bad-soft:rgba(var(--bd),.13);
   --primary:rgba(var(--ph),.88);--on-primary:var(--onph);
+  /* Steady state lights: working, waiting, stopped (orange), finished (green). */
+  --l-wait:255,200,60;--l-stop:255,140,30;--l-done:60,232,110;
 }
 :root[data-palette=amber]{--ph:255,176,46;--wr:255,112,82;--bd:255,74,74;--bgc:7,5,2}
 :root[data-palette=cyan]{--ph:72,226,255;--wr:255,190,80;--bd:255,96,120;--bgc:2,6,10}
@@ -33,19 +35,18 @@
   --tint:rgba(255,255,255,.3);--tint-hi:rgba(255,255,255,.55);--pane:rgba(255,255,255,var(--solid));--top:rgba(255,255,255,.66);
   --onph:#fff;--glow:rgba(0,90,66,.16);--scan:rgba(0,0,0,calc(.06 * var(--fx)));--vig:rgba(0,40,30,calc(.16 * var(--fx)));
   --surface:rgba(255,255,255,.5);--surface-2:rgba(0,70,52,.06);--line:rgba(18,48,42,.16);--line-strong:rgba(18,48,42,.34);
-  --good-ink:#0a6a50;--codex:rgba(0,122,92,.7);--gemini:rgba(0,122,92,.45)}
+  --good-ink:#0a6a50;--codex:rgba(0,122,92,.7);--gemini:rgba(0,122,92,.45);--l-wait:160,115,0;--l-stop:200,96,0;--l-done:0,140,64}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden}
 body{background:var(--bg);color:var(--ink);font:12.5px/1.5 ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
 button,input,textarea,select{font:inherit;color:inherit}
 select option{background:var(--bg);color:var(--ink)}
-/* Atmosphere: grid, glyphs, scan lines, vignette. Off with the effects switch and with reduced motion. */
+/* Atmosphere: a still grid, scan lines and a vignette. No animated background: it cost memory and attention. */
 .bg{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse at 50% 40%,rgba(var(--ph),.07),transparent 65%),
   linear-gradient(rgba(var(--ph),.035) 1px,transparent 1px) 0 0/44px 44px,linear-gradient(90deg,rgba(var(--ph),.035) 1px,transparent 1px) 0 0/44px 44px}
-#rain{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:calc(.36 * var(--fx))}
 .scan{position:fixed;inset:0;z-index:60;pointer-events:none;background:repeating-linear-gradient(0deg,var(--scan) 0 1px,transparent 1px 3px);mix-blend-mode:multiply}
 .vignette{position:fixed;inset:0;z-index:59;pointer-events:none;box-shadow:inset 0 0 180px var(--vig)}
-:root.fx-off #rain,:root.fx-off .scan{display:none}
+:root.fx-off .scan{display:none}
 :root.tab-hidden *{animation-play-state:paused!important}
 /* Top bar */
 .top{position:fixed;top:0;left:0;right:0;height:52px;z-index:20;display:flex;align-items:center;gap:14px;padding:0 14px;border-bottom:1px solid var(--pline);background:var(--top);backdrop-filter:blur(8px)}
@@ -92,32 +93,83 @@ select.pal-select{display:none;width:auto;min-height:28px;margin:0;padding:2px 6
 .setting input[type=range]{width:100%;accent-color:rgb(var(--ph))}
 .keys{margin:0;padding-left:16px;color:var(--dim)}
 .keys li{margin:2px 0}
-/* Stage: canvas, grid and focus */
+/* Stage: the Canvas (blocks you move, pan and zoom), the Grid of tiles and Focus */
 .stage{position:fixed;top:52px;left:46px;right:0;bottom:30px;z-index:5;overflow:hidden}
 #world{position:absolute;left:0;top:0;transform-origin:0 0}
-#links{position:absolute;left:0;top:0;width:1px;height:1px;overflow:visible;pointer-events:none}
-#links path{fill:none;stroke:rgba(var(--ph),.55);stroke-width:1.5;filter:drop-shadow(0 0 3px rgba(var(--ph),.6))}
-#links path.on{stroke:rgb(var(--ph));stroke-dasharray:6 6;animation:flow 1s linear infinite}
-#links circle{fill:rgb(var(--ph))}
 @keyframes flow{to{stroke-dashoffset:-12}}
 .stage[data-view=canvas]{cursor:grab;touch-action:none}
 .stage.panning{cursor:grabbing}
+.stage:not([data-view=canvas]) #world,.stage:not([data-view=canvas]) .zoombar{display:none}
+.stage:not([data-view=grid]) #gridwrap{display:none}
 .stage[data-view=grid]{overflow:auto}
-.stage[data-view=grid] #world{position:static;transform:none!important;padding:18px}
-.stage[data-view=grid] #panes{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(330px,100%),1fr));gap:16px;align-items:start}
-.stage[data-view=grid] .pane.project{position:relative;left:auto!important;top:auto!important;width:auto}
-.stage[data-view=grid] #links,.stage[data-view=grid] .pane.model,.stage[data-view=grid] .zoombar{display:none}
-.stage[data-view=focus] #world,.stage[data-view=focus] .zoombar{display:none}
 .stage:not([data-view=focus]) #focus{display:none}
-.empty-stage{position:absolute;left:24px;top:24px;color:var(--dim)}
+#gridwrap{padding:18px}
+#panes{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(330px,100%),1fr));gap:16px;align-items:start}
+.empty-stage{color:var(--dim)}
+.block{position:absolute;cursor:default}
+.slot{width:820px;display:flex;flex-direction:column;align-items:center}
+.ph.slot-head{align-self:stretch;border:0;background:none;padding:0 0 8px;color:var(--faint);font-size:11px;letter-spacing:.1em;text-transform:uppercase;border-radius:0}
+.slot-tabs{display:flex;gap:4px}
+.slot-pane{width:560px;max-width:100%}
+.slot.empty .slot-pane{border:1px dashed var(--pline);border-radius:6px;min-height:140px;display:flex;align-items:center;justify-content:center;padding:16px;text-align:center;color:var(--dim);background:rgba(var(--bgc),.25)}
+.slot-hint{margin:0}
+.slot .links{position:absolute;left:0;top:0;width:1px;height:1px;overflow:visible;pointer-events:none}
+.slot .links path{fill:none;stroke:rgba(var(--ph),.55);stroke-width:1.5;filter:drop-shadow(0 0 3px rgba(var(--ph),.6))}
+.slot .links path.on{stroke:rgb(var(--ph));stroke-dasharray:6 6;animation:flow 1s linear infinite}
+.slot .links circle{fill:rgb(var(--ph))}
+.models{display:flex;gap:22px;justify-content:center;flex-wrap:wrap;margin-top:52px}
+.models:empty{margin:0}
+/* The stack: one glass panel; the bars inside have no blur of their own (lighter for the browser). */
+.stackblock{width:500px;border:1px solid var(--pline);border-radius:6px;background:linear-gradient(var(--tint),var(--tint)),var(--pane);backdrop-filter:blur(10px) saturate(130%);box-shadow:inset 0 1px 0 rgba(var(--ph),.1),0 10px 30px rgba(0,0,0,.4)}
+.stackblock .ph .ctl .btn{min-height:24px;padding:1px 8px}
+.stack-body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:10px}
+.sgroup > summary{display:flex;align-items:center;gap:6px;list-style:none;cursor:pointer;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);padding:2px 2px 5px}
+.sgroup > summary::-webkit-details-marker{display:none}
+.sgroup > summary::before{content:'▸';color:var(--faint)}
+.sgroup[open] > summary::before{content:'▾'}
+.sgroup .gcount{margin-left:2px}
+.sgroup .gtools{margin-left:auto;display:flex;gap:2px}
+.sgroup.drop{outline:1px dashed rgba(var(--ph),.75);outline-offset:3px;border-radius:4px}
+.sgroup.queue > summary{color:rgba(var(--ph),.9)}
+.sgroup.done > summary{color:rgba(var(--l-done),.9)}
+.sgroup.archive > summary{color:var(--faint)}
+.bars{display:flex;flex-direction:column;gap:5px}
+/* Cyber brackets: the queue (palette colour) and the finished projects (green). */
+.sgroup.bracket > .bars{position:relative;padding-left:14px}
+.sgroup.bracket > .bars::before{content:'';position:absolute;left:3px;top:1px;bottom:1px;width:6px;border:1px solid rgba(var(--b),.6);border-right:0;filter:drop-shadow(0 0 3px rgba(var(--b),.55))}
+.sgroup.bracket > .bars::after{content:'';position:absolute;left:0;top:50%;width:4px;height:12px;margin-top:-6px;background:rgba(var(--b),.75);clip-path:polygon(0 0,100% 20%,100% 80%,0 100%)}
+.sgroup.queue{--b:var(--ph)}.sgroup.done{--b:var(--l-done)}
+.pbar{display:grid;grid-template-columns:16px minmax(0,1fr) auto auto 18px 24px;align-items:center;gap:8px;padding:5px 6px 5px 8px;border:1px solid var(--pline);border-radius:4px;background:rgba(var(--bgc),.35);min-width:0}
+.pbar:hover{border-color:rgba(var(--ph),.6)}
+.pbar[draggable=true]{cursor:grab}
+.pbar.picked{border-color:rgba(var(--ph),.85);box-shadow:0 0 14px var(--glow)}
+.pbar.dragging{opacity:.4}
+.pbar.drop-before{box-shadow:0 -2px 0 rgb(var(--ph))}
+.pbar.drop-after{box-shadow:0 2px 0 rgb(var(--ph))}
+.pick{display:flex;gap:8px;align-items:baseline;min-width:0;border:0;background:none;padding:0;text-align:left;cursor:pointer;color:var(--ink)}
+.pick:focus-visible{outline:2px solid rgb(var(--ph));outline-offset:2px}
+.pick .k{color:var(--dim);font-size:11.5px;flex:none}
+.pick .t{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pbar .pct,.pbar .tok{color:var(--dim);font-size:11.5px;white-space:nowrap;text-align:right}
+.pbar .tok{min-width:58px}
+.gh-link{display:inline-flex;color:var(--dim)}
+.gh-link:hover,.gh-link:focus-visible{color:var(--ink)}
+.gh-link svg{width:14px;height:14px}
+.lamp{--l:var(--ph);display:inline-flex;width:14px;height:14px;align-items:center;justify-content:center;color:rgb(var(--l));filter:drop-shadow(0 0 2px rgba(var(--l),.95)) drop-shadow(0 0 6px rgba(var(--l),.55))}
+.lamp svg{width:12px;height:12px}
+.lamp.wait{--l:var(--l-wait)}.lamp.stop{--l:var(--l-stop)}.lamp.done{--l:var(--l-done)}.lamp.err{--l:var(--bd)}
+.lamp.queue{opacity:.75;filter:none}
+.qhint{margin:0 0 4px;font-size:11px;color:var(--faint)}
+.move-menu{display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding:6px;margin:-2px 0 2px;border:1px solid var(--pline);border-radius:4px;background:rgba(var(--bgc),.6)}
+.move-menu .hint{margin:0 4px 0 0}
 /* Panes: glass terminals */
-.pane{position:absolute;width:360px;border:1px solid var(--pline);border-radius:6px;background:linear-gradient(var(--tint),var(--tint)),var(--pane);
+.pane{position:relative;border:1px solid var(--pline);border-radius:6px;background:linear-gradient(var(--tint),var(--tint)),var(--pane);
   backdrop-filter:blur(10px) saturate(130%);box-shadow:inset 0 1px 0 rgba(var(--ph),.1),0 10px 30px rgba(0,0,0,.4);transition:box-shadow .2s,border-color .2s;cursor:default}
 :root[data-palette=light] .pane{box-shadow:0 10px 30px rgba(0,40,30,.12)}
 .pane:focus-visible{outline:2px solid rgb(var(--ph));outline-offset:2px}
 .pane.active{border-color:rgba(var(--ph),.85);background:linear-gradient(var(--tint-hi),var(--tint-hi)),var(--pane);box-shadow:0 0 0 1px rgba(var(--ph),.35),0 0 34px var(--glow),inset 0 0 40px rgba(var(--ph),.05);z-index:2}
 :root[data-palette=light] .pane.active{box-shadow:0 0 0 1px rgba(var(--ph),.35),0 14px 36px rgba(0,60,45,.18)}
-.pane.model{width:250px;z-index:3}
+.pane.model{width:250px}
 .pane.model.working{border-color:rgba(var(--ph),.7)}
 .ph{display:flex;align-items:center;gap:8px;padding:6px 8px 6px 10px;border-bottom:1px solid var(--pline);background:linear-gradient(rgba(var(--ph),.08),transparent);min-width:0;border-radius:6px 6px 0 0}
 .stage[data-view=canvas] .ph[data-drag]{cursor:grab}
@@ -146,7 +198,7 @@ select.pal-select{display:none;width:auto;min-height:28px;margin:0;padding:2px 6
 .mrow svg,.mstate svg,.status svg,.toast .h svg{width:11px;height:11px;flex:none}
 .mrow .on,.mstate.on{color:var(--ink);text-shadow:0 0 6px rgba(var(--ph),.6)}
 .mrow .w,.mstate.w,.pb .w{color:var(--warn-ink)}
-.stage[data-view=canvas] .pane.active .mrow{display:none}
+.slot .mrow{display:none}
 .mstate{display:flex;gap:5px;align-items:center;margin-top:4px;overflow-wrap:anywhere}
 .bar{height:4px;background:rgba(var(--ph),.12);border-radius:2px;margin:3px 0 6px}
 .bar i{display:block;height:100%;background:rgb(var(--ph));box-shadow:0 0 6px rgb(var(--ph));border-radius:2px}
@@ -156,9 +208,8 @@ select.pal-select{display:none;width:auto;min-height:28px;margin:0;padding:2px 6
 .prompt input[type=text]{flex:1;min-width:0;border:0;background:none;padding:2px 0;min-height:0;border-radius:0;color:var(--ink);caret-color:rgb(var(--ph));outline:none}
 .prompt input::placeholder{color:var(--faint)}
 .prompt .sent{color:var(--faint);font-size:11px;white-space:nowrap}
-.cur{width:7px;height:14px;background:rgb(var(--ph));animation:blink 1s steps(1) infinite;box-shadow:0 0 6px rgb(var(--ph));flex:none}
+.cur{width:7px;height:14px;background:rgb(var(--ph));opacity:.75;box-shadow:0 0 6px rgb(var(--ph));flex:none}
 .prompt:focus-within .cur,.prompt input:not(:placeholder-shown) ~ .cur{display:none}
-@keyframes blink{50%{opacity:0}}
 .zoombar{position:absolute;right:14px;bottom:12px;z-index:6;display:flex;gap:2px;align-items:center;border:1px solid var(--pline);border-radius:4px;padding:3px;background:var(--top);backdrop-filter:blur(6px)}
 .zoombar output{min-width:46px;text-align:center;color:var(--dim)}
 #focus{position:absolute;inset:0;overflow:auto;padding:18px 18px 40px}
@@ -217,7 +268,9 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 .status .credit a:hover,.status .credit a:focus-visible{color:var(--ink);text-decoration:underline}
 .status .lang button{padding:1px 7px}
 .dimmed{color:var(--faint)}
-@media (prefers-reduced-motion:reduce){#rain,.scan{display:none}.cur,#links path.on,.dot.run{animation:none}}
+/* Lights glow steadily: no blinking anywhere in this look. */
+.dot.run{animation:none}
+@media (prefers-reduced-motion:reduce){.scan{display:none}.slot .links path.on{animation:none}}
 @media (max-width:1240px){.top .pals{display:none}select.pal-select{display:block}}
 @media (max-width:1100px){.status .credit-by{display:none}.ctx{display:none}}
 @media (max-width:700px){
@@ -227,13 +280,13 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
   .navrail{width:40px}.stage{left:40px}.drawer{left:40px;width:calc(100vw - 40px)}
   .toasts{right:8px;top:58px;width:calc(100vw - 56px)}
   #focus{padding:8px}.fbody{padding:12px}
-  .stage[data-view=grid] #world{padding:10px}
+  #gridwrap{padding:10px}
   .status .credit{display:none}
 }
 </style>
 </head>
 <body>
-<div class="bg" aria-hidden="true"></div><canvas id="rain" aria-hidden="true"></canvas>
+<div class="bg" aria-hidden="true"></div>
 <header class="top">
   <a class="logo" href="#/" data-t-title="heroTitle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 2 22 12 12 22 2 12z"/><path d="M12 7v10M7 12h10"/></svg><span class="word">SOL-83</span><small>PRO</small></a>
   <div class="ctx" id="ctx"></div>
@@ -314,6 +367,9 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
       </div>
       <div class="setting"><h3>Canvas</h3><div class="row" style="justify-content:flex-start;margin:0">
         <button type="button" class="btn small" data-pro="fit" data-t="fit"></button><button type="button" class="btn small" data-pro="reset-layout" data-t="layoutReset"></button></div></div>
+      <div class="setting"><h3 data-t="notifyTitle"></h3>
+        <label class="check"><input type="checkbox" id="sys-notify"> <span data-t="notifyOn"></span></label>
+        <p class="hint" id="sys-notify-state"></p></div>
       <div class="setting"><h3 data-t="keysTitle"></h3><ul class="keys" id="keys"></ul></div>
       <p class="hint" data-t="proHint"></p>
       <p><span class="credit"><span class="credit-by" data-t="creditAuthor"></span> Michał Werpachowski · <span data-t="creditLicense"></span> <a href="https://github.com/MikeMcqueen83/Sol-83-OpenBeta/blob/main/LICENSE.md" target="_blank" rel="noopener" data-t-title="creditLicenseTitle">source-available ↗</a></span></p>
@@ -322,8 +378,12 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 </aside>
 
 <div class="stage" id="stage" role="main" data-view="canvas">
-  <div id="world"><svg id="links" aria-hidden="true"></svg><div id="panes"></div></div>
-  <p class="empty-stage" id="empty-stage" hidden></p>
+  <div id="world">
+    <div class="block slot" id="slot-a" data-block="a"></div>
+    <div class="block slot" id="slot-b" data-block="b"></div>
+    <div class="block stackblock" id="stack" data-block="stack"></div>
+  </div>
+  <div id="gridwrap"><div id="panes"></div><p class="empty-stage" id="empty-stage" hidden></p></div>
   <div class="zoombar" role="group" aria-label="Zoom">
     <button type="button" class="icon" data-pro="zoom-out" data-t-title="zoomOut" data-t-aria="zoomOut">−</button><output id="zoom-level">100%</output><button type="button" class="icon" data-pro="zoom-in" data-t-title="zoomIn" data-t-aria="zoomIn">+</button><button type="button" class="icon" data-pro="fit" data-t-title="fit" data-t-aria="fit">⤧</button>
   </div>
@@ -399,7 +459,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 // Texts of the Pro look, added to the shared ones by panel.js.
 window.SOL83_TEXT = {
 pl:{
-  viewLabel:'Widok', keyFocus:'Focus: jeden projekt ze wszystkimi funkcjami (F)', keyGrid:'Grid: kafle projektów (G)', keyCanvas:'Canvas: okna do przeciągania (C)',
+  viewLabel:'Widok', keyFocus:'Focus: jeden projekt ze wszystkimi funkcjami (F)', keyGrid:'Grid: kafle projektów (G)', keyCanvas:'Canvas: aktywny i wybrany projekt, stos projektów (C)',
   palLabel:'Paleta', pal_amber:'BURSZTYN', pal_green:'FOSFOR', pal_cyan:'CYJAN', pal_sakura:'SAKURA', pal_light:'LIGHT',
   toClassic:'Wróć do wyglądu Classic', navLabel:'Nawigacja', navProjects:'Projekty', navHistory:'Historia', navQuestions:'Pytania i testy',
   navLimits:'Limity', navSettings:'Ustawienia', close:'Zamknij', langTitle:'Język',
@@ -412,15 +472,26 @@ pl:{
   toastTest:w=>`${w} prosi o test`, toastQuestion:w=>`${w} pyta`, toastLimit:'przerwa limitu', toastSetup:'skrypt przygotowania czeka na akceptację',
   showScript:'Pokaż treść skryptu', approve:'Akceptuję tę treść', openIt:'Otwórz ↗', runIt:n=>`▶ RUN v${n}`, more:n=>`+${n} więcej`, dismiss:'Ukryj powiadomienie',
   historyEmpty:'Brak zdarzeń.', waitingEmpty:'Nic nie czeka na Ciebie.',
-  fxTitle:'Efekty', fxOn:'Linie skanowania i znaki w tle', fxLevel:'Intensywność efektów', glassLevel:'Przezroczystość paneli',
-  fxReduced:'System prosi o ograniczenie ruchu: linie skanowania i znaki w tle są wyłączone.',
-  layoutReset:'Ułóż okna od nowa', fit:'Dopasuj widok (0)', zoomIn:'Powiększ (+)', zoomOut:'Pomniejsz (−)',
-  keysTitle:'Klawiatura', keysList:'F, G, C — widok Focus, Grid, Canvas|[ i ] — poprzedni i następny projekt|N — nowy projekt|+, −, 0 — powiększenie i dopasowanie (Canvas)|Strzałki — przesuwanie widoku (Canvas)|Alt + strzałki — przesuwanie zaznaczonego okna (Canvas)|Enter na oknie — otwórz w widoku Focus|Esc — zamknij panel boczny|? — ten panel',
+  fxTitle:'Efekty', fxOn:'Linie skanowania', fxLevel:'Intensywność linii skanowania', glassLevel:'Przezroczystość paneli',
+  fxReduced:'System prosi o ograniczenie ruchu: linie skanowania są wyłączone.',
+  layoutReset:'Ułóż Canvas od nowa', fit:'Dopasuj widok (0)', zoomIn:'Powiększ (+)', zoomOut:'Pomniejsz (−)',
+  keysTitle:'Klawiatura', keysList:'F, G, C — widok Focus, Grid, Canvas|[ i ] — poprzedni i następny projekt|N — nowy projekt|+, −, 0 — powiększenie i dopasowanie (Canvas)|Strzałki — przesuwanie widoku (Canvas)|Alt + strzałki — przesuwanie zaznaczonego bloku (Canvas)|Alt + ↑ / ↓ na projekcie w kolejce — zmiana kolejności|Enter na oknie — otwórz w widoku Focus|Esc — zamknij panel boczny|? — ten panel',
   prev:'Poprzedni projekt ([)', next:'Następny projekt (])', canvasEmpty:'Brak projektów. Zleć pierwszy przyciskiem ＋ po lewej.',
-  paneAria:(k,n,s)=>`${k} ${n}: ${s}`, proHint:'Wygląd Pro: te same funkcje, dane i ustawienia co Classic; zmienia się tylko wygląd. Układ okien, paleta i efekty są zapamiętane w tej przeglądarce.',
+  paneAria:(k,n,s)=>`${k} ${n}: ${s}`, proHint:'Wygląd Pro: te same funkcje, dane i ustawienia co Classic; zmienia się tylko wygląd. Układ Canvas, paleta i efekty są zapamiętane w tej przeglądarce, a grupy projektów na serwerze.',
+  slotActive:'Aktywny projekt', slotRecent:'Ostatnio aktywny', slotPicked:'Wybrany ze stosu', slotEmptyA:'Nic teraz nie pracuje.',
+  slotEmptyB:'Wybierz projekt ze stosu po prawej, a pojawi się tutaj.', stackTitle:'Projekty', gQueue:'Kolejka', gArchive:'Archiwum',
+  queueHint:'Przeciągnij, aby zmienić kolejność (albo ⋯).', groupNew:'Grupa', groupName:'Nazwa grupy', groupRename:'Zmień nazwę grupy',
+  groupDelete:'Usuń grupę', groupDeleteAsk:n=>`Usunąć grupę „${n}”? Jej projekty wrócą na stos; nic innego się nie zmieni.`,
+  groupEmpty:'Pusto. Przeciągnij tu projekt albo użyj ⋯.', noGroup:'Bez grupy', moveTo:'Przenieś do', barMenu:'Grupa albo archiwum',
+  barMenuLive:'Projekt w toku', queueMenu:'Kolejność w kolejce', liveNoMove:'Projekt w toku zostaje na górze; grupę wybierzesz po jego zatrzymaniu.',
+  queueUp:'Wyżej', queueDown:'Niżej', pickHint:'Pokaż na Canvas pod aktywnym projektem', pctTitle:'Postęp netto planu', tokTitle:'Tokeny zużyte przez projekt',
+  tokM:n=>`${n} mln`, tokK:n=>`${n} tys.`, ghOpen:r=>`Repozytorium ${r} na GitHubie (nowa karta)`,
+  notifyTitle:'Powiadomienia systemowe', notifyOn:'Powiadamiaj o nowych pytaniach i testach',
+  notifyHint:'Powiadomienie zostaje, dopóki go nie zamkniesz. Gdyby znikało po chwili: Ustawienia systemowe → Powiadomienia → Twoja przeglądarka → styl „Trwałe”. Działa, gdy panel jest otwarty w karcie przeglądarki.',
+  notifyDenied:'Przeglądarka blokuje powiadomienia tej strony: zezwól na nie w ustawieniach witryny.', notifyUnsupported:'Ta przeglądarka nie obsługuje powiadomień.',
 },
 en:{
-  viewLabel:'View', keyFocus:'Focus: one project with every function (F)', keyGrid:'Grid: project tiles (G)', keyCanvas:'Canvas: windows you can drag (C)',
+  viewLabel:'View', keyFocus:'Focus: one project with every function (F)', keyGrid:'Grid: project tiles (G)', keyCanvas:'Canvas: the active and the picked project, the project stack (C)',
   palLabel:'Palette', pal_amber:'AMBER', pal_green:'PHOSPHOR', pal_cyan:'CYAN', pal_sakura:'SAKURA', pal_light:'LIGHT',
   toClassic:'Back to the Classic look', navLabel:'Navigation', navProjects:'Projects', navHistory:'History', navQuestions:'Questions and tests',
   navLimits:'Limits', navSettings:'Settings', close:'Close', langTitle:'Language',
@@ -433,12 +504,23 @@ en:{
   toastTest:w=>`${w} asks for a test`, toastQuestion:w=>`${w} asks`, toastLimit:'limit pause', toastSetup:'a setup script waits for approval',
   showScript:'Show the script', approve:'I approve this content', openIt:'Open ↗', runIt:n=>`▶ RUN v${n}`, more:n=>`+${n} more`, dismiss:'Hide the notification',
   historyEmpty:'No events.', waitingEmpty:'Nothing waits for you.',
-  fxTitle:'Effects', fxOn:'Scan lines and background glyphs', fxLevel:'Effect intensity', glassLevel:'Panel transparency',
-  fxReduced:'The system asks for reduced motion: scan lines and background glyphs are off.',
-  layoutReset:'Lay the windows out again', fit:'Fit the view (0)', zoomIn:'Zoom in (+)', zoomOut:'Zoom out (−)',
-  keysTitle:'Keyboard', keysList:'F, G, C — Focus, Grid, Canvas view|[ and ] — previous and next project|N — new project|+, −, 0 — zoom and fit (Canvas)|Arrows — move the view (Canvas)|Alt + arrows — move the selected window (Canvas)|Enter on a window — open it in the Focus view|Esc — close the side panel|? — this panel',
+  fxTitle:'Effects', fxOn:'Scan lines', fxLevel:'Scan line intensity', glassLevel:'Panel transparency',
+  fxReduced:'The system asks for reduced motion: scan lines are off.',
+  layoutReset:'Lay the Canvas out again', fit:'Fit the view (0)', zoomIn:'Zoom in (+)', zoomOut:'Zoom out (−)',
+  keysTitle:'Keyboard', keysList:'F, G, C — Focus, Grid, Canvas view|[ and ] — previous and next project|N — new project|+, −, 0 — zoom and fit (Canvas)|Arrows — move the view (Canvas)|Alt + arrows — move the selected block (Canvas)|Alt + ↑ / ↓ on a queued project — change the order|Enter on a window — open it in the Focus view|Esc — close the side panel|? — this panel',
   prev:'Previous project ([)', next:'Next project (])', canvasEmpty:'No projects yet. Start one with ＋ on the left.',
-  paneAria:(k,n,s)=>`${k} ${n}: ${s}`, proHint:'The Pro look: the same functions, data and settings as Classic; only the look differs. Window layout, palette and effects are remembered in this browser.',
+  paneAria:(k,n,s)=>`${k} ${n}: ${s}`, proHint:'The Pro look: the same functions, data and settings as Classic; only the look differs. The Canvas layout, palette and effects are remembered in this browser, project groups on the server.',
+  slotActive:'Active project', slotRecent:'Last active', slotPicked:'Picked from the stack', slotEmptyA:'Nothing is working right now.',
+  slotEmptyB:'Pick a project from the stack on the right to show it here.', stackTitle:'Projects', gQueue:'Queue', gArchive:'Archive',
+  queueHint:'Drag to change the order (or ⋯).', groupNew:'Group', groupName:'Group name', groupRename:'Rename the group',
+  groupDelete:'Delete the group', groupDeleteAsk:n=>`Delete the group "${n}"? Its projects go back to the stack; nothing else changes.`,
+  groupEmpty:'Empty. Drag a project here or use ⋯.', noGroup:'No group', moveTo:'Move to', barMenu:'Group or archive',
+  barMenuLive:'Project in progress', queueMenu:'Queue order', liveNoMove:'A project in progress stays on top; choose its group once it stops.',
+  queueUp:'Up', queueDown:'Down', pickHint:'Show on the Canvas below the active project', pctTitle:'Net plan progress', tokTitle:'Tokens the project used',
+  tokM:n=>`${n}M`, tokK:n=>`${n}k`, ghOpen:r=>`Repository ${r} on GitHub (new tab)`,
+  notifyTitle:'System notifications', notifyOn:'Notify me about new questions and tests',
+  notifyHint:'A notification stays until you close it. If it disappears after a moment: System Settings → Notifications → your browser → style "Persistent". Works while the panel is open in a browser tab.',
+  notifyDenied:'The browser blocks notifications for this page: allow them in the site settings.', notifyUnsupported:'This browser does not support notifications.',
 }};
 </script>
 <script src="/panel.js"></script>
@@ -450,30 +532,41 @@ en:{
 const root = document.documentElement, $ = id => document.getElementById(id);
 const saved = (key, fallback) => { try{ const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); }catch(error){ return fallback; } };
 const keep = (key, value) => { try{ localStorage.setItem(key, JSON.stringify(value)); }catch(error){} };
+try{ localStorage.removeItem('sol83-pro-layout'); }catch(error){}  // the free layout of every window (before 0.7.7)
 const PALETTES = ['amber','green','cyan','sakura','light'], VIEWS = ['focus','grid','canvas'], MODEL_SIDES = ['claude','gemini','codex'];
-const COL = 400, ROW = 300, LOG_LINES = 4;
+const LOG_LINES = 4, SLOT_W = 820, GAP = 70;
 const pro = {
   view: VIEWS.includes(saved('sol83-pro-view')) ? saved('sol83-pro-view') : (innerWidth < 760 ? 'grid' : 'canvas'),
   palette: PALETTES.includes(saved('sol83-pro-palette')) ? saved('sol83-pro-palette') : 'green',
   fx: saved('sol83-pro-fx', true) !== false, fxLevel: Number(saved('sol83-pro-fx-level', 60)), glass: Number(saved('sol83-pro-glass', 45)),
-  layout: Object.assign({panes:{}, models:{}, cam:null}, saved('sol83-pro-layout', {})),
-  folded: saved('sol83-pro-folded', {}), dismissed: saved('sol83-pro-dismissed', []),
-  recent: {}, drawer: null, online: true, center: false, html: {}, lastProject: null, sent: {},
+  layout: Object.assign({blocks:{}, cam:null}, saved('sol83-pro-canvas', {})),
+  folded: saved('sol83-pro-folded', {}), dismissed: saved('sol83-pro-dismissed', []), picked: saved('sol83-pro-picked', null),
+  notify: saved('sol83-pro-notify', false) === true, notified: new Set(saved('sol83-pro-notified', [])), gopen: saved('sol83-pro-gopen', {}),
+  groups: {groups:[], placement:{}}, groupsAt: 0, recent: {}, drawer: null, online: true, center: false, html: {},
+  lastProject: null, menu: null, activeId: null, dnd: null,
 };
 const setPro = (id, html) => { const el = $(id); if(el && pro.html[id] !== html){ el.innerHTML = html; pro.html[id] = html; } };
+const setIn = (el, html) => { if(el && el._html !== html){ el.innerHTML = html; el._html = html; } };
 const effectiveView = () => route() === 'new' ? 'focus' : pro.view;
 const projects = () => state.overview?.projects || [];
 const usedOf = w => !w ? null : (w.resets_at && w.resets_at <= Date.now()/1000) ? 0 : Math.round(w.used);
 const sides = p => MODEL_SIDES.filter(s => p[s+'_model'] && p[s+'_model'] !== 'none');
 const leader = p => (p.live?.phase === 'turn_running' ? p.live.speaker : null) || pro.recent[p.id]?.leader || null;
+const placementOf = id => pro.groups.placement?.[id] || '';
+const visible = () => sorted().filter(p => placementOf(p.id) !== 'archive');
+const isLive = p => ['running','stopping'].includes(p.status);
+function tokensShort(n){
+  if(!n) return '–';
+  const f = (v, digits) => v.toLocaleString(t('locale'), {maximumFractionDigits:digits});
+  return n >= 1e6 ? t('tokM', f(n / 1e6, 1)) : n >= 1e3 ? t('tokK', f(n / 1e3, 0)) : String(n);
+}
 
-// ---- Palette and effects -------------------------------------------------------------------------------
+// ---- Palette and effects (no animated background: only static scan lines) ----------------------------
 function setPalette(name){
   pro.palette = name; keep('sol83-pro-palette', name);
   root.dataset.palette = name;
   document.querySelectorAll('[data-pal]').forEach(b => b.setAttribute('aria-pressed', b.dataset.pal === name));
   $('pal-pick').value = name;
-  rain.recolor();
 }
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 function applyFx(){
@@ -484,31 +577,9 @@ function applyFx(){
   root.style.setProperty('--solid', (0.92 - pro.glass / 100 * 0.72).toFixed(2));
   $('fx-on').checked = on; $('fx-on').disabled = reduced.matches; $('fx-reduced').hidden = !reduced.matches;
   $('fx-level').value = pro.fxLevel; $('glass-level').value = pro.glass;
-  rain.run(on && !document.hidden);
 }
-// Glyphs falling in the background: slow, faint, drawn only while the tab is visible and effects are on.
-const rain = (() => {
-  const canvas = $('rain'), ctx = canvas.getContext('2d'), GLYPHS = '01アカサタナハマヤラワ<>/{}#=*+';
-  let cols = [], timer = null, color = null;
-  const size = () => { canvas.width = innerWidth; canvas.height = innerHeight; cols = Array.from({length: Math.ceil(innerWidth / 18)}, () => Math.random() * innerHeight / 18); };
-  function frame(){
-    ctx.globalCompositeOperation = 'destination-out'; ctx.fillStyle = 'rgba(0,0,0,.14)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.globalCompositeOperation = 'source-over';
-    color = color || `rgba(${getComputedStyle(root).getPropertyValue('--ph').trim()},.85)`;
-    ctx.fillStyle = color; ctx.font = '13px ui-monospace,Menlo,monospace';
-    cols.forEach((y, i) => { ctx.fillText(GLYPHS[Math.random() * GLYPHS.length | 0], i * 18, y * 18); cols[i] = y * 18 > canvas.height && Math.random() > .975 ? 0 : y + 1; });
-  }
-  return {
-    run(on){
-      if(on && !timer){ size(); timer = setInterval(frame, 110); }
-      if(!on && timer){ clearInterval(timer); timer = null; ctx.clearRect(0, 0, canvas.width, canvas.height); }
-    },
-    recolor(){ color = null; },
-    resize(){ if(timer) size(); },
-  };
-})();
 reduced.addEventListener('change', applyFx);
-document.addEventListener('visibilitychange', () => { root.classList.toggle('tab-hidden', document.hidden); applyFx(); });
+document.addEventListener('visibilitychange', () => root.classList.toggle('tab-hidden', document.hidden));
 
 // ---- Views ---------------------------------------------------------------------------------------------
 function setView(view){
@@ -524,7 +595,7 @@ function openFocus(id, tab){
   setView('focus');
 }
 function step(direction){
-  const list = sorted(); if(!list.length) return;
+  const list = visible(); if(!list.length) return;
   const index = list.findIndex(p => p.id === route());
   const next = list[(index + direction + list.length) % list.length] || list[0];
   pro.center = true; location.hash = '#/p/' + next.id;
@@ -543,8 +614,9 @@ function render(){
   document.querySelectorAll('[data-view]').forEach(b => b.setAttribute('aria-pressed', b.dataset.view === view));
   renderStatus();
   if(!state.overview) return;
-  renderPanes(); renderToasts(); renderDrawers(); renderContext();
-  applyCam(); drawLinks();
+  if(view === 'canvas') renderCanvas();
+  else if(view === 'grid') renderGrid();
+  renderToasts(); renderDrawers(); renderContext(); applyCam(); systemNotify();
 }
 function logLine(e){
   const time = new Date(e.ts * 1000).toLocaleTimeString(t('locale'), {hour:'2-digit', minute:'2-digit'}), text = local(e, 'text');
@@ -553,7 +625,7 @@ function logLine(e){
 }
 function sideState(p, side){
   const live = p.live || {}, limit = state.overview?.limits?.[side] || {};
-  if(['running','stopping'].includes(p.status) && live.phase === 'turn_running' && live.speaker === side) return {icon:'play', tone:'on', text:t('k_working'), working:true};
+  if(isLive(p) && live.phase === 'turn_running' && live.speaker === side) return {icon:'play', tone:'on', text:t('k_working'), working:true};
   const held = (liveDetail(live)?.sides || []).find(s => s.side === side && (s.state === 'limit' || s.state === 'down'));
   if(held) return {icon:'pause', tone:'w', text:cap(local(held, 'reason')) + (held.until ? ' · ' + t('untilShort', dateTime(held.until)) : '')};
   if(limit.available === false) return {icon:'pause', tone:'w', text:t('paused') + (limit.until ? ' · ' + t('untilShort', dateTime(limit.until)) : '')};
@@ -565,7 +637,7 @@ function paneBody(p){
   const events = (pro.recent[p.id]?.events || []).slice(0, LOG_LINES).reverse();
   const st = projectState(p), why = waitWhy(p), detail = local(p, 'status_detail');
   const version = p.recommended ? `<span class="vtag">v${p.recommended}${p.run?.state === 'running' ? ' · ▶ RUN' : ''}</span>` : '';
-  const retry = (['running','stopping'].includes(p.status) ? pausedSides(p) : []).map(side => `<button class="btn small" data-act="retry" data-provider="${side}">↻ ${esc(t('retryNowFor', NAME[side]))}</button>`).join('');
+  const retry = (isLive(p) ? pausedSides(p) : []).map(side => `<button class="btn small" data-act="retry" data-provider="${side}">↻ ${esc(t('retryNowFor', NAME[side]))}</button>`).join('');
   const questions = p.questions_open ? `<button type="button" class="qlink" data-pro="questions" data-id="${esc(p.id)}">${SVG.user} ${esc(t('qWaitingYou', p.questions_open))}</button>` : '';
   const models = sides(p).map(side => { const s = sideState(p, side); return `<span class="${s.tone}">${SVG[s.icon]}@${side} ${esc(modelLabel(p, side))}</span>`; }).join('');
   return `<div class="log">${events.length ? events.map(logLine).join('') : `<p>${esc(t('noEventsShort'))}</p>`}</div>
@@ -573,55 +645,56 @@ function paneBody(p){
     ${why ? `<div class="why">${why}</div>` : detail ? `<div class="why">${esc(detail)}</div>` : ''}${retry ? `<div class="acts">${retry}</div>` : ''}${questions}
     ${models ? `<div class="mrow">${models}</div>` : ''}`;
 }
-function renderPanes(){
-  const host = $('panes'), current = route(), list = sorted(), shown = new Set();
+// One project window ("terminal"): used by the Grid and by the two Canvas slots.
+function paneShell(p){
+  const el = document.createElement('section');
+  el.className = 'pane project'; el.dataset.id = p.id; el.tabIndex = 0;
+  el.innerHTML = `<header class="ph" data-drag><span class="k"></span><span class="t"></span><span class="led"></span><span class="ctl">
+      <button type="button" class="icon" data-pro="fold"></button><button type="button" class="icon" data-pro="focus">⤢</button></span></header>
+    <div class="pb"></div>
+    <form class="prompt" data-id="${esc(p.id)}"><span aria-hidden="true">❯</span><input type="text" autocomplete="off" placeholder=" "><span class="cur" aria-hidden="true"></span><span class="sent" hidden></span></form>`;
+  return el;
+}
+function fillPane(el, p){
+  const st = projectState(p), lead = leader(p), folded = !!pro.folded[p.id], fold = el.querySelector('[data-pro=fold]');
+  el.querySelector('.k').textContent = p.key || '';
+  el.querySelector('.t').textContent = p.title;
+  el.querySelector('.led').textContent = lead ? t('ledBy', lead) : '';
+  el.setAttribute('aria-label', t('paneAria', p.key || '', p.title, t(st.key)));
+  el.classList.toggle('active', p.id === route());
+  el.classList.toggle('folded', folded);
+  fold.textContent = folded ? '+' : '−'; fold.title = t(folded ? 'unfoldIt' : 'foldIt'); fold.setAttribute('aria-expanded', !folded); fold.setAttribute('aria-label', fold.title);
+  const focus = el.querySelector('[data-pro=focus]'); focus.title = t('openFocus'); focus.setAttribute('aria-label', focus.title);
+  const input = el.querySelector('.prompt input'); input.placeholder = t('promptPh'); input.setAttribute('aria-label', t('promptAria', `${p.key || ''} ${p.title}`));
+  const body = paneBody(p);
+  if(el._body !== body){ el.querySelector('.pb').innerHTML = body; el._body = body; }
+}
+function renderGrid(){
+  const host = $('panes'), list = visible(), shown = new Set(), byId = {};
+  host.querySelectorAll(':scope > .pane').forEach(el => { byId[el.dataset.id] = el; });
   list.forEach((p, i) => {
-    let el = $('pane-' + p.id);
-    if(!el){
-      el = document.createElement('section');
-      el.className = 'pane project'; el.id = 'pane-' + p.id; el.dataset.id = p.id; el.tabIndex = 0;
-      el.innerHTML = `<header class="ph" data-drag><span class="k"></span><span class="t"></span><span class="led"></span><span class="ctl">
-          <button type="button" class="icon" data-pro="fold"></button><button type="button" class="icon" data-pro="focus">⤢</button></span></header>
-        <div class="pb"></div>
-        <form class="prompt" data-id="${esc(p.id)}"><span aria-hidden="true">❯</span><input type="text" autocomplete="off" placeholder=" "><span class="cur" aria-hidden="true"></span><span class="sent" hidden></span></form>`;
-      host.appendChild(el);
-    }
-    shown.add(el);
-    const st = projectState(p), lead = leader(p), folded = !!pro.folded[p.id], fold = el.querySelector('[data-pro=fold]');
-    el.querySelector('.k').textContent = p.key || '';
-    el.querySelector('.t').textContent = p.title;
-    el.querySelector('.led').textContent = lead ? t('ledBy', lead) : '';
-    el.setAttribute('aria-label', t('paneAria', p.key || '', p.title, t(st.key)));
-    el.classList.toggle('active', p.id === current);
-    el.classList.toggle('folded', folded);
-    fold.textContent = folded ? '+' : '−'; fold.title = t(folded ? 'unfoldIt' : 'foldIt'); fold.setAttribute('aria-expanded', !folded); fold.setAttribute('aria-label', fold.title);
-    const focus = el.querySelector('[data-pro=focus]'); focus.title = t('openFocus'); focus.setAttribute('aria-label', focus.title);
-    const input = el.querySelector('.prompt input'); input.placeholder = t('promptPh'); input.setAttribute('aria-label', t('promptAria', `${p.key || ''} ${p.title}`));
-    el.style.order = i;
-    const body = paneBody(p);
-    if(el._body !== body){ el.querySelector('.pb').innerHTML = body; el._body = body; }
+    let el = byId[p.id];
+    if(!el){ el = paneShell(p); host.appendChild(el); }
+    shown.add(el); fillPane(el, p); el.style.order = i;
   });
-  host.querySelectorAll('.pane.project').forEach(el => { if(!shown.has(el)) el.remove(); });
+  host.querySelectorAll(':scope > .pane').forEach(el => { if(!shown.has(el)) el.remove(); });
   $('empty-stage').hidden = list.length > 0; $('empty-stage').textContent = t('canvasEmpty');
-  placeMissing(list);
-  for(const p of list){ const el = $('pane-' + p.id), [x, y] = pro.layout.panes[p.id]; el.style.left = x + 'px'; el.style.top = y + 'px'; }
-  renderModelPanes(list.find(p => p.id === current));
 }
-// A new project takes the first free place of a grid, in list order; deleted projects are forgotten.
-function placeMissing(list){
-  const panes = pro.layout.panes, slot = ([x, y]) => `${Math.round(x / COL)},${Math.round(y / ROW)}`;
-  const used = new Set(Object.values(panes).map(slot));
-  const cols = Math.max(2, Math.min(6, Math.round(Math.sqrt(list.length * 1.4))));
-  let n = 0, changed = false;
-  for(const p of list){
-    if(panes[p.id]) continue;
-    while(used.has(`${n % cols},${Math.floor(n / cols)}`)) n++;
-    panes[p.id] = [(n % cols) * COL, Math.floor(n / cols) * ROW]; used.add(slot(panes[p.id])); changed = true;
-  }
-  for(const id of Object.keys(panes)) if(!list.some(p => p.id === id)){ delete panes[id]; changed = true; }
-  if(changed) saveLayout();
+// ---- Canvas: the active project, the one picked from the stack, and the stack ------------------------------
+function slots(){
+  const list = visible(), running = list.filter(isLive);
+  let active = running.find(p => p.id === pro.activeId) || running[0], label = 'slotActive';
+  if(!active){ active = [...list].sort((a, b) => (b.updated_at || 0) - (a.updated_at || 0))[0]; label = 'slotRecent'; }
+  return {active, label, running, picked: sorted().find(p => p.id === pro.picked && p.id !== active?.id)};
 }
-// The models of the open project as its child windows (canvas only), joined to it by lines.
+function renderCanvas(){
+  const {active, label, running, picked} = slots();
+  renderSlot($('slot-a'), active, label, running.length > 1 ? running : []);
+  renderSlot($('slot-b'), picked, 'slotPicked', []);
+  if(!pro.dnd) renderStack();
+  placeBlocks();
+  requestAnimationFrame(() => { drawSlotLinks($('slot-a')); drawSlotLinks($('slot-b')); });
+}
 function modelBody(p, side){
   const limit = state.overview.limits[side] || {}, st = sideState(p, side);
   const roles = (p[side+'_role'] || 'general').split(',').map(r => t('r_' + r)).join(', ');
@@ -634,47 +707,193 @@ function modelBody(p, side){
   }
   return `<p>${esc(t('roleShort'))}: ${esc(roles)}</p>${usage}<div class="mstate ${st.tone}">${SVG[st.icon]} ${esc(st.text)}</div>`;
 }
-function renderModelPanes(p){
-  const host = $('panes'), list = p && effectiveView() === 'canvas' ? sides(p) : [];
-  host.querySelectorAll('.pane.model').forEach(el => { if(!list.includes(el.dataset.side) || el.dataset.parent !== p.id) el.remove(); });
-  list.forEach(side => {
-    let el = $('mpane-' + side);
+function renderSlot(slot, p, label, choices){
+  if(!slot._built){
+    slot.innerHTML = `<header class="ph slot-head" data-drag><span class="slot-label"></span><span class="slot-tabs"></span></header><svg class="links" aria-hidden="true"></svg><div class="slot-pane"></div><div class="models"></div>`;
+    slot._built = true;
+  }
+  slot.querySelector('.slot-label').textContent = t(label);
+  setIn(slot.querySelector('.slot-tabs'), choices.map(c => `<button type="button" class="chip" data-pro="active" data-id="${esc(c.id)}" aria-pressed="${c.id === p?.id}">${esc(c.key || c.title)}</button>`).join(''));
+  const holder = slot.querySelector('.slot-pane'), models = slot.querySelector('.models');
+  slot.classList.toggle('empty', !p);
+  if(!p){
+    holder._pid = null; models.innerHTML = ''; slot.querySelector('.links').innerHTML = '';
+    setIn(holder, `<p class="slot-hint">${esc(t(slot.id === 'slot-a' ? 'slotEmptyA' : 'slotEmptyB'))}</p>`);
+    return;
+  }
+  if(holder._pid !== p.id){ holder.innerHTML = ''; holder._html = null; holder.appendChild(paneShell(p)); holder._pid = p.id; models.innerHTML = ''; }
+  fillPane(holder.firstElementChild, p);
+  const list = sides(p);
+  models.querySelectorAll('.pane.model').forEach(el => { if(!list.includes(el.dataset.side)) el.remove(); });
+  list.forEach((side, i) => {
+    let el = models.querySelector(`[data-side="${side}"]`);
     if(!el){
-      el = document.createElement('section');
-      el.className = 'pane model'; el.id = 'mpane-' + side; el.dataset.side = side; el.tabIndex = 0;
-      el.innerHTML = `<header class="ph" data-drag><span class="t">@${side}</span><span class="led"></span></header><div class="pb"></div>`;
-      host.appendChild(el);
+      el = document.createElement('section'); el.className = 'pane model'; el.dataset.side = side; el.tabIndex = 0;
+      el.innerHTML = `<header class="ph"><span class="t">@${side}</span><span class="led"></span></header><div class="pb"></div>`;
+      models.appendChild(el);
     }
-    el.dataset.parent = p.id;
     const st = sideState(p, side);
-    el.classList.toggle('working', !!st.working);
+    el.style.order = i; el.classList.toggle('working', !!st.working);
     el.querySelector('.led').textContent = modelLabel(p, side);
     el.setAttribute('aria-label', `@${side} ${modelLabel(p, side)}: ${st.text}`);
     const body = modelBody(p, side);
     if(el._body !== body){ el.querySelector('.pb').innerHTML = body; el._body = body; }
   });
-  positionModels();
 }
-function positionModels(){
-  const models = [...document.querySelectorAll('#panes .pane.model')];
-  models.forEach((el, i) => {
-    const parent = $('pane-' + el.dataset.parent); if(!parent) return;
-    const [px, py] = pro.layout.panes[el.dataset.parent] || [0, 0];
-    const [dx, dy] = pro.layout.models[el.dataset.parent + ':' + el.dataset.side]
-      || [Math.round((i - (models.length - 1) / 2) * 274 + (parent.offsetWidth - 250) / 2), parent.offsetHeight + 56];
-    el.style.left = (px + dx) + 'px'; el.style.top = (py + dy) + 'px';
-  });
-}
-function drawLinks(){
-  const svg = $('links');
-  if(effectiveView() !== 'canvas'){ if(svg.innerHTML) svg.innerHTML = ''; return; }
-  svg.innerHTML = [...document.querySelectorAll('#panes .pane.model')].map(m => {
-    const parent = $('pane-' + m.dataset.parent); if(!parent) return '';
-    const x1 = parent.offsetLeft + parent.offsetWidth / 2, y1 = parent.offsetTop + parent.offsetHeight;
+function drawSlotLinks(slot){
+  const svg = slot.querySelector('.links'), pane = slot.querySelector('.slot-pane > .pane');
+  const models = [...slot.querySelectorAll('.models > .pane.model')];
+  if(!svg) return;
+  if(!pane || !models.length){ svg.innerHTML = ''; return; }
+  const x1 = pane.offsetLeft + pane.offsetWidth / 2, y1 = pane.offsetTop + pane.offsetHeight;
+  svg.innerHTML = models.map(m => {
     const x2 = m.offsetLeft + m.offsetWidth / 2, y2 = m.offsetTop, middle = (y1 + y2) / 2;
     return `<path class="${m.classList.contains('working') ? 'on' : ''}" d="M${x1},${y1} V${middle} H${x2} V${y2}"/><circle cx="${x1}" cy="${y1}" r="3"/><circle cx="${x2}" cy="${y2}" r="3"/>`;
   }).join('');
 }
+// Blocks keep their place once moved; until then the picked project sits under the active one, the stack beside.
+function placeBlocks(){
+  const saved_ = pro.layout.blocks, a = $('slot-a');
+  const pos = {a: saved_.a || [0, 0]};
+  pos.b = saved_.b || [pos.a[0], pos.a[1] + a.offsetHeight + GAP];
+  pos.stack = saved_.stack || [pos.a[0] + SLOT_W + 90, pos.a[1]];
+  for(const [name, el] of [['a', a], ['b', $('slot-b')], ['stack', $('stack')]]){ el.style.left = pos[name][0] + 'px'; el.style.top = pos[name][1] + 'px'; }
+}
+// ---- The stack: folded project bars, the queue in order, the user's groups and the archive ----------------
+const GITHUB = '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
+// A steady light per state (never blinking): green finished, orange stopped, the palette colour working.
+const LAMP = {k_done:'done', k_working:'run', k_starting:'run', k_review:'wait', k_role:'wait', k_limit:'wait', k_stopping:'wait',
+  k_dependency:'wait', k_queued:'queue', k_error:'err', k_user:'err', k_stopped:'stop'};
+function bar(p, kind){
+  const st = projectState(p), open = pro.menu === p.id, queued = kind === 'queue', live = kind === 'now';
+  const repo = p.github_repo || p.github_url || '';
+  const gh = p.github_url ? `<a class="gh-link" href="${esc(p.github_url)}" target="_blank" rel="noopener" title="${esc(t('ghOpen', repo))}" aria-label="${esc(t('ghOpen', repo))}">${GITHUB}</a>` : '<span></span>';
+  const menuLabel = t(queued ? 'queueMenu' : live ? 'barMenuLive' : 'barMenu');
+  return `<div class="pbar ${p.id === pro.picked ? 'picked' : ''}" data-bar="${esc(p.id)}" data-kind="${esc(kind)}" ${live ? '' : 'draggable="true"'}>
+      <span class="lamp ${LAMP[st.key] || 'stop'}" role="img" aria-label="${esc(t(st.key))}" title="${esc(t(st.key))}">${SVG[st.icon]}</span>
+      <button type="button" class="pick" data-pro="pick" data-id="${esc(p.id)}" data-kind="${esc(kind)}" title="${esc(t('pickHint'))}"><span class="k">${esc(p.key || '')}</span><span class="t">${esc(p.title)}</span></button>
+      <span class="pct" title="${esc(t('pctTitle'))}">${p.progress ? Math.round(p.progress.net) + '%' : '–'}</span>
+      <span class="tok" title="${esc(t('tokTitle'))}">${esc(tokensShort(pro.recent[p.id]?.tokens))}</span>${gh}
+      <button type="button" class="icon" data-pro="bar-menu" data-id="${esc(p.id)}" aria-expanded="${open}" title="${esc(menuLabel)}" aria-label="${esc(menuLabel)}">⋯</button>
+    </div>${open ? barMenu(p, kind) : ''}`;
+}
+function barMenu(p, kind){
+  const id = esc(p.id);
+  if(kind === 'queue') return `<div class="move-menu" role="group" aria-label="${esc(t('queueMenu'))}"><button type="button" class="chip" data-pro="queue-up" data-id="${id}">↑ ${esc(t('queueUp'))}</button><button type="button" class="chip" data-pro="queue-down" data-id="${id}">↓ ${esc(t('queueDown'))}</button></div>`;
+  if(kind === 'now') return `<div class="move-menu"><span class="hint">${esc(t('liveNoMove'))}</span></div>`;
+  const here = placementOf(p.id), option = (value, label) => `<button type="button" class="chip" data-pro="move" data-id="${id}" data-group="${esc(value)}" aria-pressed="${here === value}">${esc(label)}</button>`;
+  return `<div class="move-menu" role="group" aria-label="${esc(t('moveTo'))}"><span class="hint">${esc(t('moveTo'))}:</span>${option('', t('noGroup'))}${(pro.groups.groups || []).map(g => option(g.id, g.name)).join('')}${option('archive', t('gArchive'))}<button type="button" class="chip" data-pro="group-add" data-id="${id}">+ ${esc(t('groupNew'))}</button></div>`;
+}
+function section(id, name, items, cls){
+  const open = id in pro.gopen ? pro.gopen[id] : id !== 'archive', user = cls.includes('user');
+  const tools = user ? `<span class="gtools"><button type="button" class="icon" data-pro="group-rename" data-group="${esc(id)}" title="${esc(t('groupRename'))}" aria-label="${esc(t('groupRename'))}">✎</button><button type="button" class="icon" data-pro="group-delete" data-group="${esc(id)}" title="${esc(t('groupDelete'))}" aria-label="${esc(t('groupDelete'))}">✕</button></span>` : '';
+  const kind = id === 'queue' ? 'queue' : id === 'now' ? 'now' : id;
+  // Dropping a project on "Needs attention", "Stopped" or "Finished" takes it out of its group.
+  const drop = ['now','queue'].includes(id) ? '' : `data-drop="${esc(['attention','stopped','done'].includes(id) ? '' : id)}"`;
+  const hint = id === 'queue' && items.length > 1 ? `<p class="qhint">${esc(t('queueHint'))}</p>` : '';
+  const bars = items.length ? items.map(p => bar(p, kind)).join('') : `<p class="qhint">${esc(t('groupEmpty'))}</p>`;
+  return `<details class="sgroup ${cls}" data-group="${esc(id)}" ${drop} ${open ? 'open' : ''}><summary class="gh"><span class="gname">${esc(name)}</span><span class="gcount">${items.length}</span>${tools}</summary>${hint}<div class="bars">${bars}</div></details>`;
+}
+function renderStack(){
+  const all = sorted(), groups = pro.groups.groups || [], known = new Set(groups.map(g => g.id).concat('archive'));
+  const live = all.filter(isLive), queue = all.filter(p => p.status === 'queued').sort((a, b) => (a.queue_position || 99) - (b.queue_position || 99));
+  const rest = all.filter(p => !isLive(p) && p.status !== 'queued'), free = rest.filter(p => !known.has(placementOf(p.id)));
+  const attention = p => p.status === 'attention' || p.state_kind === 'error';
+  const sections = [
+    ['now', t('g_now'), live, 'now'], ['queue', t('gQueue'), queue, 'bracket queue'],
+    ['attention', t('g_attention'), free.filter(attention), ''], ['stopped', t('g_stopped'), free.filter(p => p.status !== 'done' && !attention(p)), ''],
+    ['done', t('g_done'), free.filter(p => p.status === 'done'), 'bracket done'],
+    ...groups.map(g => [g.id, g.name, rest.filter(p => placementOf(p.id) === g.id), 'user']),
+    ['archive', t('gArchive'), rest.filter(p => placementOf(p.id) === 'archive'), 'archive'],
+  ].filter(([id, , items, cls]) => items.length || cls === 'user');
+  setIn($('stack'), `<header class="ph stack-head" data-drag><span class="t">${esc(t('stackTitle'))}</span><span class="led">${all.length}</span><span class="ctl"><button type="button" class="btn small" data-pro="group-add">+ ${esc(t('groupNew'))}</button></span></header>
+    <div class="stack-body">${sections.map(([id, name, items, cls]) => section(id, name, items, cls)).join('')}</div>`);
+}
+function queueIds(){ return [...$('stack').querySelectorAll('.pbar[data-kind=queue]')].map(b => b.dataset.bar); }
+async function setQueue(ids){
+  try{ await api('/api/queue/order', {ids}); }catch(error){ alert(error.message); }
+  await poll();
+}
+function moveInQueue(id, delta){
+  const ids = queueIds(), at = ids.indexOf(id), to = at + delta;
+  if(at < 0 || to < 0 || to >= ids.length) return;
+  [ids[at], ids[to]] = [ids[to], ids[at]];
+  return setQueue(ids);
+}
+async function saveGroups(){
+  pro.groupsAt = Date.now();
+  try{ pro.groups = (await api('/api/groups', {groups:pro.groups})).groups; }catch(error){ alert(error.message); }
+  render();
+}
+function moveTo(id, group){
+  if(group) pro.groups.placement[id] = group; else delete pro.groups.placement[id];
+  pro.menu = null;
+  return saveGroups();
+}
+function addGroup(id){
+  const name = (prompt(t('groupName')) || '').trim().slice(0, 60);
+  if(!name) return;
+  const group = {id:'g' + Date.now().toString(36), name};
+  pro.groups.groups = [...(pro.groups.groups || []), group];
+  if(id) pro.groups.placement[id] = group.id;
+  pro.menu = null;
+  return saveGroups();
+}
+function renameGroup(gid){
+  const group = (pro.groups.groups || []).find(g => g.id === gid); if(!group) return;
+  const name = (prompt(t('groupName'), group.name) || '').trim().slice(0, 60);
+  if(!name) return;
+  group.name = name;
+  return saveGroups();
+}
+function deleteGroup(gid){
+  const group = (pro.groups.groups || []).find(g => g.id === gid); if(!group || !confirm(t('groupDeleteAsk', group.name))) return;
+  pro.groups.groups = pro.groups.groups.filter(g => g.id !== gid);
+  for(const [id, value] of Object.entries(pro.groups.placement)) if(value === gid) delete pro.groups.placement[id];
+  return saveGroups();
+}
+const clearDrop = () => $('stack').querySelectorAll('.drop,.drop-before,.drop-after').forEach(el => el.classList.remove('drop', 'drop-before', 'drop-after'));
+$('stack').addEventListener('dragstart', e => {
+  const b = e.target.closest?.('.pbar[draggable=true]'); if(!b) return;
+  pro.dnd = {id:b.dataset.bar, kind:b.dataset.kind};
+  e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', b.dataset.bar);
+  b.classList.add('dragging');
+});
+$('stack').addEventListener('dragend', e => { e.target.closest?.('.pbar')?.classList.remove('dragging'); clearDrop(); pro.dnd = null; });
+$('stack').addEventListener('dragover', e => {
+  if(!pro.dnd) return;
+  if(pro.dnd.kind === 'queue'){
+    const over = e.target.closest('.pbar[data-kind=queue]'); if(!over) return;
+    e.preventDefault(); clearDrop();
+    const box = over.getBoundingClientRect();
+    over.classList.add(e.clientY < box.top + box.height / 2 ? 'drop-before' : 'drop-after');
+    return;
+  }
+  const target = e.target.closest('.sgroup[data-drop]'); if(!target) return;
+  e.preventDefault(); clearDrop(); target.classList.add('drop');
+});
+$('stack').addEventListener('drop', async e => {
+  if(!pro.dnd) return;
+  e.preventDefault();
+  const {id, kind} = pro.dnd, stack = $('stack');
+  if(kind === 'queue'){
+    const over = stack.querySelector('.pbar.drop-before,.pbar.drop-after');
+    if(over && over.dataset.bar !== id){
+      const ids = queueIds().filter(x => x !== id);
+      ids.splice(ids.indexOf(over.dataset.bar) + (over.classList.contains('drop-after') ? 1 : 0), 0, id);
+      clearDrop(); pro.dnd = null; return setQueue(ids);
+    }
+  } else {
+    const target = stack.querySelector('.sgroup.drop');
+    if(target){ clearDrop(); pro.dnd = null; return moveTo(id, target.dataset.drop); }
+  }
+  clearDrop(); pro.dnd = null;
+});
+$('stack').addEventListener('toggle', e => {
+  const group = e.target.closest?.('details.sgroup'); if(!group) return;
+  pro.gopen[group.dataset.group] = group.open; keep('sol83-pro-gopen', pro.gopen);
+}, true);
+
 // ---- Status bar, context, drawers ----------------------------------------------------------------------
 function limitLine(side){
   const l = state.overview.limits[side] || {}, name = NAME[side];
@@ -726,18 +945,24 @@ function closeDrawer(){
   document.querySelectorAll('[data-drawer]').forEach(b => b.setAttribute('aria-expanded', false));
   document.querySelector(`.navrail [data-drawer="${name}"]`)?.focus();
 }
+function renderNotifySetting(){
+  const box = $('sys-notify'), supported = 'Notification' in window, denied = supported && Notification.permission === 'denied';
+  box.checked = pro.notify && supported && Notification.permission === 'granted'; box.disabled = !supported || denied;
+  $('sys-notify-state').textContent = !supported ? t('notifyUnsupported') : denied ? t('notifyDenied') : t('notifyHint');
+}
 function renderDrawers(){
   if(pro.drawer) $('drawer-title').textContent = t(DRAWERS[pro.drawer]);
-  const byId = Object.fromEntries(projects().map(p => [p.id, p]));
-  const rows = Object.entries(pro.recent).flatMap(([id, r]) => (r.events || []).map(e => ({e, p:byId[id]}))).filter(row => row.p)
-    .sort((a, b) => b.e.ts - a.e.ts).slice(0, 60);
-  setPro('history', rows.length ? rows.map(({e, p}) => `<a class="hrow" href="#/p/${esc(p.id)}" title="${esc(p.title + ' — ' + local(e, 'text'))}"><time>${esc(new Date(e.ts * 1000).toLocaleTimeString(t('locale'), {hour:'2-digit', minute:'2-digit'}))}</time><span class="k">${esc(p.key || '')}</span><span class="tx">${e.agent ? '@' + esc(e.agent) + ' ' : ''}${esc(local(e, 'text'))}</span></a>`).join('')
-    : `<p class="empty">${esc(t('historyEmpty'))}</p>`);
-  const items = waitItems();
-  setPro('waiting', items.length ? items.map(item => waitCard(item, false)).join('') : `<p class="empty">${esc(t('waitingEmpty'))}</p>`);
-  const total = items.filter(item => item.kind !== 'limit').length;
+  const items = waitItems(), total = items.filter(item => item.kind !== 'limit').length;
   $('q-count').hidden = !total; $('q-count').textContent = total;
-  setPro('keys', t('keysList').split('|').map(k => `<li>${esc(k)}</li>`).join(''));
+  if(pro.drawer === 'history'){
+    const byId = Object.fromEntries(projects().map(p => [p.id, p]));
+    const rows = Object.entries(pro.recent).flatMap(([id, r]) => (r.events || []).map(e => ({e, p:byId[id]}))).filter(row => row.p)
+      .sort((a, b) => b.e.ts - a.e.ts).slice(0, 60);
+    setPro('history', rows.length ? rows.map(({e, p}) => `<a class="hrow" href="#/p/${esc(p.id)}" title="${esc(p.title + ' — ' + local(e, 'text'))}"><time>${esc(new Date(e.ts * 1000).toLocaleTimeString(t('locale'), {hour:'2-digit', minute:'2-digit'}))}</time><span class="k">${esc(p.key || '')}</span><span class="tx">${e.agent ? '@' + esc(e.agent) + ' ' : ''}${esc(local(e, 'text'))}</span></a>`).join('')
+      : `<p class="empty">${esc(t('historyEmpty'))}</p>`);
+  }
+  if(pro.drawer === 'questions') setPro('waiting', items.length ? items.map(item => waitCard(item, false)).join('') : `<p class="empty">${esc(t('waitingEmpty'))}</p>`);
+  if(pro.drawer === 'settings'){ setPro('keys', t('keysList').split('|').map(k => `<li>${esc(k)}</li>`).join('')); renderNotifySetting(); }
 }
 // ---- Notifications: what waits for the user ------------------------------------------------------------
 function waitItems(){
@@ -785,11 +1010,27 @@ function renderToasts(){
   setPro('toasts', first.map(item => waitCard(item, true)).join('')
     + (items.length > first.length ? `<button type="button" class="btn small more" data-pro="more">${esc(t('more', items.length - first.length))}</button>` : ''));
 }
+// A new question or test request becomes a system notification that stays until the user closes it.
+// What waited before this page opened is only in the panel: a reload never repeats old notifications.
+function systemNotify(){
+  const fresh = waitItems().filter(item => item.kind === 'q' && !pro.notified.has(item.key));
+  if(!fresh.length) return;
+  const allowed = pro.seeded && pro.notify && 'Notification' in window && Notification.permission === 'granted';
+  for(const item of fresh){
+    pro.notified.add(item.key);
+    if(!allowed) continue;
+    const who = item.q.author === 'version' ? t('versionCheck') : '@' + (item.q.author || '?');
+    const note = new Notification(`Sol-83 · ${item.p.key || item.p.title}`, {
+      body:`${item.q.type === 'manual_test' ? t('toastTest', who) : t('toastQuestion', who)}: ${qTitle(item.q)}`, tag:item.key, requireInteraction:true});
+    note.onclick = () => { window.focus(); openFocus(item.p.id, 'pytania'); note.close(); };
+  }
+  keep('sol83-pro-notified', [...pro.notified].slice(-300));
+}
 
-// ---- Canvas: camera, dragging, zoom; the layout is remembered in this browser --------------------------
+// ---- Canvas: camera, moving blocks, zoom; the layout is remembered in this browser ----------------------
 let layoutTimer = null;
-const saveLayout = () => { clearTimeout(layoutTimer); keep('sol83-pro-layout', pro.layout); };
-const saveLayoutSoon = () => { clearTimeout(layoutTimer); layoutTimer = setTimeout(() => keep('sol83-pro-layout', pro.layout), 300); };
+const saveLayout = () => { clearTimeout(layoutTimer); keep('sol83-pro-canvas', pro.layout); };
+const saveLayoutSoon = () => { clearTimeout(layoutTimer); layoutTimer = setTimeout(() => keep('sol83-pro-canvas', pro.layout), 300); };
 const cam = () => pro.layout.cam || {x:40, y:30, z:1};
 function applyCam(){
   const c = cam();
@@ -802,44 +1043,40 @@ function zoomAt(factor, x, y){
   pro.layout.cam = c; applyCam(); saveLayoutSoon();
 }
 const zoomCenter = factor => zoomAt(factor, $('stage').clientWidth / 2, $('stage').clientHeight / 2);
-// Fit every window; the first view of a canvas keeps them readable (at least 60%) and starts at the top left.
+// Fit every block; the first view keeps them readable (at least 60%) and starts at the top left.
 function fit(least = .25){
   if(effectiveView() !== 'canvas') return;
-  const panes = [...document.querySelectorAll('#panes .pane')], stage = $('stage');
-  if(!panes.length) return;
-  const box = panes.reduce((b, el) => ({l:Math.min(b.l, el.offsetLeft), t:Math.min(b.t, el.offsetTop), r:Math.max(b.r, el.offsetLeft + el.offsetWidth), b:Math.max(b.b, el.offsetTop + el.offsetHeight)}),
+  const blocks = [...document.querySelectorAll('#world > .block')], stage = $('stage');
+  if(!blocks.length) return;
+  const box = blocks.reduce((b, el) => ({l:Math.min(b.l, el.offsetLeft), t:Math.min(b.t, el.offsetTop), r:Math.max(b.r, el.offsetLeft + el.offsetWidth), b:Math.max(b.b, el.offsetTop + el.offsetHeight)}),
     {l:Infinity, t:Infinity, r:-Infinity, b:-Infinity});
   const whole = Math.min(1.1, (stage.clientWidth - 60) / (box.r - box.l), (stage.clientHeight - 60) / (box.b - box.t)), z = Math.max(least, .25, whole);
   pro.layout.cam = z > whole ? {z, x:30 - box.l * z, y:24 - box.t * z}
     : {z, x:(stage.clientWidth - (box.r - box.l) * z) / 2 - box.l * z, y:Math.max(24, (stage.clientHeight - (box.b - box.t) * z) / 2) - box.t * z};
   applyCam(); saveLayout();
 }
-function centerOn(id){
-  const el = $('pane-' + id), stage = $('stage');
+function centerOn(el){
+  const stage = $('stage');
   if(!el || effectiveView() !== 'canvas') return;
   const c = {...cam()};
   c.x = stage.clientWidth / 2 - (el.offsetLeft + el.offsetWidth / 2) * c.z;
   c.y = Math.min(80, stage.clientHeight / 4) - el.offsetTop * c.z;
   pro.layout.cam = c; applyCam(); saveLayoutSoon();
 }
-function resetLayout(){ pro.layout = {panes:{}, models:{}, cam:null}; saveLayout(); render(); fit(.6); }
-function movePane(el, x, y){
-  el.style.left = x + 'px'; el.style.top = y + 'px';
-  if(el.classList.contains('model')){
-    const [px, py] = pro.layout.panes[el.dataset.parent] || [0, 0];
-    pro.layout.models[el.dataset.parent + ':' + el.dataset.side] = [x - px, y - py];
-  } else { pro.layout.panes[el.dataset.id] = [x, y]; positionModels(); }
-  drawLinks();
+function resetLayout(){ pro.layout = {blocks:{}, cam:null}; saveLayout(); render(); fit(.6); }
+function moveBlock(el, x, y){
+  pro.layout.blocks[el.dataset.block] = [x, y];
+  placeBlocks();
 }
 let drag = null;
 const stage = $('stage');
 stage.addEventListener('pointerdown', e => {
-  if(effectiveView() !== 'canvas' || e.button !== 0 || e.target.closest('button,a,input,select,textarea,summary,label,.zoombar,.prompt')) return;
-  const pane = e.target.closest('.pane'), head = e.target.closest('.ph[data-drag]');
-  if(pane && !head) return;
+  if(effectiveView() !== 'canvas' || e.button !== 0 || e.target.closest('button,a,input,select,textarea,summary,label,.zoombar,.prompt,.pbar')) return;
+  const block = e.target.closest('.block'), head = e.target.closest('[data-drag]');
+  if(block && !head) return;
   const c = cam();
-  drag = pane ? {pane, sx:e.clientX, sy:e.clientY, x:pane.offsetLeft, y:pane.offsetTop, id:e.pointerId}
-              : {sx:e.clientX, sy:e.clientY, x:c.x, y:c.y, id:e.pointerId};
+  drag = block ? {block, sx:e.clientX, sy:e.clientY, x:block.offsetLeft, y:block.offsetTop, id:e.pointerId}
+               : {sx:e.clientX, sy:e.clientY, x:c.x, y:c.y, id:e.pointerId};
 });
 stage.addEventListener('pointermove', e => {
   if(!drag) return;
@@ -848,7 +1085,7 @@ stage.addEventListener('pointermove', e => {
     if(Math.hypot(dx, dy) < 4) return;
     drag.moved = true; stage.setPointerCapture(drag.id); stage.classList.add('panning');
   }
-  if(drag.pane){ const z = cam().z; movePane(drag.pane, Math.round(drag.x + dx / z), Math.round(drag.y + dy / z)); }
+  if(drag.block){ const z = cam().z; moveBlock(drag.block, Math.round(drag.x + dx / z), Math.round(drag.y + dy / z)); }
   else { pro.layout.cam = {...cam(), x:drag.x + dx, y:drag.y + dy}; applyCam(); }
 });
 const endDrag = () => {
@@ -866,7 +1103,7 @@ stage.addEventListener('wheel', e => {
   if(e.ctrlKey || e.metaKey) zoomAt(Math.exp(-e.deltaY * .0025), e.clientX - r.left, e.clientY - r.top);
   else { const c = cam(); pro.layout.cam = {...c, x:c.x - e.deltaX, y:c.y - e.deltaY}; applyCam(); saveLayoutSoon(); }
 }, {passive:false});
-// A click on a window opens its project (the window glows); a double click on its bar opens Focus.
+// A click on a window selects its project (the window glows); a double click on its bar opens Focus.
 stage.addEventListener('click', e => {
   if(pro.dragged) return;
   const pane = e.target.closest('.pane.project');
@@ -879,6 +1116,13 @@ stage.addEventListener('dblclick', e => {
 });
 
 // ---- Input -------------------------------------------------------------------------------------------
+function pick(id){
+  const {active} = slots();
+  pro.menu = null;
+  if(id !== active?.id){ pro.picked = id; keep('sol83-pro-picked', id); }
+  if(route() !== id) location.hash = '#/p/' + id; else render();
+  if(innerWidth < 900) requestAnimationFrame(() => centerOn(id === active?.id ? $('slot-a') : $('slot-b')));
+}
 document.addEventListener('click', async e => {
   const b = e.target.closest('[data-pro],[data-view],[data-pal],[data-drawer]');
   if(!b) return;
@@ -886,12 +1130,17 @@ document.addEventListener('click', async e => {
   if(b.dataset.pal) return setPalette(b.dataset.pal);
   if(b.dataset.drawer) return openDrawer(b.dataset.drawer);
   const act = b.dataset.pro, id = b.dataset.id || b.closest('[data-id]')?.dataset.id;
+  if(b.closest('summary')) e.preventDefault();
   const local_ = {
     focus: () => openFocus(id), questions: () => openFocus(id, 'pytania'), open: () => { closeDrawer(); openFocus(id, b.dataset.tab); },
     fold: () => { if(pro.folded[id]) delete pro.folded[id]; else pro.folded[id] = true; keep('sol83-pro-folded', pro.folded); render(); },
     dismiss: () => { pro.dismissed = [...pro.dismissed.filter(k => k !== b.dataset.key), b.dataset.key].slice(-300); keep('sol83-pro-dismissed', pro.dismissed); renderToasts(); },
     more: () => openDrawer('questions'), 'close-drawer': closeDrawer, prev: () => step(-1), next: () => step(1),
     'zoom-in': () => zoomCenter(1.2), 'zoom-out': () => zoomCenter(1 / 1.2), fit: () => fit(), 'reset-layout': resetLayout,
+    pick: () => pick(id), active: () => { pro.activeId = id; render(); },
+    'bar-menu': () => { pro.menu = pro.menu === id ? null : id; render(); },
+    move: () => moveTo(id, b.dataset.group), 'group-add': () => addGroup(b.dataset.id), 'group-rename': () => renameGroup(b.dataset.group),
+    'group-delete': () => deleteGroup(b.dataset.group), 'queue-up': () => moveInQueue(id, -1), 'queue-down': () => moveInQueue(id, 1),
   };
   if(local_[act]) return local_[act]();
   // Actions from a notification or a window name their project: it need not be the open one.
@@ -908,9 +1157,14 @@ $('pal-pick').addEventListener('change', e => setPalette(e.target.value));
 $('fx-on').addEventListener('change', e => { pro.fx = e.target.checked; keep('sol83-pro-fx', pro.fx); applyFx(); });
 $('fx-level').addEventListener('input', e => { pro.fxLevel = Number(e.target.value); keep('sol83-pro-fx-level', pro.fxLevel); applyFx(); });
 $('glass-level').addEventListener('input', e => { pro.glass = Number(e.target.value); keep('sol83-pro-glass', pro.glass); applyFx(); });
-// A link in a drawer (project list, history) brings its window into view.
+$('sys-notify').addEventListener('change', async e => {
+  pro.notify = e.target.checked;
+  if(pro.notify && 'Notification' in window && Notification.permission === 'default') pro.notify = (await Notification.requestPermission()) === 'granted';
+  keep('sol83-pro-notify', pro.notify); renderNotifySetting();
+});
+// A link in a drawer (project list, history) brings the project onto the Canvas.
 $('drawer').addEventListener('click', e => {
-  if(!e.target.closest('a[href^="#/"]')) return;
+  if(!e.target.closest('a[href^="#/p/"]')) return;
   pro.center = true;
   if(innerWidth < 900) closeDrawer();
 });
@@ -931,16 +1185,18 @@ document.addEventListener('submit', async e => {
 document.addEventListener('keydown', e => {
   if(document.querySelector('dialog[open]') || e.metaKey || e.ctrlKey) return;
   if(e.target.closest?.('input,textarea,select,[contenteditable]')){ if(e.key === 'Escape') e.target.blur(); return; }
-  const pane = e.target.closest?.('.pane.project,.pane.model'), view = effectiveView();
-  const arrows = {ArrowLeft:[-1, 0], ArrowRight:[1, 0], ArrowUp:[0, -1], ArrowDown:[0, 1]};
-  if(view === 'canvas' && arrows[e.key]){
+  const view = effectiveView(), queued = e.target.closest?.('.pbar[data-kind=queue]');
+  if(queued && e.altKey && ['ArrowUp','ArrowDown'].includes(e.key)){ e.preventDefault(); moveInQueue(queued.dataset.bar, e.key === 'ArrowUp' ? -1 : 1); return; }
+  const block = e.target.closest?.('.block'), arrows = {ArrowLeft:[-1, 0], ArrowRight:[1, 0], ArrowUp:[0, -1], ArrowDown:[0, 1]};
+  if(view === 'canvas' && arrows[e.key] && !e.target.closest?.('.stack-body')){
     const [dx, dy] = arrows[e.key];
-    if(pane && e.altKey){ movePane(pane, pane.offsetLeft + dx * 20, pane.offsetTop + dy * 20); saveLayoutSoon(); }
+    if(block && e.altKey){ moveBlock(block, block.offsetLeft + dx * 20, block.offsetTop + dy * 20); saveLayoutSoon(); }
     else if(!e.altKey){ const c = cam(); pro.layout.cam = {...c, x:c.x - dx * 60, y:c.y - dy * 60}; applyCam(); saveLayoutSoon(); }
     e.preventDefault(); return;
   }
   if(e.altKey) return;
-  if(pane && e.key === 'Enter' && e.target === pane && pane.dataset.id){ openFocus(pane.dataset.id); return; }
+  const pane = e.target.closest?.('.pane.project');
+  if(pane && e.key === 'Enter' && e.target === pane){ openFocus(pane.dataset.id); return; }
   const keys = {f:() => setView('focus'), g:() => setView('grid'), c:() => setView('canvas'), '[':() => step(-1), ']':() => step(1),
     n:() => { location.hash = '#/nowy'; }, '?':() => openDrawer('settings'), Escape:closeDrawer};
   if(view === 'canvas') Object.assign(keys, {'+':() => zoomCenter(1.2), '=':() => zoomCenter(1.2), '-':() => zoomCenter(1 / 1.2), '0':() => fit()});
@@ -950,25 +1206,38 @@ document.addEventListener('keydown', e => {
 window.addEventListener('hashchange', () => {
   const id = route();
   if(id && id !== 'new') pro.lastProject = id;
-  render();
   if(pro.center && id && id !== 'new'){
     pro.center = false;
-    if(effectiveView() === 'canvas') centerOn(id);
-    else if(effectiveView() === 'grid') $('pane-' + id)?.scrollIntoView({block:'nearest', behavior:reduced.matches ? 'auto' : 'smooth'});
+    if(effectiveView() === 'canvas'){
+      const {active} = slots();
+      if(id !== active?.id){ pro.picked = id; keep('sol83-pro-picked', id); }
+      render();
+      requestAnimationFrame(() => centerOn(id === active?.id ? $('slot-a') : $('slot-b')));
+      return;
+    }
+    render();
+    if(effectiveView() === 'grid') $('panes').querySelector(`[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({block:'nearest', behavior:reduced.matches ? 'auto' : 'smooth'});
+    return;
   }
+  render();
 });
-addEventListener('resize', () => { rain.resize(); drawLinks(); if(state.overview) renderToasts(); });
-// After each refresh of the shared panel (every 3 s): the last events and what waits for the user.
+addEventListener('resize', () => { if(state.overview) renderToasts(); });
+// After each refresh of the shared panel (every 3 s): the last events, groups and what waits for the user.
 let loading = false;
 document.addEventListener('sol83:poll', async e => {
   pro.online = e.detail?.ok !== false;
   if(pro.online && !loading){
     loading = true;
-    try{ pro.recent = (await api('/api/recent')).projects || {}; }catch(error){}
+    try{
+      const data = await api('/api/recent');
+      pro.recent = data.projects || {};
+      if(Date.now() - pro.groupsAt > 4000) pro.groups = Object.assign({groups:[], placement:{}}, data.groups || {});
+    }catch(error){}
     loading = false;
   }
   const first = !pro.rendered; pro.rendered = true;
   render();
+  pro.seeded = true;
   if(first && effectiveView() === 'canvas' && !pro.layout.cam) fit(.6);
 });
 // Start: palette, effects and view of this browser; the shared script has loaded the data already.
