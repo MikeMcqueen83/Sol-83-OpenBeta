@@ -59,6 +59,15 @@ Panel ma **dwa wyglądy z tymi samymi funkcjami**, przełączane przyciskiem **C
     <img src="Assets/sc5.png" alt="Interfejs po angielsku w skórce SAKURA" width="100%"><br>
     <sub>Interfejs po angielsku: język strony zmienia się niezależnie od stałego języka projektu.</sub>
   </p>
+    <p align="center">
+    <img src="Assets/sc10.png" alt="Interfejs w nowej wersjo PRO" width="100%"><br>
+    <sub></sub>
+  </p>
+   </p>
+    <p align="center">
+    <img src="Assets/sc11.png" alt="Interfejs w nowej wersjo PRO" width="100%"><br>
+    <sub>.</sub>
+  </p>
 </details>
 
 ## Szybki start
