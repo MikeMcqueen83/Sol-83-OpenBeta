@@ -26,6 +26,11 @@ Subscriptions only: no API keys, no paid extra usage.
 <a id="screenshots"></a>
 ## What it looks like
 
+The panel has **two looks with the same functions**, switched with the **CLASSIC / PRO** button (the choice is remembered in the browser):
+
+- **Classic** (`http://127.0.0.1:8765/`): the project list on the side and the project details, skins LIGHT, DARK, SAKURA, TERMINAL. Screenshots below.
+- **Pro** (`http://127.0.0.1:8765/pro`): a futuristic terminal with translucent windows. **Focus** (one project with every Classic function), **Grid** (project tiles) and **Canvas** (windows you drag and zoom, with the project's model windows joined by lines that animate while the model works). A project window shows who leads the work ("led by @claude"), the latest events and the state, and the **❯** field sends a message to the coordinator. Notifications in the top right corner (questions and tests with answer buttons, a limit pause with "Try now", a setup script to approve), a status bar with limits and reset dates, palettes AMBER, PHOSPHOR, CYAN, SAKURA, LIGHT, scan lines and background glyphs with a switch (off with reduced motion). Details: [guide, section 16](docs/en/GUIDE.md#16-panel-looks-classic-and-pro).
+
 <p align="center">
   <img src="Assets/sc5.png" alt="Sol-83 in English with the SAKURA skin: model settings, several roles, Auto mode" width="100%"><br>
   <sub>The SAKURA skin in English: subscription limits, project cards, models with several roles and Auto mode.</sub>
@@ -76,7 +81,7 @@ Open http://127.0.0.1:8765 and click **New project**.
 
 ## Documentation
 
-[Install](docs/en/INSTALL.md) · [Guide](docs/en/GUIDE.md) · [Data, backups, updates, rollback](docs/en/UPDATES.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
+[Install](docs/en/INSTALL.md) · [Guide](docs/en/GUIDE.md) (including the Classic and Pro looks) · [Data, backups, updates, rollback](docs/en/UPDATES.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
 
 <a id="coffee"></a>
 ## ☕ Buy me a coffee

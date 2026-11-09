@@ -147,7 +147,7 @@ python3 -m unittest discover -s tests
 
 ## 17. Wygląd panelu: Classic i Pro
 
-Panel ma dwa wyglądy z tymi samymi funkcjami i danymi. Przełącznik CLASSIC / PRO jest w obu (w Classic obok PL/EN, w Pro w prawym górnym rogu i w Ustawieniach); wybór zostaje zapamiętany w tej przeglądarce. Classic działa pod `http://127.0.0.1:8765/`, Pro pod `/pro`. Gdy wybrany jest Pro, adres `/` też go otwiera; `/?classic` zawsze pokazuje Classic.
+Panel ma dwa wyglądy z tymi samymi funkcjami i danymi. Przełącznik CLASSIC / PRO jest w obu (w Classic obok PL/EN, w Pro w prawym górnym rogu i w Ustawieniach); wybór zostaje zapamiętany w tej przeglądarce. Classic działa pod `http://127.0.0.1:8765/`, Pro pod `/pro`. Gdy wybrany jest Pro, adres `/` też go otwiera; `/?classic` zawsze pokazuje Classic. Oba wyglądy pokazują autora i link do licencji na belce (Classic: dół panelu bocznego, Pro: pasek stanu i Ustawienia).
 
 Pro, w skrócie:
 

@@ -59,7 +59,7 @@ select option{background:var(--bg);color:var(--ink)}
 .seg button+button{border-left:1px solid var(--pline)}
 .seg button[aria-pressed=true]{background:rgba(var(--ph),.85);color:var(--onph);font-weight:700;box-shadow:0 0 18px rgba(var(--ph),.45)}
 .seg button:focus-visible{outline:2px solid rgb(var(--ph));outline-offset:-3px}
-.tools{display:flex;gap:6px;align-items:center;flex:1 1 0;justify-content:flex-end;min-width:0}
+.tools{display:flex;gap:6px;align-items:center;flex:1 0 auto;justify-content:flex-end}
 .pals,.looks{display:flex;gap:6px}
 .chip{border:1px solid var(--pline);background:none;border-radius:3px;padding:3px 8px;color:var(--dim);cursor:pointer;font-size:11.5px;letter-spacing:.04em;white-space:nowrap}
 .chip:hover{color:var(--ink)}
@@ -212,10 +212,14 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 .status b{color:var(--ink);font-weight:600}
 .status .w,.status .w b{color:var(--warn-ink)}
 .status .lang{flex:none}
+.status .credit{flex:none;white-space:nowrap;font-size:11px;color:var(--faint)}
+.status .credit a{color:var(--dim);text-decoration:none}
+.status .credit a:hover,.status .credit a:focus-visible{color:var(--ink);text-decoration:underline}
 .status .lang button{padding:1px 7px}
 .dimmed{color:var(--faint)}
 @media (prefers-reduced-motion:reduce){#rain,.scan{display:none}.cur,#links path.on,.dot.run{animation:none}}
-@media (max-width:1100px){.ctx{display:none}.pals{display:none}select.pal-select{display:block}}
+@media (max-width:1240px){.top .pals{display:none}select.pal-select{display:block}}
+@media (max-width:1100px){.status .credit-by{display:none}.ctx{display:none}}
 @media (max-width:700px){
   .top{gap:8px;padding:0 8px}.logo .word{display:none}
   .seg button{padding:6px 9px}.seg .lbl{display:none}
@@ -224,6 +228,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
   .toasts{right:8px;top:58px;width:calc(100vw - 56px)}
   #focus{padding:8px}.fbody{padding:12px}
   .stage[data-view=grid] #world{padding:10px}
+  .status .credit{display:none}
 }
 </style>
 </head>
@@ -311,6 +316,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
         <button type="button" class="btn small" data-pro="fit" data-t="fit"></button><button type="button" class="btn small" data-pro="reset-layout" data-t="layoutReset"></button></div></div>
       <div class="setting"><h3 data-t="keysTitle"></h3><ul class="keys" id="keys"></ul></div>
       <p class="hint" data-t="proHint"></p>
+      <p><span class="credit"><span class="credit-by" data-t="creditAuthor"></span> Michał Werpachowski · <span data-t="creditLicense"></span> <a href="https://github.com/MikeMcqueen83/Sol-83-OpenBeta/blob/main/LICENSE.md" target="_blank" rel="noopener" data-t-title="creditLicenseTitle">source-available ↗</a></span></p>
     </section>
   </div>
 </aside>
@@ -332,6 +338,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 
 <div class="toasts" id="toasts" aria-live="polite"></div>
 <footer class="status"><div id="sb-info"></div>
+  <span class="credit"><span class="credit-by" data-t="creditAuthor"></span> Michał Werpachowski · <span data-t="creditLicense"></span> <a href="https://github.com/MikeMcqueen83/Sol-83-OpenBeta/blob/main/LICENSE.md" target="_blank" rel="noopener" data-t-title="creditLicenseTitle">source-available ↗</a></span>
   <div class="lang" role="group" aria-label="Language"><button data-lang="pl" aria-pressed="true">PL</button><button data-lang="en" aria-pressed="false">EN</button></div></footer>
 <div class="vignette" aria-hidden="true"></div><div class="scan" aria-hidden="true"></div>
 

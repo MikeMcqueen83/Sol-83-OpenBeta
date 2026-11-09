@@ -226,6 +226,10 @@ details.pgroup > summary:hover{background:var(--surface-2)}
 .prow .sub{grid-column:2/-1;font-size:11.5px;color:var(--text-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:-1px}
 .ic{display:inline-flex;color:var(--text-3)}.ic.k-user,.ic.k-error{color:var(--bad-ink)}.ic.k-done{color:var(--good-ink)}.ic.k-wait{color:var(--warn-ink)}
 .retry{margin-top:6px}
+/* Author and licence, on a bar of both looks. */
+.credit{font-size:11.5px;color:var(--text-3)}
+.credit a{color:var(--text-2)}
+.side > .credit{margin-top:auto;position:sticky;bottom:-18px;padding:8px 0 10px;background:var(--surface);border-top:1px solid var(--line)}
 /* Questions and tests: what waits for the user first, done items apart and short. */
 .qsection{margin:4px 0 14px}
 .qsection > h4{font-size:13px;margin:0 0 6px;display:flex;align-items:center;gap:6px}

@@ -2,7 +2,7 @@
 // same element ids (#view, #projects, #limits, the dialogs ...) and its own layout and styles.
 const TEXT = {
 pl:{
-  lookLabel:'Wygląd panelu',
+  lookLabel:'Wygląd panelu', creditAuthor:'autor:', creditLicense:'licencja:', creditLicenseTitle:'Licencja Sol-83 Source-Available (LICENSE.md)',
   geminiDefaultWarn:'„Domyślny w Antigravity” oznacza, że model wybiera agy, a może to być droższy Gemini 4 Argon. Limit Antigravity schodzi według cen API, więc Flash wystarcza na wielokrotnie więcej pracy. Wybierz Gemini 3.8 Flash albo tryb Auto.',
   runNext:'Uruchom jako następny', queuePos:n=>n === 1 ? 'Ruszy jako następny, gdy zwolni się miejsce.' : `W kolejce: ${n}. miejsce.`,
   qClosed:'zapisane, sprawa zamknięta (modele nic nie muszą robić)', qEffect:'„Działa” i „Nie mogę wykonać” bez komentarza tylko zapisują wynik: zakończony projekt zostaje zakończony. „Nie działa”, „Częściowo” albo komentarz wznawia pracę modeli.',
@@ -146,7 +146,7 @@ pl:{
   ghSent:n=>`Wysłano: v${n}`, ghSend:n=>`Wyślij v${n}`, ghUpToDate:'Najnowsza sprawdzona wersja jest już wysłana.', ghToPublic:'Zmień na publiczne', ghToPrivate:'Zmień na prywatne', ghHint:'Każde wysłanie to Twoje kliknięcie. Nic nie trafia tam samo.',
 },
 en:{
-  lookLabel:'Panel look',
+  lookLabel:'Panel look', creditAuthor:'author:', creditLicense:'license:', creditLicenseTitle:'Sol-83 Source-Available License (LICENSE.md)',
   geminiDefaultWarn:'"Antigravity default" lets agy pick the model, possibly the dearer Gemini 4 Argon. The Antigravity quota is drawn by API prices, so Flash does many times more work. Choose Gemini 3.8 Flash or Auto.',
   runNext:'Run next', queuePos:n=>n === 1 ? 'Starts next, when a slot is free.' : `Queued: position ${n}.`,
   qClosed:'recorded, closed (nothing for the models to do)', qEffect:'"Works" and "Cannot run it" without a comment only record the result: a finished project stays finished. "Does not work", "Partly" or a comment resumes the models\' work.',

@@ -82,3 +82,18 @@ See the module table in [../pl/PRZEWODNIK.md](../pl/PRZEWODNIK.md#16-architektur
 ```bash
 python3 -m unittest discover -s tests
 ```
+
+## 16. Panel looks: Classic and Pro
+
+The panel has two looks with the same functions and data. The CLASSIC / PRO switch is in both (in Classic next to PL/EN, in Pro in the top right corner and in Settings); the choice is remembered in this browser. Classic is at `http://127.0.0.1:8765/`, Pro at `/pro`. When Pro is chosen, `/` opens it too; `/?classic` always shows Classic. Both show the author and a link to the licence on a bar (Classic: bottom of the side panel; Pro: status bar and Settings).
+
+Pro in short:
+
+- **Views.** Focus: one project with every tab and button of Classic (activity, plan, questions and tests, versions, content, efficiency, settings, task, RUN, GitHub). Grid: tiles of all projects. Canvas: windows you drag by their title bar, the background moves with the mouse or the trackpad, zoom with Ctrl/Cmd + wheel or the buttons in the bottom right corner; the layout is remembered. A click on a window selects the project (the window glows); a double click on its bar or ⤢ opens it in Focus.
+- **A project window** shows its key and title, "led by @model" (who has or had the last turn), the latest events, the state in words with an icon, the version and the questions waiting for you. The "❯" field sends a message to the coordinator, like "Message" in Focus (without interrupting the work). On the Canvas the selected project has child windows for its models (@claude, @gemini, @codex) with the role, limit usage and state; the line to the model that is working is animated.
+- **Left rail:** projects (the same list as in Classic, with GitHub repositories), history (the latest events of all projects), questions and tests (everything waiting for you, with a counter), limits (the same settings as in Classic: thresholds, accounts, security, Full Power), look settings.
+- **Notifications** in the top right corner: a question or a test request with answer buttons, a limit pause with "Try now", a setup script to approve (with its content). ✕ hides a notification in this browser; everything stays in the "Questions and tests" drawer.
+- **Status bar:** the number of projects, how many work and wait (for a limit, a model, you), Claude and Codex limit usage with the 5-hour window reset date, Codex and Gemini pauses with their end date.
+- **Palettes:** AMBER, PHOSPHOR (default), CYAN, SAKURA, LIGHT. **Effects:** scan lines and background glyphs (on/off, intensity, 60% by default), panel transparency (45% by default). With the system's "reduce motion" the effects are off, and animations stop while the tab is hidden.
+- **Keyboard:** F, G, C (views), [ and ] (previous and next project), N (new project), +, −, 0 (zoom and fit on the Canvas), arrows (move the view), Alt + arrows (move the selected window), Enter on a window (Focus), Esc (close the side panel), ? (settings and the list of shortcuts). A state always has a word and an icon, not just a colour; in a narrow window the view buttons shrink to icons and the palettes to a list.
+

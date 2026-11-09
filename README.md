@@ -26,6 +26,11 @@ Korzysta wyłącznie z abonamentów: bez kluczy API i bez płatnego rozszerzenia
 <a id="zrzuty-ekranu"></a>
 ## Jak to wygląda
 
+Panel ma **dwa wyglądy z tymi samymi funkcjami**, przełączane przyciskiem **CLASSIC / PRO** (wybór zostaje zapamiętany w przeglądarce):
+
+- **Classic** (`http://127.0.0.1:8765/`): lista projektów z boku i szczegóły projektu, skórki LIGHT, DARK, SAKURA, TERMINAL. Zrzuty poniżej.
+- **Pro** (`http://127.0.0.1:8765/pro`): futurystyczny terminal z półprzezroczystymi oknami. Widoki **Focus** (jeden projekt ze wszystkimi funkcjami Classic), **Grid** (kafle projektów) i **Canvas** (okna do przeciągania i powiększania, z oknami modeli połączonymi liniami, animowanymi, gdy model pracuje). Okno projektu pokazuje, kto prowadzi pracę („led by @claude”), ostatnie zdarzenia i stan, a pole **❯** wysyła wiadomość do koordynatora. Powiadomienia w prawym górnym rogu (pytania i testy z przyciskami, przerwa limitu ze „Spróbuj teraz”, skrypt do akceptacji), pasek stanu z limitami i datami odnowienia, palety BURSZTYN, FOSFOR, CYJAN, SAKURA, LIGHT, linie skanowania i znaki w tle z przełącznikiem (wyłączone przy „ogranicz ruch”). Opis: [przewodnik, sekcja 17](docs/pl/PRZEWODNIK.md#17-wygląd-panelu-classic-i-pro).
+
 <p align="center">
   <img src="Assets/sc4.png" alt="Sol-83 w skórce SAKURA: limity abonamentów, karty projektów, plan z postępem netto" width="100%"><br>
   <sub>Skórka SAKURA: limity abonamentów, karty projektów i plan z postępem netto.</sub>
@@ -85,14 +90,14 @@ Potem otwórz http://127.0.0.1:8765 i kliknij **Nowy projekt**.
 - Wersje z testami, RUN (kontrolowane uruchomienie wybranej wersji), Git w kontekście projektu, licencja projektu.
 - Panel kont i limitów, tokeny liczone poprawnie dla każdego dostawcy.
 - Piaskownica systemu dla kodu z repozytoriów, skan sekretów przed każdą wysyłką.
-- Skórki LIGHT, DARK, SAKURA, TERMINAL.
+- Dwa wyglądy panelu: Classic (skórki LIGHT, DARK, SAKURA, TERMINAL) i Pro (Focus / Grid / Canvas, palety BURSZTYN, FOSFOR, CYJAN, SAKURA, LIGHT), przełączane CLASSIC / PRO.
 
 ## Dokumentacja
 
 | Temat | PL | EN |
 |---|---|---|
 | Instalacja od zera | [INSTALACJA](docs/pl/INSTALACJA.md) | [INSTALL](docs/en/INSTALL.md) |
-| Przewodnik: projekty, modele, role, Auto, Full Power, limity, wersje, RUN, pytania, treści, język, Git, licencje | [PRZEWODNIK](docs/pl/PRZEWODNIK.md) | [GUIDE](docs/en/GUIDE.md) |
+| Przewodnik: projekty, modele, role, Auto, Full Power, limity, wersje, RUN, pytania, treści, język, Git, licencje, wygląd Classic i Pro | [PRZEWODNIK](docs/pl/PRZEWODNIK.md) | [GUIDE](docs/en/GUIDE.md) |
 | Dane, kopie, aktualizacje, migracje, powrót | [AKTUALIZACJE](docs/pl/AKTUALIZACJE.md) | [UPDATES](docs/en/UPDATES.md) |
 | Bezpieczeństwo | [SECURITY.md](SECURITY.md) | [SECURITY.md](SECURITY.md) |
 | Współpraca | [CONTRIBUTING.md](CONTRIBUTING.md) | [CONTRIBUTING.md](CONTRIBUTING.md) |
