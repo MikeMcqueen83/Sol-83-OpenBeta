@@ -2483,3 +2483,11 @@ class PanelLooks(Base):
         self.assertEqual(self.post('/api/canvas-notes', {'notes': [{'text': 'bez id'}]})[0], 400)
         self.assertEqual(self.post('/api/canvas-notes', {'notes': [{'id': 'x', 'text': 'y' * 500_000}]})[0], 400)
         self.assertEqual(json.loads(self.get('/api/recent')[1])['notes'], notes, 'a rejected save changes nothing')
+        # One note at a time: a second tab saving its note does not drop the others.
+        status, body = self.post('/api/canvas-notes', {'note': {'id': 'n3', 'text': 'Z drugiej karty'}})
+        self.assertEqual((status, [n['id'] for n in body['notes']]), (200, ['n1', 'n2', 'n3']))
+        status, body = self.post('/api/canvas-notes', {'note': {'id': 'n1', 'text': 'Zmieniona'}})
+        self.assertEqual([n['text'] for n in body['notes']], ['Zmieniona', 'Drugi', 'Z drugiej karty'])
+        status, body = self.post('/api/canvas-notes', {'delete': 'n2'})
+        self.assertEqual([n['id'] for n in body['notes']], ['n1', 'n3'])
+        self.assertEqual(self.post('/api/canvas-notes', {'note': {'text': 'bez id'}})[0], 400)

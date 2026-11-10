@@ -164,6 +164,7 @@ select.pal-select{display:none;width:auto;min-height:28px;margin:0;padding:2px 6
 .memo textarea.memo-text::placeholder{color:var(--faint)}
 .memo-foot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 10px 9px;border-top:1px solid var(--pline)}
 .memo-foot .hint{margin:0;font-size:11px}
+.memo-warn{flex-basis:100%;color:var(--warn-ink)!important}
 .memo-link{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--pline);border-radius:4px;padding:2px 8px;background:rgba(var(--bgc),.35);color:var(--ink);cursor:pointer;font:inherit}
 .memo-link:hover,.memo-link:focus-visible{border-color:rgba(var(--ph),.75)}
 /* A running app (RUN) is easy to lose track of, so its tag blinks slowly; the only blinking in this look. */
@@ -498,7 +499,7 @@ pl:{
   noteSideOn:n=>`${n}: Auto — ekonomiczny`, noteSideOff:n=>`${n}: wyłączony (wyczerpany limit tygodniowy albo model niedostępny)`,
   noteNoModels:'Wszystkie modele mają wyczerpany limit tygodniowy albo są niedostępne: projektu nie da się teraz utworzyć.',
   noteDelete:'Usuń notatkę', noteDeleteAsk:'Usunąć tę notatkę? Projekt, jeśli z niej powstał, zostaje.', noteGone:'Projekt z tej notatki został usunięty.',
-  noteEmpty:'Notatka jest pusta.', noteLinked:'Projekt z tej notatki: pokaż na Canvas', runTitle:(v,port)=>`RUN v${v} działa (port ${port})`, sbRun:n=>`RUN działa: ${n}`,
+  noteUnsaved:'⚠ Jeszcze nie zapisano na serwerze: ponawiam zapis; tekst jest też w tej przeglądarce.', noteEmpty:'Notatka jest pusta.', noteLinked:'Projekt z tej notatki: pokaż na Canvas', runTitle:(v,port)=>`RUN v${v} działa (port ${port})`, sbRun:n=>`RUN działa: ${n}`,
   notifyDenied:'Przeglądarka blokuje powiadomienia tej strony: zezwól na nie w ustawieniach witryny.', notifyUnsupported:'Ta przeglądarka nie obsługuje powiadomień.',
 },
 en:{
@@ -536,7 +537,7 @@ en:{
   noteSideOn:n=>`${n}: Auto — economy`, noteSideOff:n=>`${n}: off (weekly limit used up or model unavailable)`,
   noteNoModels:'Every model has used up its weekly limit or is unavailable: no project can be created now.',
   noteDelete:'Delete the note', noteDeleteAsk:'Delete this note? The project made from it, if any, stays.', noteGone:'The project made from this note was deleted.',
-  noteEmpty:'The note is empty.', noteLinked:'Project made from this note: show it on the Canvas', runTitle:(v,port)=>`RUN v${v} is running (port ${port})`, sbRun:n=>`RUN running: ${n}`,
+  noteUnsaved:'⚠ Not saved on the server yet: retrying; the text is also kept in this browser.', noteEmpty:'The note is empty.', noteLinked:'Project made from this note: show it on the Canvas', runTitle:(v,port)=>`RUN v${v} is running (port ${port})`, sbRun:n=>`RUN running: ${n}`,
   notifyDenied:'The browser blocks notifications for this page: allow them in the site settings.', notifyUnsupported:'This browser does not support notifications.',
 }};
 </script>
@@ -560,7 +561,8 @@ const pro = {
   folded: saved('sol83-pro-folded', {}), dismissed: saved('sol83-pro-dismissed', []), picked: saved('sol83-pro-picked', null),
   notify: saved('sol83-pro-notify', false) === true, notified: new Set(saved('sol83-pro-notified', [])), gopen: saved('sol83-pro-gopen', {}),
   groups: {groups:[], placement:{}}, groupsAt: 0, recent: {}, drawer: null, online: true, center: false, html: {},
-  lastProject: null, menu: null, activeId: null, dnd: null, notes: [], notesAt: 0, noteDirty: {},
+  lastProject: null, menu: null, activeId: null, dnd: null,
+  notes: [], dirty: {}, failed: new Set(), creating: new Set(), deleted: new Set(), noteTimers: {},
 };
 const setPro = (id, html) => { const el = $(id); if(el && pro.html[id] !== html){ el.innerHTML = html; pro.html[id] = html; } };
 const setIn = (el, html) => { if(el && el._html !== html){ el.innerHTML = html; el._html = html; } };
@@ -830,6 +832,7 @@ function noteFoot(note){
   }
   return `${note.project ? `<span class="hint">${esc(t('noteGone'))}</span>` : ''}<button type="button" class="btn primary small" data-pro="note-project" data-note="${esc(note.id)}">${esc(t('noteProject'))}</button>`;
 }
+const unsaved = id => pro.failed.has(id) ? `<p class="hint memo-warn">${esc(t('noteUnsaved'))}</p>` : '';
 function renderNotes(){
   const world = $('world'), ids = new Set(pro.notes.map(n => n.id));
   world.querySelectorAll(':scope > .memo').forEach(el => { if(!ids.has(el.dataset.note)) el.remove(); });
@@ -843,29 +846,57 @@ function renderNotes(){
       el.querySelector('textarea').value = note.text || '';
     }
     const area = el.querySelector('textarea'), remove = el.querySelector('[data-pro=note-delete]');
-    if(document.activeElement !== area && !pro.noteDirty[note.id] && area.value !== (note.text || '')) area.value = note.text || '';
+    if(document.activeElement !== area && !pro.dirty[note.id] && area.value !== (note.text || '')) area.value = note.text || '';
     area.placeholder = t('notePh'); area.setAttribute('aria-label', t('noteTitle'));
     el.querySelector('.ph .t').textContent = '✎ ' + t('noteTitle');
     remove.title = t('noteDelete'); remove.setAttribute('aria-label', remove.title);
-    setIn(el.querySelector('.memo-foot'), noteFoot(note));
+    setIn(el.querySelector('.memo-foot'), noteFoot(note) + unsaved(note.id));
   }
 }
-let notesTimer = null;
-async function saveNotes(){
-  clearTimeout(notesTimer); pro.notesAt = Date.now();
-  try{ pro.notes = (await api('/api/canvas-notes', {notes:pro.notes})).notes; pro.noteDirty = {}; }catch(error){ alert(error.message); }
+// Each note is saved on its own (two tabs never overwrite each other). A note that is not saved yet stays on
+// the Canvas and is saved again; its text is also kept in this browser until the server has it.
+const DRAFTS = 'sol83-pro-note-drafts';
+const drafts = () => saved(DRAFTS, {});
+function keepDraft(id, text){ const all = drafts(); if(text === undefined) delete all[id]; else all[id] = text; keep(DRAFTS, all); }
+function scheduleSave(id, delay = 600){ clearTimeout(pro.noteTimers[id]); pro.noteTimers[id] = setTimeout(() => saveNote(id), delay); }
+async function saveNote(id){
+  clearTimeout(pro.noteTimers[id]);
+  const note = pro.notes.find(n => n.id === id); if(!note) return;
+  const sent = note.text || '';
+  try{
+    const {notes} = await api('/api/canvas-notes', {note:{id:note.id, text:sent, created:note.created, ...(note.project ? {project:note.project} : {})}});
+    pro.failed.delete(id); pro.creating.delete(id);
+    if((pro.notes.find(n => n.id === id)?.text || '') === sent){ delete pro.dirty[id]; keepDraft(id); }
+    mergeNotes(notes);
+  }catch(error){ pro.failed.add(id); }
+  if(effectiveView() === 'canvas') renderNotes();
+}
+// The server's notes, with what this tab has not saved yet kept on top.
+function mergeNotes(server){
+  if(!Array.isArray(server)) return;
+  const local = Object.fromEntries(pro.notes.map(n => [n.id, n])), kept = drafts();
+  const merged = server.filter(n => !pro.deleted.has(n.id)).map(n => {
+    if(pro.dirty[n.id] && local[n.id]) return {...n, text:local[n.id].text, project:local[n.id].project || n.project};
+    if(typeof kept[n.id] === 'string' && kept[n.id] !== (n.text || '')){ pro.dirty[n.id] = true; scheduleSave(n.id); return {...n, text:kept[n.id]}; }
+    return n;
+  });
+  for(const n of pro.notes)
+    if(!server.some(x => x.id === n.id) && !pro.deleted.has(n.id) && (pro.dirty[n.id] || pro.failed.has(n.id) || pro.creating.has(n.id))) merged.push(n);
+  pro.notes = merged;
 }
 function addNote(){
   const note = {id:'n' + Date.now().toString(36), text:'', created:Math.round(Date.now() / 1000)};
-  pro.notes = [...pro.notes, note];
-  render(); saveNotes();
+  pro.notes = [...pro.notes, note]; pro.creating.add(note.id);
+  render(); saveNote(note.id);
   requestAnimationFrame(() => { const el = [...document.querySelectorAll('#world > .memo')].find(x => x.dataset.note === note.id); centerOn(el); el?.querySelector('textarea').focus({preventScroll:true}); });
 }
-function deleteNote(id){
+async function deleteNote(id){
   if(!confirm(t('noteDeleteAsk'))) return;
+  pro.deleted.add(id); clearTimeout(pro.noteTimers[id]); keepDraft(id);
   pro.notes = pro.notes.filter(n => n.id !== id);
   delete pro.layout.blocks['note:' + id]; saveLayout();
-  render(); return saveNotes();
+  render();
+  try{ mergeNotes((await api('/api/canvas-notes', {delete:id})).notes); }catch(error){ alert(error.message); }
 }
 // A model whose weekly limit is used up (or a pause over half a day, which only the weekly limit gives) is off;
 // a used-up 5-hour window is not a reason: it comes back within hours.
@@ -894,15 +925,15 @@ async function noteProject(id, button){
   if(button) button.disabled = true;
   try{
     const {id:projectId} = await api('/api/projects', body);
-    note.project = projectId;
-    await saveNotes(); await poll();
+    note.project = projectId; pro.dirty[id] = true;
+    await saveNote(id); await poll();
   }catch(error){ alert(error.message); if(button) button.disabled = false; }
 }
 document.addEventListener('input', e => {
   const area = e.target.closest?.('textarea.memo-text'); if(!area) return;
   const note = pro.notes.find(n => n.id === area.dataset.note); if(!note) return;
-  note.text = area.value; pro.noteDirty[note.id] = true;
-  clearTimeout(notesTimer); notesTimer = setTimeout(saveNotes, 700);
+  note.text = area.value; pro.dirty[note.id] = true; keepDraft(note.id, area.value);
+  scheduleSave(note.id);
 });
 function queueIds(){ return [...$('stack').querySelectorAll('.pbar[data-kind=queue]')].map(b => b.dataset.bar); }
 async function setQueue(ids){
@@ -1326,7 +1357,8 @@ document.addEventListener('sol83:poll', async e => {
       const data = await api('/api/recent');
       pro.recent = data.projects || {};
       if(Date.now() - pro.groupsAt > 4000) pro.groups = Object.assign({groups:[], placement:{}}, data.groups || {});
-      if(Date.now() - pro.notesAt > 4000 && !Object.keys(pro.noteDirty).length) pro.notes = Array.isArray(data.notes) ? data.notes : [];
+      mergeNotes(data.notes);
+      pro.failed.forEach(id => saveNote(id));
     }catch(error){}
     loading = false;
   }

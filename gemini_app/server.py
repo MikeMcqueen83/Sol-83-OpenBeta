@@ -23,6 +23,7 @@ PAGES = {'/': ('index.html', 'text/html; charset=utf-8'), '/pro': ('pro.html', '
          '/panel.js': ('panel.js', 'text/javascript; charset=utf-8'), '/panel.css': ('panel.css', 'text/css; charset=utf-8')}
 GROUPS_LIMIT = 100_000
 NOTES_LIMIT = 400_000
+NOTES_LOCK = threading.Lock()
 QUESTION_FIELDS = ('id', 'ref', 'type', 'text', 'author', 'options', 'recommendation', 'version_number', 'mandatory',
                    'created_at')
 PROVIDER_THRESHOLDS = {f'{kind}_{name}' for name in limits.PROVIDERS
@@ -94,16 +95,36 @@ def save_groups(store: Store, groups) -> dict:
     return groups
 
 
-def save_notes(store: Store, notes) -> list:
-    """The Pro Canvas notes: [{"id", "text", "project"?, "created"}]. A note becomes a project only by the
-    user's click (POST /api/projects); here only the text and that link are kept."""
-    text = json.dumps(notes, ensure_ascii=False)
-    valid = isinstance(notes, list) and all(isinstance(note, dict) and isinstance(note.get('id'), str)
-                                            and isinstance(note.get('text', ''), str) for note in notes)
-    if not valid or len(text) > NOTES_LIMIT:
-        raise ValueError(Msg('err_notes'))
-    store.set_setting('canvas_notes', text)
-    return notes
+def _note_ok(note) -> bool:
+    return isinstance(note, dict) and isinstance(note.get('id'), str) and isinstance(note.get('text', ''), str)
+
+
+def save_notes(store: Store, body: dict) -> list:
+    """The Pro Canvas notes: [{"id", "text", "project"?, "created"}]. One note is saved ({"note": ...}) or
+    deleted ({"delete": id}) at a time, so two open tabs never overwrite each other's notes; {"notes": [...]}
+    replaces the list. A note becomes a project only by the user's click (POST /api/projects)."""
+    with NOTES_LOCK:
+        notes = json.loads(store.text_setting('canvas_notes') or '[]')
+        if 'note' in body:
+            note = body['note']
+            if not _note_ok(note):
+                raise ValueError(Msg('err_notes'))
+            at = next((i for i, old in enumerate(notes) if old.get('id') == note['id']), None)
+            if at is None:
+                notes.append(note)
+            else:
+                notes[at] = note
+        elif 'delete' in body:
+            notes = [old for old in notes if old.get('id') != str(body['delete'])]
+        else:
+            notes = body.get('notes')
+            if not isinstance(notes, list) or not all(_note_ok(note) for note in notes):
+                raise ValueError(Msg('err_notes'))
+        text = json.dumps(notes, ensure_ascii=False)
+        if len(text) > NOTES_LIMIT:
+            raise ValueError(Msg('err_notes'))
+        store.set_setting('canvas_notes', text)
+        return notes
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -234,7 +255,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == ['api', 'groups']:
             return {'groups': save_groups(supervisor.store, body.get('groups'))}
         if path == ['api', 'canvas-notes']:
-            return {'notes': save_notes(supervisor.store, body.get('notes'))}
+            return {'notes': save_notes(supervisor.store, body)}
         if path == ['api', 'queue', 'order']:
             return {'queue': supervisor.set_queue_order(list(body.get('ids') or []))}
         if path == ['api', 'limits', 'refresh']:
