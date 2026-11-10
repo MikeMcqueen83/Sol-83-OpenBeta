@@ -167,6 +167,25 @@ select.pal-select{display:none;width:auto;min-height:28px;margin:0;padding:2px 6
 .memo-warn{flex-basis:100%;color:var(--warn-ink)!important}
 .memo-link{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--pline);border-radius:4px;padding:2px 8px;background:rgba(var(--bgc),.35);color:var(--ink);cursor:pointer;font:inherit}
 .memo-link:hover,.memo-link:focus-visible{border-color:rgba(var(--ph),.75)}
+.memo input.memo-title{display:block;width:100%;min-height:0;border:0;border-bottom:1px solid var(--pline);border-radius:0;background:transparent;padding:8px 12px;color:var(--ink);font:inherit;font-weight:700}
+.memo input.memo-title::placeholder{color:var(--faint);font-weight:400}
+.memo input.memo-title:focus-visible{outline:none;box-shadow:inset 0 0 0 1px rgba(var(--ph),.6)}
+.memo-head{display:flex;align-items:center;gap:7px;min-width:0}
+.memo-head .k{color:var(--ink);font-weight:700}
+.memo-models{display:flex;flex-wrap:wrap;gap:2px 10px;flex-basis:100%;font-size:11px}
+.memo-models .on{color:var(--dim)}.memo-models .off{color:var(--faint);text-decoration:line-through}
+/* A note with a project glows in the colour of its state: dashed while queued, brighter while working. */
+.memo:not([data-state=""]){--l:var(--ph);border-color:rgba(var(--l),.75);box-shadow:0 0 0 1px rgba(var(--l),.22),0 0 22px rgba(var(--l),.22),0 10px 30px rgba(0,0,0,.4)}
+.memo[data-state=wait]{--l:var(--l-wait)}.memo[data-state=stop]{--l:var(--l-stop)}.memo[data-state=done]{--l:var(--l-done)}.memo[data-state=err]{--l:var(--bd)}
+.memo[data-state=queue]{border-style:dashed;box-shadow:0 0 0 1px rgba(var(--ph),.12),0 10px 30px rgba(0,0,0,.4)}
+.memo[data-state=run]{background:linear-gradient(rgba(var(--ph),.1),rgba(var(--ph),.1)),var(--pane);box-shadow:0 0 0 1px rgba(var(--ph),.35),0 0 34px var(--glow),0 10px 30px rgba(0,0,0,.4)}
+/* The picked project: how to run it, with its RUN button. */
+.slot-run{width:560px;max-width:100%;margin-top:22px}
+.slot-run[hidden]{display:none}
+.slot-run .label{display:flex;gap:8px;align-items:center;margin:4px 0;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
+.slot-run .steps{max-height:180px;overflow:auto;margin:0 0 8px;font-size:11.5px}
+.slot-run .path{font-size:11px;color:var(--faint);margin-bottom:6px;overflow-wrap:anywhere}
+.slot-run .run-now{display:flex;gap:8px;align-items:center;margin-bottom:6px}
 /* A running app (RUN) is easy to lose track of, so its tag blinks slowly; the only blinking in this look. */
 .runtag{display:inline-flex;align-items:center;gap:3px;padding:0 5px;border:1px solid rgba(var(--l-run),.85);border-radius:3px;color:rgb(var(--l-run));font-size:10.5px;font-weight:700;letter-spacing:.06em;white-space:nowrap;text-shadow:0 0 6px rgba(var(--l-run),.7);box-shadow:0 0 8px rgba(var(--l-run),.35);animation:runblink 1.6s ease-in-out infinite;flex:none}
 @keyframes runblink{50%{opacity:.3}}
@@ -494,7 +513,8 @@ pl:{
   tokM:n=>`${n} mln`, tokK:n=>`${n} tys.`, ghOpen:r=>`Repozytorium ${r} na GitHubie (nowa karta)`,
   notifyTitle:'Powiadomienia systemowe', notifyOn:'Powiadamiaj o nowych pytaniach i testach',
   notifyHint:'Powiadomienie zostaje, dopóki go nie zamkniesz. Gdyby znikało po chwili: Ustawienia systemowe → Powiadomienia → Twoja przeglądarka → styl „Trwałe”. Działa, gdy panel jest otwarty w karcie przeglądarki.',
-  noteTitle:'Notatka', noteNew:'Notatka', notePh:'Zapisz myśl, pomysł albo zadanie. Z notatki jednym kliknięciem powstaje projekt.',
+  noteTitle:'Notatka', noteNew:'Notatka', noteTitlePh:'Tytuł notatki', noteShow:k=>`Pokaż ${k} na Canvas`, noteGoneShort:'Notatka (projekt usunięty)',
+  noteModelOn:n=>`${n}: Auto-ek.`, noteModelOff:n=>`${n}: wył.`, noteModelsHint:'Modele projektu z tej notatki: Auto — ekonomiczny; przekreślone mają wyczerpany limit tygodniowy albo są niedostępne (wyczerpane okno 5 h nie wyłącza modelu).', runSection:'Uruchomienie (RUN)', notePh:'Zapisz myśl, pomysł albo zadanie. Z notatki jednym kliknięciem powstaje projekt.',
   noteProject:'▶ Utwórz projekt', noteAsk:m=>`Utworzyć projekt z tej notatki? Treść notatki będzie zadaniem, a projekt ruszy od razu w trybie Auto — ekonomiczny:\n\n${m}`,
   noteSideOn:n=>`${n}: Auto — ekonomiczny`, noteSideOff:n=>`${n}: wyłączony (wyczerpany limit tygodniowy albo model niedostępny)`,
   noteNoModels:'Wszystkie modele mają wyczerpany limit tygodniowy albo są niedostępne: projektu nie da się teraz utworzyć.',
@@ -532,7 +552,8 @@ en:{
   tokM:n=>`${n}M`, tokK:n=>`${n}k`, ghOpen:r=>`Repository ${r} on GitHub (new tab)`,
   notifyTitle:'System notifications', notifyOn:'Notify me about new questions and tests',
   notifyHint:'A notification stays until you close it. If it disappears after a moment: System Settings → Notifications → your browser → style "Persistent". Works while the panel is open in a browser tab.',
-  noteTitle:'Note', noteNew:'Note', notePh:'Write down a thought, an idea or a task. One click turns the note into a project.',
+  noteTitle:'Note', noteNew:'Note', noteTitlePh:'Note title', noteShow:k=>`Show ${k} on the Canvas`, noteGoneShort:'Note (project deleted)',
+  noteModelOn:n=>`${n}: Auto-econ.`, noteModelOff:n=>`${n}: off`, noteModelsHint:'The models of a project made from this note: Auto — economy; struck-out ones have used up their weekly limit or are unavailable (a used-up 5-hour window does not turn a model off).', runSection:'Running it (RUN)', notePh:'Write down a thought, an idea or a task. One click turns the note into a project.',
   noteProject:'▶ Create project', noteAsk:m=>`Create a project from this note? The note becomes the task and the project starts right away in Auto — economy:\n\n${m}`,
   noteSideOn:n=>`${n}: Auto — economy`, noteSideOff:n=>`${n}: off (weekly limit used up or model unavailable)`,
   noteNoModels:'Every model has used up its weekly limit or is unavailable: no project can be created now.',
@@ -699,6 +720,7 @@ function renderCanvas(){
   const {active, label, running, picked} = slots();
   renderSlot($('slot-a'), active, label, running.length > 1 ? running : []);
   renderSlot($('slot-b'), picked, 'slotPicked', []);
+  renderRun(picked);
   if(!pro.dnd) renderStack();
   renderNotes();
   placeBlocks();
@@ -718,7 +740,7 @@ function modelBody(p, side){
 }
 function renderSlot(slot, p, label, choices){
   if(!slot._built){
-    slot.innerHTML = `<header class="ph slot-head" data-drag><span class="slot-label"></span><span class="slot-tabs"></span></header><svg class="links" aria-hidden="true"></svg><div class="slot-pane"></div><div class="slot-models"></div>`;
+    slot.innerHTML = `<header class="ph slot-head" data-drag><span class="slot-label"></span><span class="slot-tabs"></span></header><svg class="links" aria-hidden="true"></svg><div class="slot-pane"></div><div class="slot-models"></div>${slot.id === 'slot-b' ? '<section class="pane slot-run" hidden></section>' : ''}`;
     slot._built = true;
   }
   slot.querySelector('.slot-label').textContent = t(label);
@@ -749,6 +771,41 @@ function renderSlot(slot, p, label, choices){
     if(el._body !== body){ el.querySelector('.pb').innerHTML = body; el._body = body; }
   });
 }
+// The picked project's way to run it and its RUN button: the project's details, refreshed every 15 s
+// (the open project's come with the panel's own refresh).
+async function loadPicked(id){
+  if(pro.pickedLoading) return;
+  pro.pickedLoading = true;
+  try{ pro.pickedDetail = {id, at:Date.now(), data:await api('/api/projects/' + id)}; }catch(error){}
+  pro.pickedLoading = false;
+  if(effectiveView() === 'canvas') renderRun(slots().picked);
+}
+function pickedDetail(p){
+  if(state.detail?.project?.id === p.id) return state.detail;
+  const cached = pro.pickedDetail;
+  if(!cached || cached.id !== p.id || Date.now() - cached.at > 15000) loadPicked(p.id);
+  return cached?.id === p.id ? cached.data : null;
+}
+const runWord = value => TEXT[state.lang]['run_' + value] ? t('run_' + value) : value;
+function runSection(d){
+  const r = d.run_here || {}, run = d.app_run, rec = d.recommended, id = esc(d.project.id);
+  const active = run?.state === 'running', how = r.path ? (r.terminal || r.steps || '') : (d.plan?.run || '');
+  const status = active ? `<p class="run-now"><span class="runtag">▶ RUN v${run.version}</span>${run.url ? ` <a href="${esc(run.url)}" target="_blank" rel="noopener">${esc(t('runOpen'))} ↗</a>` : ''}</p>`
+    : run ? `<p class="hint">RUN v${run.version}: ${esc(runWord(run.state))}</p>` : '';
+  const button = active ? `<button type="button" class="btn small" data-pro="run-stop" data-id="${id}">${esc(t('runStop'))}</button>`
+    : rec ? `<button type="button" class="btn primary small" data-pro="run" data-id="${id}" data-n="${rec.number}">▶ ${esc(t('runThis'))} · v${rec.number}</button>` : `<span class="hint">${esc(t('whyNoVersion'))}</span>`;
+  const steps = how ? `<div class="label">${esc(t('terminalTitle'))}<button type="button" class="btn small" data-act="copy" data-text="${esc(how)}">${esc(t('copy'))}</button></div><pre class="steps">${esc(how)}</pre>`
+    : `<p class="hint">${esc(t('runNotYet'))}</p>`;
+  return `<header class="ph"><span class="t">${esc(t('runSection'))}</span><span class="led">${rec ? 'v' + rec.number : ''}</span></header>
+    <div class="pb">${status}${r.path ? `<div class="path">${esc(t('runHere'))}: ${esc(r.path)}</div>` : ''}${steps}<div class="acts">${button}</div></div>`;
+}
+function renderRun(p){
+  const box = $('slot-b').querySelector('.slot-run'); if(!box) return;
+  box.hidden = !p;
+  if(!p) return;
+  const d = pickedDetail(p);
+  setIn(box, d ? runSection(d) : `<header class="ph"><span class="t">${esc(t('runSection'))}</span></header><div class="pb"><p class="hint">${esc(t('loading'))}</p></div>`);
+}
 function drawSlotLinks(slot){
   const svg = slot.querySelector('.links'), pane = slot.querySelector('.slot-pane > .pane');
   const models = [...slot.querySelectorAll('.slot-models > .pane.model')];
@@ -769,7 +826,7 @@ function placeBlocks(){
   for(const [name, el] of [['a', a], ['b', $('slot-b')], ['stack', $('stack')]]){ el.style.left = pos[name][0] + 'px'; el.style.top = pos[name][1] + 'px'; }
   // Notes: a column beside the stack until the user moves them.
   document.querySelectorAll('#world > .memo').forEach((el, i) => {
-    const [x, y] = saved_[el.dataset.block] || [pos.stack[0] + 540, pos.stack[1] + i * 330];
+    const [x, y] = saved_[el.dataset.block] || [pos.stack[0] + 540, pos.stack[1] + i * 420];
     el.style.left = x + 'px'; el.style.top = y + 'px';
   });
 }
@@ -824,15 +881,22 @@ function renderStack(){
     <div class="stack-body">${sections.map(([id, name, items, cls]) => section(id, name, items, cls)).join('')}</div>`);
 }
 // ---- Notes on the Canvas: kept on the server; one click turns a note into a project ----------------------
+const noteProjectOf = note => note.project ? projects().find(x => x.id === note.project) : null;
+const noteModels = () => ['codex','claude','gemini'].map(side => `<span class="${weeklyOut(side) ? 'off' : 'on'}">${esc(t(weeklyOut(side) ? 'noteModelOff' : 'noteModelOn', NAME[side]))}</span>`).join('');
+// The header says what became of the note: its project's number and state, with the state's light.
+function noteHead(note){
+  const p = noteProjectOf(note);
+  if(!p) return `<span class="t">✎ ${esc(t(note.project ? 'noteGoneShort' : 'noteTitle'))}</span>`;
+  const st = projectState(p);
+  return `<span class="lamp ${LAMP[st.key] || 'stop'}" role="img" aria-label="${esc(t(st.key))}">${SVG[st.icon]}</span><span class="k">${esc(p.key || '')}</span><span class="led">${esc(t(st.key))}</span>${runTag(p)}`;
+}
 function noteFoot(note){
-  const p = note.project && projects().find(x => x.id === note.project);
-  if(p){
-    const st = projectState(p);
-    return `<button type="button" class="memo-link" data-pro="pick" data-id="${esc(p.id)}" title="${esc(t('noteLinked'))}"><span class="lamp ${LAMP[st.key] || 'stop'}" role="img" aria-label="${esc(t(st.key))}">${SVG[st.icon]}</span><b>${esc(p.key || '')}</b> ${esc(t(st.key))}</button>${runTag(p)}`;
-  }
-  return `${note.project ? `<span class="hint">${esc(t('noteGone'))}</span>` : ''}<button type="button" class="btn primary small" data-pro="note-project" data-note="${esc(note.id)}">${esc(t('noteProject'))}</button>`;
+  const p = noteProjectOf(note);
+  if(p) return `<button type="button" class="memo-link" data-pro="pick" data-id="${esc(p.id)}" title="${esc(t('noteLinked'))}">${esc(t('noteShow', p.key || ''))}</button><button type="button" class="memo-link" data-pro="focus" data-id="${esc(p.id)}">⤢ Focus</button>`;
+  return `${note.project ? `<span class="hint">${esc(t('noteGone'))}</span>` : ''}<div class="memo-models" title="${esc(t('noteModelsHint'))}">${noteModels()}</div><button type="button" class="btn primary small" data-pro="note-project" data-note="${esc(note.id)}">${esc(t('noteProject'))}</button>`;
 }
 const unsaved = id => pro.failed.has(id) ? `<p class="hint memo-warn">${esc(t('noteUnsaved'))}</p>` : '';
+const NOTE_BOXES = [['input.memo-title', 'title'], ['textarea.memo-text', 'text']];
 function renderNotes(){
   const world = $('world'), ids = new Set(pro.notes.map(n => n.id));
   world.querySelectorAll(':scope > .memo').forEach(el => { if(!ids.has(el.dataset.note)) el.remove(); });
@@ -841,32 +905,41 @@ function renderNotes(){
     if(!el){
       el = document.createElement('div');
       el.className = 'block memo'; el.dataset.note = note.id; el.dataset.block = 'note:' + note.id;
-      el.innerHTML = `<header class="ph" data-drag><span class="t"></span><span class="ctl"><button type="button" class="icon" data-pro="note-delete" data-note="${esc(note.id)}">✕</button></span></header><textarea class="memo-text" data-note="${esc(note.id)}"></textarea><div class="memo-foot"></div>`;
+      el.innerHTML = `<header class="ph" data-drag><span class="memo-head"></span><span class="ctl"><button type="button" class="icon" data-pro="note-delete" data-note="${esc(note.id)}">✕</button></span></header>
+        <input type="text" class="memo-title" data-note="${esc(note.id)}" maxlength="120" autocomplete="off"><textarea class="memo-text" data-note="${esc(note.id)}"></textarea><div class="memo-foot"></div>`;
       world.appendChild(el);
-      el.querySelector('textarea').value = note.text || '';
+      for(const [selector, field] of NOTE_BOXES) el.querySelector(selector).value = note[field] || '';
     }
-    const area = el.querySelector('textarea'), remove = el.querySelector('[data-pro=note-delete]');
-    if(document.activeElement !== area && !pro.dirty[note.id] && area.value !== (note.text || '')) area.value = note.text || '';
+    const p = noteProjectOf(note);
+    el.dataset.state = p ? LAMP[projectState(p).key] || 'stop' : '';
+    for(const [selector, field] of NOTE_BOXES){
+      const box = el.querySelector(selector);
+      if(document.activeElement !== box && !pro.dirty[note.id] && box.value !== (note[field] || '')) box.value = note[field] || '';
+    }
+    const title = el.querySelector('input.memo-title'), area = el.querySelector('textarea'), remove = el.querySelector('[data-pro=note-delete]');
+    title.placeholder = t('noteTitlePh'); title.setAttribute('aria-label', t('noteTitlePh'));
     area.placeholder = t('notePh'); area.setAttribute('aria-label', t('noteTitle'));
-    el.querySelector('.ph .t').textContent = '✎ ' + t('noteTitle');
     remove.title = t('noteDelete'); remove.setAttribute('aria-label', remove.title);
+    setIn(el.querySelector('.memo-head'), noteHead(note));
     setIn(el.querySelector('.memo-foot'), noteFoot(note) + unsaved(note.id));
   }
 }
 // Each note is saved on its own (two tabs never overwrite each other). A note that is not saved yet stays on
-// the Canvas and is saved again; its text is also kept in this browser until the server has it.
+// the Canvas and is saved again; its title and text are also kept in this browser until the server has them.
 const DRAFTS = 'sol83-pro-note-drafts';
 const drafts = () => saved(DRAFTS, {});
-function keepDraft(id, text){ const all = drafts(); if(text === undefined) delete all[id]; else all[id] = text; keep(DRAFTS, all); }
+const draftOf = value => typeof value === 'string' ? {text:value} : value && typeof value === 'object' ? value : null;
+function keepDraft(id, value){ const all = drafts(); if(value === undefined) delete all[id]; else all[id] = value; keep(DRAFTS, all); }
 function scheduleSave(id, delay = 600){ clearTimeout(pro.noteTimers[id]); pro.noteTimers[id] = setTimeout(() => saveNote(id), delay); }
 async function saveNote(id){
   clearTimeout(pro.noteTimers[id]);
   const note = pro.notes.find(n => n.id === id); if(!note) return;
-  const sent = note.text || '';
+  const sent = {title:note.title || '', text:note.text || ''};
   try{
-    const {notes} = await api('/api/canvas-notes', {note:{id:note.id, text:sent, created:note.created, ...(note.project ? {project:note.project} : {})}});
+    const {notes} = await api('/api/canvas-notes', {note:{id:note.id, ...sent, created:note.created, ...(note.project ? {project:note.project} : {})}});
     pro.failed.delete(id); pro.creating.delete(id);
-    if((pro.notes.find(n => n.id === id)?.text || '') === sent){ delete pro.dirty[id]; keepDraft(id); }
+    const now = pro.notes.find(n => n.id === id);
+    if((now?.text || '') === sent.text && (now?.title || '') === sent.title){ delete pro.dirty[id]; keepDraft(id); }
     mergeNotes(notes);
   }catch(error){ pro.failed.add(id); }
   if(effectiveView() === 'canvas') renderNotes();
@@ -876,19 +949,28 @@ function mergeNotes(server){
   if(!Array.isArray(server)) return;
   const local = Object.fromEntries(pro.notes.map(n => [n.id, n])), kept = drafts();
   const merged = server.filter(n => !pro.deleted.has(n.id)).map(n => {
-    if(pro.dirty[n.id] && local[n.id]) return {...n, text:local[n.id].text, project:local[n.id].project || n.project};
-    if(typeof kept[n.id] === 'string' && kept[n.id] !== (n.text || '')){ pro.dirty[n.id] = true; scheduleSave(n.id); return {...n, text:kept[n.id]}; }
+    if(pro.dirty[n.id] && local[n.id]) return {...n, title:local[n.id].title, text:local[n.id].text, project:local[n.id].project || n.project};
+    const draft = draftOf(kept[n.id]);
+    if(draft && ((draft.text ?? n.text ?? '') !== (n.text || '') || (draft.title ?? n.title ?? '') !== (n.title || ''))){
+      pro.dirty[n.id] = true; scheduleSave(n.id); return {...n, ...draft};
+    }
     return n;
   });
   for(const n of pro.notes)
     if(!server.some(x => x.id === n.id) && !pro.deleted.has(n.id) && (pro.dirty[n.id] || pro.failed.has(n.id) || pro.creating.has(n.id))) merged.push(n);
   pro.notes = merged;
 }
+// A new note appears where the user is looking, a little apart from other notes; the view does not move.
 function addNote(){
-  const note = {id:'n' + Date.now().toString(36), text:'', created:Math.round(Date.now() / 1000)};
+  const note = {id:'n' + Date.now().toString(36), title:'', text:'', created:Math.round(Date.now() / 1000)};
+  const c = cam(), stage = $('stage');
+  let x = Math.round((stage.clientWidth * .5 - c.x) / c.z), y = Math.round((stage.clientHeight * .18 - c.y) / c.z);
+  const taken = () => pro.notes.some(n => { const at = pro.layout.blocks['note:' + n.id]; return at && Math.abs(at[0] - x) < 30 && Math.abs(at[1] - y) < 30; });
+  while(taken()){ x += 32; y += 32; }
+  pro.layout.blocks['note:' + note.id] = [x, y]; saveLayout();
   pro.notes = [...pro.notes, note]; pro.creating.add(note.id);
   render(); saveNote(note.id);
-  requestAnimationFrame(() => { const el = [...document.querySelectorAll('#world > .memo')].find(x => x.dataset.note === note.id); centerOn(el); el?.querySelector('textarea').focus({preventScroll:true}); });
+  requestAnimationFrame(() => [...document.querySelectorAll('#world > .memo')].find(el => el.dataset.note === note.id)?.querySelector('input.memo-title').focus({preventScroll:true}));
 }
 async function deleteNote(id){
   if(!confirm(t('noteDeleteAsk'))) return;
@@ -911,12 +993,14 @@ async function noteProject(id, button){
   const note = pro.notes.find(n => n.id === id); if(!note) return;
   const area = [...document.querySelectorAll('textarea.memo-text')].find(x => x.dataset.note === id);
   if(area) note.text = area.value;
-  const task = (note.text || '').trim();
+  const title = [...document.querySelectorAll('input.memo-title')].find(x => x.dataset.note === id);
+  if(title) note.title = title.value;
+  const task = (note.text || '').trim() || (note.title || '').trim();
   if(!task) return alert(t('noteEmpty'));
   const order = ['codex','claude','gemini'], on = Object.fromEntries(order.map(side => [side, !weeklyOut(side)]));
   if(!order.some(side => on[side])) return alert(t('noteNoModels'));
-  if(!confirm(t('noteAsk', order.map(side => t(on[side] ? 'noteSideOn' : 'noteSideOff', NAME[side])).join('\n')))) return;
-  const body = {task, lang:state.lang, role_fallback:'general', max_turns:30};
+  // No confirmation: the note shows which models the project gets (Auto — economy, the weekly-limited ones off).
+  const body = {task, title:(note.title || '').trim(), lang:state.lang, role_fallback:'general', max_turns:30};
   for(const side of order){
     const [model, effort] = DEFAULT_MODELS[side];
     Object.assign(body, {[side+'_model']:on[side] ? model : 'none', [side+'_reasoning']:on[side] ? effort : '',
@@ -930,9 +1014,10 @@ async function noteProject(id, button){
   }catch(error){ alert(error.message); if(button) button.disabled = false; }
 }
 document.addEventListener('input', e => {
-  const area = e.target.closest?.('textarea.memo-text'); if(!area) return;
-  const note = pro.notes.find(n => n.id === area.dataset.note); if(!note) return;
-  note.text = area.value; pro.dirty[note.id] = true; keepDraft(note.id, area.value);
+  const box = e.target.closest?.('textarea.memo-text,input.memo-title'); if(!box) return;
+  const note = pro.notes.find(n => n.id === box.dataset.note); if(!note) return;
+  note[box.matches('input') ? 'title' : 'text'] = box.value; pro.dirty[note.id] = true;
+  keepDraft(note.id, {title:note.title || '', text:note.text || ''});
   scheduleSave(note.id);
 });
 function queueIds(){ return [...$('stack').querySelectorAll('.pbar[data-kind=queue]')].map(b => b.dataset.bar); }
@@ -1274,10 +1359,11 @@ document.addEventListener('click', async e => {
   // Actions from a notification or a window name their project: it need not be the open one.
   const call = {answer:['answer', {interaction:Number(b.dataset.q), value:b.dataset.value || '', request_key:requestKey()}],
     result:['answer', {interaction:Number(b.dataset.q), result:b.dataset.result, request_key:requestKey()}],
-    run:['run', {number:Number(b.dataset.n)}], setup:['setup-approve', {sha:b.dataset.sha}]}[act];
+    run:['run', {number:Number(b.dataset.n)}], 'run-stop':['run-stop', {}], setup:['setup-approve', {sha:b.dataset.sha}]}[act];
   if(!call || !id) return;
   if(act === 'result' && b.dataset.result !== 'works'){ const comment = prompt(t('qCommentFail')); if(comment === null) return; call[1].comment = comment; }
   b.disabled = true;
+  if(act === 'run' || act === 'run-stop') pro.pickedDetail = null;
   try{ await api(`/api/projects/${id}/${call[0]}`, call[1]); await poll(); }
   catch(error){ alert(error.message); b.disabled = false; }
 });

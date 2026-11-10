@@ -6,6 +6,8 @@
 - Bez widoku Grid: Pro ma Focus i Canvas.
 - Notatki na Canvas: stały blok z przewijanym tekstem, zapisywany na serwerze (`POST /api/canvas-notes`, `GET /api/recent` → `notes`). „▶ Utwórz projekt” zakłada z notatki projekt (zadanie = treść notatki) z dostępnymi modelami w trybie Auto — ekonomiczny; model z wyczerpanym limitem tygodniowym albo niedostępny jest wyłączony, wyczerpane okno 5 h nie. Notatka pokazuje potem numer i stan projektu.
 - Migająca plakietka ▶ RUN przy projektach z działającą aplikacją (stos, okno projektu, notatka) i ich liczba w pasku stanu.
+- Notatki mają tytuł (staje się tytułem projektu); po założeniu projektu nagłówek pokazuje jego numer i stan, a notatka świeci w kolorze stanu (kolejka, praca, zatrzymany, ukończony). Zamiast okna potwierdzenia notatka pokazuje, które modele dostanie projekt. Nowa notatka pojawia się w widocznej części Canvas, bez przesuwania widoku.
+- Dolny slot (wybrany ze stosu): sekcja „Uruchomienie (RUN)” z folderem, poleceniami do terminala i przyciskiem RUN albo „Zatrzymaj RUN”.
 - Notatki zapisywane pojedynczo (`{"note"}` / `{"delete"}`; dwie karty nie nadpisują sobie notatek); niezapisana notatka zostaje na Canvas z ostrzeżeniem, zapis jest ponawiany, a tekst trzymany też w przeglądarce. Wcześniej nieudany zapis (np. przed restartem serwera) po kilku sekundach usuwał notatkę z ekranu.
 - Poprawka: formularz nowego projektu i ustawienia modeli w Pro miały rozjechaną szerokość (klasa okien modeli na Canvas kolidowała z klasą formularza).
 
