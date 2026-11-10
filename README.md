@@ -253,6 +253,6 @@ Sol-83 rozwijam samodzielnie i udostępniam bezpłatnie do użytku niekomercyjne
 
 ## Licencja
 
-Sol-83 jest udostępniany jako **source-available**, a nie jako open source w rozumieniu OSI. Użycie niekomercyjne przez osoby prywatne jest dozwolone. Użycie komercyjne, w tym przez firmy (także wewnętrzne) oraz włączanie kodu lub jego części do monetyzowanych produktów i usług, wymaga uprzedniej pisemnej zgody autora. Zmiany wnosi się przez fork lub gałąź. Warunki są projektem do weryfikacji prawnej: [LICENSE.md](LICENSE.md). Silnik Duet i inne komponenty zachowują swoje licencje: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Licencja projektów, które tworzysz w Sol-83, jest Twoim wyborem i nie zależy od licencji Sol-83.
+Sol-83 jest udostępniany jako **source-available**, a nie jako open source w rozumieniu OSI. Użycie niekomercyjne przez osoby prywatne jest dozwolone. Użycie komercyjne, w tym przez firmy (także wewnętrzne) oraz włączanie kodu lub jego części do monetyzowanych produktów i usług, wymaga uprzedniej pisemnej zgody autora. Zmiany wnosi się przez fork lub gałąź. Warunki są projektem do weryfikacji prawnej: [LICENSE.md](LICENSE.md). Silnik tur pochodzi z [Duet](https://github.com/volkan/duet) (MIT); zmiany Sol-83 są w [forku Dueta, gałąź `sol83`](https://github.com/MikeMcqueen83/duet/tree/sol83). Duet i inne komponenty zachowują swoje licencje: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Licencja projektów, które tworzysz w Sol-83, jest Twoim wyborem i nie zależy od licencji Sol-83.
 
 Autor: Michał Werpachowski.

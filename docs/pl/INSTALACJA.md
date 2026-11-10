@@ -210,7 +210,7 @@ cd ~/Sol-83-OpenBeta
 git pull
 ```
 
-Jeśli zmienił się plik `config/upstream.json` albo `patches/duet-gemini.patch`, odśwież silnik:
+Jeśli zmienił się silnik Duet (submoduł `vendor/duet`, wersja w `config/upstream.json`), odśwież go:
 
 ```bash
 rm -rf vendor/duet && ./bin/setup

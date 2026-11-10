@@ -1,14 +1,19 @@
 #!/bin/sh
-# Fresh clone: fetch upstream Duet at the pinned commit and apply the Gemini patch.
+# Duet, the turn engine, is a submodule (vendor/duet): the fork MikeMcqueen83/duet, branch sol83, which is
+# volkan/duet with a third agent and a turn schedule. A git clone gets it as a submodule; a ZIP download
+# (no .git, no submodule content) clones the fork at the commit pinned in config/upstream.json.
 set -eu
 BASE="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
-COMMIT="$(python3 -c "import json;print(json.load(open('$BASE/config/upstream.json'))['commit'])")"
-REPO="$(python3 -c "import json;print(json.load(open('$BASE/config/upstream.json'))['repository'])")"
-if [ -e "$BASE/vendor/duet" ]; then
+cfg() { python3 -c "import json,sys;print(json.load(open(sys.argv[1]))[sys.argv[2]])" "$BASE/config/upstream.json" "$1"; }
+if [ -f "$BASE/vendor/duet/duet.py" ]; then
   echo "vendor/duet już istnieje"
   exit 0
 fi
-git clone -q "$REPO" "$BASE/vendor/duet"
-git -C "$BASE/vendor/duet" checkout -q "$COMMIT"
-git -C "$BASE/vendor/duet" apply "$BASE/patches/duet-gemini.patch"
+if [ -f "$BASE/.gitmodules" ] && git -C "$BASE" rev-parse --git-dir >/dev/null 2>&1; then
+  git -C "$BASE" submodule update --init vendor/duet
+else
+  [ -d "$BASE/vendor/duet" ] && rmdir "$BASE/vendor/duet"
+  git clone -q "$(cfg repository)" "$BASE/vendor/duet"
+  git -C "$BASE/vendor/duet" checkout -q "$(cfg commit)"
+fi
 echo "Duet gotowy"

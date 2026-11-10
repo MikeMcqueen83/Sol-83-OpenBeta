@@ -2,8 +2,8 @@
 
 | Komponent | Gdzie | Licencja | Uwagi |
 |---|---|---|---|
-| Duet (volkan/duet) | pobierany przez `bin/setup` do `vendor/duet` (nie jest częścią repozytorium) | MIT, Copyright (c) 2026 Volkan Altan | przypięty commit w `config/upstream.json` |
-| Łatka do Duet | `patches/duet-gemini.patch` | zmiany w kodzie na licencji MIT; proponowane udostępnienie na MIT (decyzja autora w LICENSE.md) | dodaje harmonogram tur i trzeciego agenta |
+| Duet ([volkan/duet](https://github.com/volkan/duet)) | submoduł `vendor/duet` z forka [MikeMcqueen83/duet](https://github.com/MikeMcqueen83/duet), gałąź `sol83` | MIT, Copyright (c) 2026 Volkan Altan | oparty na volkan/duet `a4998d7`; przypięty commit w `config/upstream.json` |
+| Zmiany Sol-83 w Duet | gałąź [`sol83`](https://github.com/MikeMcqueen83/duet/tree/sol83) forka (jeden commit na volkan/duet) | MIT, jak Duet | dodają harmonogram tur i trzeciego agenta |
 | Teksty licencji standardowych | `gemini_app/data/licenses/` | teksty licencji MIT, Apache-2.0, BSD-3-Clause, MPL-2.0, GPL-3.0, AGPL-3.0 w wersjach z API licencji GitHub | niezmienione; do zapisywania licencji projektów użytkowników |
 
 Narzędzia, z których Sol-83 korzysta, ale których nie rozpowszechnia: Claude Code (Anthropic), Codex CLI (OpenAI), Antigravity CLI (Google), GitHub CLI, Ollama i lokalne modele. Każde z nich ma własne warunki; ich przestrzeganie, w tym zasady automatycznego sterowania i korzystania z abonamentów, leży po stronie użytkownika.

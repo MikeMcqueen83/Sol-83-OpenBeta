@@ -1,5 +1,9 @@
 # Changelog
 
+## OpenBeta 0.7.9 — 2026-11-10
+
+- Duet jako submoduł `vendor/duet` z forka [MikeMcqueen83/duet](https://github.com/MikeMcqueen83/duet) (gałąź `sol83`: volkan/duet z trzecim agentem i harmonogramem tur). `bin/setup` pobiera submoduł, a przy pobraniu ZIP bez gita klonuje fork w przypiętym commicie; plik `patches/duet-gemini.patch` nie jest już potrzebny.
+
 ## OpenBeta 0.7.8 — 2026-11-10
 
 - Pro jest domyślnym wyglądem: `/` otwiera Pro, Classic tylko po wybraniu przełącznikiem (`/?classic` zawsze Classic).

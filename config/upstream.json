@@ -1,4 +1,7 @@
 {
-  "repository": "https://github.com/volkan/duet",
-  "commit": "a4998d7e678bac65b8f58ded8fead4f8a79ed786"
+  "repository": "https://github.com/MikeMcqueen83/duet",
+  "branch": "sol83",
+  "commit": "6806f6f5baa0e14c697733846975bb42c7eb3861",
+  "upstream": "https://github.com/volkan/duet",
+  "upstream_commit": "a4998d7e678bac65b8f58ded8fead4f8a79ed786"
 }

@@ -245,6 +245,6 @@ I develop Sol-83 on my own and share it free for non-commercial use. If it saved
 
 ## License
 
-Sol-83 is **source-available**, not OSI open source: non-commercial use by individuals is allowed; any commercial use, including use by companies (internal too) and putting the code or any part of it into monetized products or services, needs the author's prior written consent; contributions go through forks or branches. The terms are a draft pending legal review: [LICENSE.md](LICENSE.md). Duet and other components keep their own licenses: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Projects you create with Sol-83 get the license you choose.
+Sol-83 is **source-available**, not OSI open source: non-commercial use by individuals is allowed; any commercial use, including use by companies (internal too) and putting the code or any part of it into monetized products or services, needs the author's prior written consent; contributions go through forks or branches. The terms are a draft pending legal review: [LICENSE.md](LICENSE.md). The turn engine comes from [Duet](https://github.com/volkan/duet) (MIT); Sol-83's changes live in [a fork of Duet, branch `sol83`](https://github.com/MikeMcqueen83/duet/tree/sol83). Duet and other components keep their own licenses: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Projects you create with Sol-83 get the license you choose.
 
 Author: Michał Werpachowski.

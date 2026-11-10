@@ -1,0 +1,4 @@
+[submodule "vendor/duet"]
+	path = vendor/duet
+	url = https://github.com/MikeMcqueen83/duet.git
+	branch = sol83
