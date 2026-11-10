@@ -25,6 +25,25 @@ Wszystko na **abonamentach, które już masz**: bez kluczy API i bez płatnych d
 
 > **Status:** OpenBeta, rozwijana od listopada 2026. Przetestowana na macOS (Apple Silicon). Linux jest obsługiwany w kodzie, ale nie był testowany na prawdziwej maszynie; Windows nie jest obsługiwany. Stan każdej funkcji, z testami i ograniczeniami: [docs/TRACEABILITY.md](docs/TRACEABILITY.md).
 
+<a id="zrzuty-ekranu"></a>
+<p align="center">
+  <img src="Assets/sc1.png" alt="Sol-83 Pro, Canvas w palecie FOSFOR: aktywny projekt z oknami modeli, projekt wybrany ze stosu, stos projektów i notatki" width="100%"><br>
+  <sub>Canvas (paleta FOSFOR): aktywny projekt z oknami modeli, pod nim projekt wybrany ze stosu z sekcją RUN, po prawej stos projektów i notatki.</sub>
+</p>
+
+<table>
+  <tr>
+    <td width="50%" align="center" valign="top">
+      <img src="Assets/sc2.png" alt="Canvas w palecie CYJAN"><br>
+      <sub>Ten sam Canvas w palecie CYJAN…</sub>
+    </td>
+    <td width="50%" align="center" valign="top">
+      <img src="Assets/sc3.png" alt="Canvas w palecie LIGHT"><br>
+      <sub>…i w jasnej palecie LIGHT.</sub>
+    </td>
+  </tr>
+</table>
+
 ## W 30 sekund
 
 - 📝 **Notatki zamiast promptów.** Piszesz, co chcesz osiągnąć, tak jak myślisz. Notatka z tytułem leży na Canvas, aż uznasz, że czas ją uruchomić.
@@ -53,6 +72,25 @@ Sol-83 nie jest tylko „do kodu”. Jeśli coś da się opisać i sprawdzić, d
 
 Przy dokumentach i researchu Sol-83 nie buduje zaplecza programistycznego (testów, skryptów). Modele sprawdzają treść i źródła, więc nie zużywasz tokenów na rzeczy, których projekt nie potrzebuje.
 
+<p align="center"><b>Zbudowane w Sol-83</b></p>
+
+<table>
+  <tr>
+    <td width="33%" align="center" valign="top">
+      <img src="Assets/sc6.png" alt="Gra strategiczna czasu rzeczywistego zbudowana w Sol-83"><br>
+      <sub>Gra strategiczna czasu rzeczywistego, uruchamiana przyciskiem RUN.</sub>
+    </td>
+    <td width="33%" align="center" valign="top">
+      <img src="Assets/sc7.png" alt="Dwujęzyczne kompendium techniczne z rysunkami zbudowane w Sol-83"><br>
+      <sub>Dwujęzyczne (PL/EN) kompendium techniczne z rysunkami i źródłami.</sub>
+    </td>
+    <td width="33%" align="center" valign="top">
+      <img src="Assets/sc8.png" alt="Strona z przepisem na sernik zbudowana w Sol-83"><br>
+      <sub>Przepis na sernik jako strona: krok po kroku, z uzasadnieniem i źródłami.</sub>
+    </td>
+  </tr>
+</table>
+
 ## Canvas: Twoja przestrzeń do myślenia i działania
 
 Wygląd **Pro** (domyślny) to Canvas: tablica, którą przesuwasz i powiększasz jak mapę, a w niej wszystko, nad czym pracujesz.
@@ -63,6 +101,11 @@ Wygląd **Pro** (domyślny) to Canvas: tablica, którą przesuwasz i powiększas
 - **Stos projektów** to wszystkie projekty jako zwinięte belki: numer, nazwa, postęp, zużyte tokeny („2,3 mln”), ikona GitHuba i lampka stanu, która świeci, a nie mruga. Kolejkę ustawiasz przeciąganiem, projekty grupujesz we własne foldery („Analizy”, „Gry”, „Praca”), a zakończone chowasz do archiwum.
 - **RUN pod kontrolą.** Projekty z działającą aplikacją mają migającą plakietkę ▶ RUN, a pasek stanu mówi, ile aplikacji działa. Nic nie zostaje uruchomione „po cichu”.
 - **Powiadomienia.** Pytania i prośby o test pojawiają się w rogu ekranu z przyciskami odpowiedzi, a na życzenie także jako powiadomienie systemowe, które zostaje, dopóki go nie zamkniesz.
+
+<p align="center">
+  <img src="Assets/sc9.png" alt="Sol-83 Pro w palecie SAKURA: limity, aktywny projekt, projekt wybrany ze stosu z działającym RUN i notatka" width="72%"><br>
+  <sub>Paleta SAKURA z bliska: limity abonamentów, aktywny projekt, projekt ze stosu z działającym RUN i notatka gotowa do zamiany w projekt.</sub>
+</p>
 
 Widok **Focus** pokazuje jeden projekt ze wszystkimi szczegółami: przebieg tur, plan, pytania i testy, wersje, treści, efektywność, ustawienia, zadanie. Wolisz prostszy panel? Przycisk **CLASSIC** przełącza na klasyczny wygląd z tymi samymi funkcjami.
 
@@ -76,6 +119,11 @@ Projekt nie jest jednym długim promptem. Na początku model w roli architekta r
 - **gdzie poszedł limit**: ile tygodniowego limitu zjadł każdy krok.
 
 Plan żyje razem z projektem: modele aktualizują status kroków, a Ty możesz w każdej chwili zlecić wybrany krok przyciskiem „Zleć”.
+
+<p align="center">
+  <img src="Assets/sc4.png" alt="Plan projektu w widoku Focus" width="100%"><br>
+  <sub>Plan w widoku Focus: funkcje i kroki z priorytetem, statusem, liczbą tur i kosztem limitu.</sub>
+</p>
 
 ## W trakcie projektu Ty trzymasz ster
 
@@ -108,6 +156,11 @@ Przed każdą turą koordynator sprawdza, jakiej pracy teraz potrzeba (plan, imp
 - **Auto — power**: mocniejszy model z dozwolonej puli, nadal z kontrolą limitów.
 
 Najdroższe modele dostawcy nigdy nie są wybierane automatycznie; ręcznie tylko z Twoim potwierdzeniem. Każda decyzja Auto trafia do historii projektu razem z powodem.
+
+<p align="center">
+  <img src="Assets/sc5.png" alt="Ustawienia modeli i ról projektu" width="72%"><br>
+  <sub>Ustawienia projektu: model, poziom myślenia, role i tryb Auto dla każdego dostawcy oraz migawka bieżącej tury.</sub>
+</p>
 
 ## Tokeny i limity: zarządzanie, nie loteria
 
@@ -150,44 +203,6 @@ Możesz wybrać innego koordynatora (Claude, Codex, Gemini) albo żadnego. Gdy w
 - **Trwała kolejka zleceń**: nic nie ginie przy restarcie, podwójnym kliknięciu ani zamknięciu projektu.
 - **Język projektu (PL albo EN)** jest stały we wszystkich instrukcjach dla modeli; interfejs przełączasz niezależnie.
 
-<a id="zrzuty-ekranu"></a>
-## Jak to wygląda
-
-<p align="center">
-  <img width="100%" src="Assets/sc11.png" alt="Sol-83 Pro, widok Focus w palecie CYJAN: formularz nowego projektu z modelami, poziomem myślenia i rolami"><br>
-  <sub>Pro, widok Focus (paleta CYJAN): nowy projekt z wyborem modeli, poziomu myślenia i ról.</sub>
-</p>
-
-<p align="center">
-  <img src="Assets/sc4.png" alt="Sol-83 w wyglądzie Classic, skórka SAKURA: limity abonamentów, karty projektów, plan z postępem netto" width="100%"><br>
-  <sub>Classic, skórka SAKURA: limity abonamentów, karty projektów i plan z postępem netto.</sub>
-</p>
-
-<table>
-  <tr>
-    <td width="50%" align="center" valign="top">
-      <img src="Assets/sc2.png" alt="Plan projektu w skórce TERMINAL"><br>
-      <sub>Plan z priorytetami, budżetem tur i przyciskiem „Zleć” przy każdej pozycji.</sub>
-    </td>
-    <td width="50%" align="center" valign="top">
-      <img src="Assets/sc3.png" alt="Ustawienia modeli i ról w skórce TERMINAL"><br>
-      <sub>Ustawienia: migawka bieżącej tury, wiele ról na model, tryb Auto.</sub>
-    </td>
-  </tr>
-</table>
-
-<details>
-  <summary><b>Więcej zrzutów</b></summary>
-  <p align="center">
-    <img src="Assets/sc1.png" alt="Przebieg tur w skórce TERMINAL" width="100%"><br>
-    <sub>Przebieg: wyraźne nagłówki tur (wykonawca, model, rodzaj pracy) i odpowiedź lokalnego koordynatora.</sub>
-  </p>
-  <p align="center">
-    <img src="Assets/sc5.png" alt="Interfejs po angielsku w skórce SAKURA" width="100%"><br>
-    <sub>Interfejs po angielsku: język strony zmienia się niezależnie od stałego języka projektu.</sub>
-  </p>
-</details>
-
 ## Dla kogo
 
 Dla każdego, kto ma **co najmniej dwa abonamenty AI** (np. Claude i ChatGPT/Codex, opcjonalnie Gemini) i chce, żeby wreszcie pracowały razem: dla programistów, dla osób, które „vibe codują”, i dla tych, którzy w ogóle nie piszą kodu, a mają pomysł na tekst, analizę albo research. Nie musisz znać Gita ani konfigurować modeli: zaczynasz od notatki, resztę Sol-83 ustawia sam, a Ty możesz to zmienić, kiedy zechcesz.
@@ -209,6 +224,11 @@ cd Sol-83-OpenBeta && ./bin/setup && ./sol83 doctor
 ```
 
 Potem otwórz http://127.0.0.1:8765, kliknij **+ Notatka** w stosie projektów, opisz pomysł i kliknij **▶ Utwórz projekt**.
+
+<p align="center">
+  <img src="Assets/sc11.png" alt="Formularz nowego projektu w Sol-83 Pro" width="100%"><br>
+  <sub>Wolisz klasycznie? Projekt założysz też z formularza: zadanie, folder, modele, poziom myślenia i role.</sub>
+</p>
 
 ## Dokumentacja
 

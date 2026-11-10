@@ -25,6 +25,25 @@ All of it runs on **the subscriptions you already have**: no API keys, no paid e
 
 > **Status:** OpenBeta, developed since November 2026. Tested on macOS (Apple Silicon). Linux is supported in the code but untested on real hardware; Windows is not supported. The status of every feature, with tests and limits: [docs/TRACEABILITY.md](docs/TRACEABILITY.md) (Polish).
 
+<a id="screenshots"></a>
+<p align="center">
+  <img src="Assets/sc1.png" alt="Sol-83 Pro, the Canvas with the PHOSPHOR palette: the active project with its model windows, the project picked from the stack, the project stack and notes" width="100%"><br>
+  <sub>The Canvas (PHOSPHOR palette): the active project with its model windows, below it the project picked from the stack with its RUN section, on the right the project stack and notes.</sub>
+</p>
+
+<table>
+  <tr>
+    <td width="50%" align="center" valign="top">
+      <img src="Assets/sc2.png" alt="The Canvas with the CYAN palette"><br>
+      <sub>The same Canvas with the CYAN palette…</sub>
+    </td>
+    <td width="50%" align="center" valign="top">
+      <img src="Assets/sc3.png" alt="The Canvas with the LIGHT palette"><br>
+      <sub>…and with the bright LIGHT palette.</sub>
+    </td>
+  </tr>
+</table>
+
 ## In 30 seconds
 
 - 📝 **Notes instead of prompts.** Write what you want the way you think it. A note with a title sits on the Canvas until you decide it's time.
@@ -53,6 +72,25 @@ Sol-83 is not just "for code". If it can be described and checked, it can be a p
 
 For documents and research Sol-83 does not build programming scaffolding (tests, scripts). The models check the content and the sources, so no tokens go to things the project does not need.
 
+<p align="center"><b>Built with Sol-83</b></p>
+
+<table>
+  <tr>
+    <td width="33%" align="center" valign="top">
+      <img src="Assets/sc6.png" alt="A real-time strategy game built with Sol-83"><br>
+      <sub>A real-time strategy game, launched with the RUN button.</sub>
+    </td>
+    <td width="33%" align="center" valign="top">
+      <img src="Assets/sc7.png" alt="A bilingual technical compendium with drawings built with Sol-83"><br>
+      <sub>A bilingual (PL/EN) technical compendium with drawings and sources.</sub>
+    </td>
+    <td width="33%" align="center" valign="top">
+      <img src="Assets/sc8.png" alt="A cheesecake recipe page built with Sol-83"><br>
+      <sub>A cheesecake recipe as a web page: step by step, with reasons and sources (Polish).</sub>
+    </td>
+  </tr>
+</table>
+
 ## The Canvas: your space for thinking and doing
 
 The **Pro** look (the default) is a Canvas: a board you pan and zoom like a map, with everything you work on.
@@ -63,6 +101,11 @@ The **Pro** look (the default) is a Canvas: a board you pan and zoom like a map,
 - **The project stack** shows every project as a folded bar: number, name, progress, tokens used ("2.3M"), a GitHub icon and a state light that glows instead of blinking. Drag to reorder the queue, group projects in your own folders ("Analyses", "Games", "Work") and put finished ones into the archive.
 - **RUN in sight.** Projects with a running app carry a blinking ▶ RUN tag, and the status bar says how many apps are running. Nothing keeps running "silently".
 - **Notifications.** Questions and test requests appear in the corner with answer buttons and, if you want, as a system notification that stays until you close it.
+
+<p align="center">
+  <img src="Assets/sc9.png" alt="Sol-83 Pro with the SAKURA palette: limits, the active project, the picked project with a running RUN and a note" width="72%"><br>
+  <sub>The SAKURA palette up close: subscription limits, the active project, the picked project with a running RUN, and a note ready to become a project (Polish interface).</sub>
+</p>
 
 The **Focus** view shows one project in full detail: the turns, the plan, questions and tests, versions, content, efficiency, settings, the task. Prefer a simpler panel? The **CLASSIC** button switches to the classic look with the same functions.
 
@@ -76,6 +119,11 @@ A project is not one long prompt. At the start, a model in the architect role tu
 - **where the limit went**: how much of the weekly limit each step used.
 
 The plan lives with the project: the models update the status of the steps, and you can order any step at any time with the "Order" button.
+
+<p align="center">
+  <img src="Assets/sc4.png" alt="A project plan in the Focus view" width="100%"><br>
+  <sub>The plan in the Focus view: features and steps with priority, status, turns and limit cost (Polish interface).</sub>
+</p>
 
 ## You keep the helm during the project
 
@@ -108,6 +156,11 @@ Before every turn the coordinator checks what work is needed now (plan, implemen
 - **Auto — power**: a stronger model from the allowed pool, still within the limits.
 
 A provider's most expensive models are never picked automatically; manually only with your confirmation. Every Auto decision goes into the project's history with its reason.
+
+<p align="center">
+  <img src="Assets/sc5.png" alt="Model and role settings of a project" width="72%"><br>
+  <sub>Project settings: model, thinking level, roles and Auto mode for every provider, plus the current turn's snapshot (Polish interface).</sub>
+</p>
 
 ## Tokens and limits: managed, not a lottery
 
@@ -150,44 +203,6 @@ You can pick another coordinator (Claude, Codex, Gemini) or none. When the chose
 - **A durable order queue**: nothing is lost on a restart, a double click or closing a project.
 - **The project language (PL or EN)** is fixed in every instruction to the models; you switch the interface separately.
 
-<a id="screenshots"></a>
-## What it looks like
-
-<p align="center">
-  <img width="100%" src="Assets/sc11.png" alt="Sol-83 Pro, Focus view with the CYAN palette: the new project form with models, thinking level and roles"><br>
-  <sub>Pro, Focus view (CYAN palette): a new project with models, thinking level and roles.</sub>
-</p>
-
-<p align="center">
-  <img src="Assets/sc5.png" alt="Sol-83 in English, the Classic look with the SAKURA skin: model settings, several roles, Auto mode" width="100%"><br>
-  <sub>Classic, SAKURA skin, in English: subscription limits, project cards, models with several roles and Auto mode.</sub>
-</p>
-
-<table>
-  <tr>
-    <td width="50%" align="center" valign="top">
-      <img src="Assets/sc2.png" alt="Project plan in the TERMINAL skin"><br>
-      <sub>The plan with priorities, turn budgets and an "Order" button on every item (Polish interface).</sub>
-    </td>
-    <td width="50%" align="center" valign="top">
-      <img src="Assets/sc3.png" alt="Model and role settings in the TERMINAL skin"><br>
-      <sub>Settings: the current turn's snapshot, several roles per model, Auto mode (Polish interface).</sub>
-    </td>
-  </tr>
-</table>
-
-<details>
-  <summary><b>More screenshots</b></summary>
-  <p align="center">
-    <img src="Assets/sc4.png" alt="Sol-83 with the SAKURA skin: limits, project cards, the plan with net progress" width="100%"><br>
-    <sub>Limits, project cards and the plan with net progress (Polish interface).</sub>
-  </p>
-  <p align="center">
-    <img src="Assets/sc1.png" alt="Turns in the TERMINAL skin" width="100%"><br>
-    <sub>Activity: clear turn headers (who, model, kind of work) and the local coordinator's answer (Polish interface).</sub>
-  </p>
-</details>
-
 ## Who it is for
 
 For anyone with **at least two AI subscriptions** (e.g. Claude and ChatGPT/Codex, optionally Gemini) who wants them to finally work together: developers, people who vibe code, and people who don't write code at all but have an idea for a text, an analysis or research. You don't need to know Git or configure models: start from a note, Sol-83 sets up the rest, and you can change it whenever you like.
@@ -209,6 +224,11 @@ cd Sol-83-OpenBeta && ./bin/setup && ./sol83 doctor
 ```
 
 Then open http://127.0.0.1:8765, click **+ Note** in the project stack, describe your idea and click **▶ Create project**.
+
+<p align="center">
+  <img src="Assets/sc11.png" alt="The new project form in Sol-83 Pro" width="100%"><br>
+  <sub>Prefer a form? You can also create a project the classic way: task, folder, models, thinking level and roles.</sub>
+</p>
 
 ## Documentation
 
