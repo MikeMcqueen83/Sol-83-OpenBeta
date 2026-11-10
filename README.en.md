@@ -17,30 +17,150 @@
 
 # Sol-83 (OpenBeta)
 
-Sol-83 is a local coordinator that makes coding agents take turns on one repository: **Claude Code**, **Codex** and optionally **Gemini through Antigravity**. They check each other, and when one runs out of subscription limit the other takes over. The coordinator is a plain program, not a model: it saves a Git checkpoint after every turn, runs the tests in a sandbox and numbers a version only when they pass. You get checked versions, questions only when they are really needed, and a web panel on `127.0.0.1:8765` in Polish and English.
+### Thought → note → project → done.
 
-Subscriptions only: no API keys, no paid extra usage.
+Sol-83 is your desk for working with AI. Write an idea down as a note, turn it into a project with one click, and **Claude Code, Codex and Gemini** take turns on it: one does the work, another checks it. You get verified versions, and questions only when the decision is truly yours.
+
+All of it runs on **the subscriptions you already have**: no API keys, no paid extra credits. Sol-83 keeps an eye on the limits, saves tokens and hands the work to the model that still has room.
 
 > **Status:** OpenBeta, developed since November 2026. Tested on macOS (Apple Silicon). Linux is supported in the code but untested on real hardware; Windows is not supported. The status of every feature, with tests and limits: [docs/TRACEABILITY.md](docs/TRACEABILITY.md) (Polish).
+
+## In 30 seconds
+
+- 📝 **Notes instead of prompts.** Write what you want the way you think it. A note with a title sits on the Canvas until you decide it's time.
+- ▶️ **One click and it's a project.** "Create project" turns the note into a project, picks the available models in economy mode and queues it. From then on the note shows the project's number and state.
+- 🗺️ **Every project has a plan.** The models break the task into features and steps with priorities, and you see the progress in percent and what is left.
+- 🤝 **A team, not one model.** The roles you give the models (architect, implementer, tester, content creator…) decide who gets which work. Before every turn Sol-83 picks who does it.
+- 💸 **Tokens under control.** 5-hour and weekly limits, handover at a threshold, a cheaper model where it is enough, a short context instead of the whole history.
+- 🐙 **GitHub built in.** Work on your repositories or publish finished versions as new repositories, with a secret scan before every push.
+- 🧠 **Optionally, a local model.** An LLM on your own machine (e.g. via Ollama) takes over the light coordination without touching your subscription limits.
+
+## A project can be anything
+
+Sol-83 is not just "for code". If it can be described and checked, it can be a project:
+
+| Note | What you get |
+|---|---|
+| "An app to manage a currency portfolio: rates, a chart, transaction history" | a working app with instructions and a RUN button |
+| "A simple tower-defense browser game" | a game you launch with one click and test |
+| "Chapter 3 of the novel: she comes back to town after years" | the chapter, checked by a second model for consistency and style |
+| "A scientific review of how sleep affects memory, with sources" | a document with chapters, a bibliography and an assessment of the sources |
+| "Research: compare three payment providers for an online shop" | a report with the comparison, conclusions and open questions |
+| "Analyse the contract with my business partner" | a list of risks, unclear clauses and questions to negotiate |
+| "Review the code of my repository" | a review with a list of fixes and, if you want, the fixes on a separate branch |
+| "A gluten-free cheesecake recipe for 12, with a shopping list" | the recipe, the proportions and the shopping list |
+| "A new version of my household budget Excel workbook" | the workbook with new formulas and a description of the changes |
+
+For documents and research Sol-83 does not build programming scaffolding (tests, scripts). The models check the content and the sources, so no tokens go to things the project does not need.
+
+## The Canvas: your space for thinking and doing
+
+The **Pro** look (the default) is a Canvas: a board you pan and zoom like a map, with everything you work on.
+
+- **Notes** are fixed blocks with a title and scrolling text. They save by themselves. Below the text you see which models the project would get, before you create it. Once created, the note glows in the colour of the project's state: a dashed frame while queued, bright while working, orange when stopped, green when finished.
+- **The active project** is the one someone is working on now. You see it with its model windows, joined by lines (the line to the model that is working is animated).
+- **The project picked from the stack** sits below the active one, with a "Running it" section: where the finished version is, the terminal commands and a RUN button.
+- **The project stack** shows every project as a folded bar: number, name, progress, tokens used ("2.3M"), a GitHub icon and a state light that glows instead of blinking. Drag to reorder the queue, group projects in your own folders ("Analyses", "Games", "Work") and put finished ones into the archive.
+- **RUN in sight.** Projects with a running app carry a blinking ▶ RUN tag, and the status bar says how many apps are running. Nothing keeps running "silently".
+- **Notifications.** Questions and test requests appear in the corner with answer buttons and, if you want, as a system notification that stays until you close it.
+
+The **Focus** view shows one project in full detail: the turns, the plan, questions and tests, versions, content, efficiency, settings, the task. Prefer a simpler panel? The **CLASSIC** button switches to the classic look with the same functions.
+
+## A plan for every project
+
+A project is not one long prompt. At the start, a model in the architect role turns it into a plan:
+
+- **features and steps** with a priority (must / should / could) and a turn budget,
+- **net progress**: how many features are done, minus debt (shortcuts that need fixing),
+- **acceptance gates**: a project does not close with an open mandatory question, test or a deferred "must",
+- **where the limit went**: how much of the weekly limit each step used.
+
+The plan lives with the project: the models update the status of the steps, and you can order any step at any time with the "Order" button.
+
+## You keep the helm during the project
+
+A project does not have to run from A to Z without you. You can steer it at any moment:
+
+- **❯ message to the coordinator**: ask about the state ("what works already?") or give an order ("add a dark mode"). The coordinator tells a question from work for the models. An urgent change can interrupt the current turn.
+- **Change the team on the fly**: another model, thinking level, roles or Auto mode. It applies from the next turn; the current one finishes as it started.
+- **"Does not work"** on a version, with a comment, goes back to the models as a concrete fix.
+- **Stop, resume, run next**, or drag to reorder the queue.
+- **Questions and tests for you** appear only when needed: decisions with ready answers to click, and a manual test by default only for the final version.
+
+## A team of models: roles assigned as needed
+
+Give each model roles (several at once if you like):
+
+| Role | What it does |
+|---|---|
+| **General** | everything: plan, implementation and review |
+| **Architect** | the plan, plan rebuilds and research |
+| **Implementer** | the next steps of the plan |
+| **Tester** | reviews the changes and tests |
+| **Systems analyst** | finds gaps and plans their fixes as debt |
+| **Content creator** | ordered graphics, texts and story (after your approval) |
+
+Before every turn the coordinator checks what work is needed now (plan, implementation, review, content) and gives it to a model with a matching role that still has limit left. If a model with the role is unavailable, a model with the General role takes over (or the project waits, if you prefer). For example: Claude as architect and tester, Codex as implementer, Gemini as content creator. Each does what it is best at, and nobody reviews its own work.
+
+**Model choice**, separately for each provider:
+- **Manual**: exactly the model you pick,
+- **Auto — economy**: the cheapest model that is enough for the work, a stronger one only after repeated failures,
+- **Auto — power**: a stronger model from the allowed pool, still within the limits.
+
+A provider's most expensive models are never picked automatically; manually only with your confirmation. Every Auto decision goes into the project's history with its reason.
+
+## Tokens and limits: managed, not a lottery
+
+Subscriptions have limits (a 5-hour window and a weekly one). Sol-83 treats them as a budget:
+
+- **Live limit readings.** The panel shows Claude and Codex usage, when the windows reset and Gemini's pauses. Waiting for a limit costs not a single token.
+- **Handover at a threshold.** You set the threshold (e.g. 95% of the 5-hour window, 80% of the week). When a model reaches it, another takes over, and the first comes back after the reset.
+- **A short context instead of the whole history.** Every turn starts a fresh session with a compact handover: the task, the plan and the changes since that model's last turn (up to 4,000 characters). The agent does not re-read everything from the start again and again.
+- **Reviews with sense.** The second model checks the work when a plan stage closes, on a big change (500+ lines), when the work is declared ready, or at the latest every 3 turns, not after every turn. It gets the diff (up to 30,000 characters), not whole files.
+- **Thrifty work in the instructions.** Models write a file in one go instead of many small edits, run the tests once at the end of a turn and keep command output short.
+- **No paid surprises.** Antigravity (Gemini) always without paid credits, with a turn time limit; the fast and cheap Gemini Flash by default.
+- **Everything counted.** The Efficiency tab shows tokens per model and turn, and how much of each limit window the project used. The stack shows each project's token total.
+
+**Full Power** is for the impatient: while the second model waits for a reset, the same model reviews in a fresh session instead of waiting. Faster, but it uses limits faster too, so it is off by default.
+
+## A local model as a booster
+
+Sol-83 works without a local model, but if you have **Ollama** (e.g. with a Gemma model), you can use it as the message coordinator:
+
+- it answers questions about a project's state without using your subscription limits,
+- it tells whether your message is a question or work for the models,
+- it prepares ready-to-paste terminal commands to run a version.
+
+You can pick another coordinator (Claude, Codex, Gemini) or none. When the chosen one cannot answer, the local model steps in.
+
+## GitHub integration
+
+- **Start from your repository.** The panel lists your GitHub repositories; a click opens a new project on the one you pick.
+- **Or from an existing folder.** The models work on their own branch in a separate working folder. Your main branch stays untouched.
+- **Delivery your way**: local only, push the branch, or push with a pull request, with separate permissions for push and PR. No force push, no history rewriting.
+- **Publish a finished version** as a new private or public repository; new versions can go there by themselves (for private ones).
+- **A secret scan before every push**, private ones too. An API key in the code does not leave without your explicit confirmation.
+- The GitHub icon on a project's bar opens the repository in a new tab.
+
+## You decide, Sol-83 keeps watch
+
+- **A version gets a number only after the tests** in the OS sandbox: code from the repository can write only in the project folder and has no network by default.
+- **Nothing leaves without your decision**: not to GitHub, not anywhere.
+- **The panel is local only** (`127.0.0.1`) and guarded against requests from other sites.
+- **A durable order queue**: nothing is lost on a restart, a double click or closing a project.
+- **The project language (PL or EN)** is fixed in every instruction to the models; you switch the interface separately.
 
 <a id="screenshots"></a>
 ## What it looks like
 
-The panel has **two looks with the same functions**, switched with the **CLASSIC / PRO** button (Pro is the default; the choice is remembered in the browser):
-
-- **Classic** (`http://127.0.0.1:8765/`): the project list on the side and the project details, skins LIGHT, DARK, SAKURA, TERMINAL.
-- **Pro** (`http://127.0.0.1:8765/pro`): a futuristic terminal with translucent windows. **Focus** (one project with every Classic function) and **Canvas** (the active project with its model windows joined by lines that animate while the model works, the project picked from the stack below it, beside them the stack of folded projects with a drag-and-drop queue, groups and an archive, plus notes that become a project with one click; projects with a running RUN have a blinking tag; pan and zoom the whole). A project window shows who leads the work ("led by @claude"), the latest events and the state, and the **❯** field sends a message to the coordinator. Notifications in the top right corner (questions and tests with answer buttons, a limit pause with "Try now", a setup script to approve), a status bar with limits and reset dates, palettes AMBER, PHOSPHOR, CYAN, SAKURA, LIGHT, scan lines with a switch (off with reduced motion), system notifications about new questions. Details: [guide, section 16](docs/en/GUIDE.md#16-panel-looks-classic-and-pro).
-
 <p align="center">
   <img width="100%" src="Assets/sc11.png" alt="Sol-83 Pro, Focus view with the CYAN palette: the new project form with models, thinking level and roles"><br>
-  <sub>Pro, Focus view (CYAN palette): a new project with models, thinking level and roles, the same functions as in Classic.</sub>
+  <sub>Pro, Focus view (CYAN palette): a new project with models, thinking level and roles.</sub>
 </p>
 
-**Classic:**
-
 <p align="center">
-  <img src="Assets/sc5.png" alt="Sol-83 in English with the SAKURA skin: model settings, several roles, Auto mode" width="100%"><br>
-  <sub>The SAKURA skin in English: subscription limits, project cards, models with several roles and Auto mode.</sub>
+  <img src="Assets/sc5.png" alt="Sol-83 in English, the Classic look with the SAKURA skin: model settings, several roles, Auto mode" width="100%"><br>
+  <sub>Classic, SAKURA skin, in English: subscription limits, project cards, models with several roles and Auto mode.</sub>
 </p>
 
 <table>
@@ -59,18 +179,22 @@ The panel has **two looks with the same functions**, switched with the **CLASSIC
 <details>
   <summary><b>More screenshots</b></summary>
   <p align="center">
-    <img src="Assets/sc1.png" alt="Turn activity in the TERMINAL skin" width="100%"><br>
-    <sub>Activity: clear turn headers (executor, model, kind of work) and an answer from the local coordinator.</sub>
+    <img src="Assets/sc4.png" alt="Sol-83 with the SAKURA skin: limits, project cards, the plan with net progress" width="100%"><br>
+    <sub>Limits, project cards and the plan with net progress (Polish interface).</sub>
   </p>
   <p align="center">
-    <img src="Assets/sc4.png" alt="Project view in the SAKURA skin, Polish interface" width="100%"><br>
-    <sub>The project view with net progress in the plan (Polish interface).</sub>
+    <img src="Assets/sc1.png" alt="Turns in the TERMINAL skin" width="100%"><br>
+    <sub>Activity: clear turn headers (who, model, kind of work) and the local coordinator's answer (Polish interface).</sub>
   </p>
 </details>
 
+## Who it is for
+
+For anyone with **at least two AI subscriptions** (e.g. Claude and ChatGPT/Codex, optionally Gemini) who wants them to finally work together: developers, people who vibe code, and people who don't write code at all but have an idea for a text, an analysis or research. You don't need to know Git or configure models: start from a note, Sol-83 sets up the rest, and you can change it whenever you like.
+
 ## Quick start
 
-Full installation from scratch, step by step: **[docs/en/INSTALL.md](docs/en/INSTALL.md)**.
+Full install from scratch, step by step: **[docs/en/INSTALL.md](docs/en/INSTALL.md)**.
 
 ```bash
 git clone https://github.com/MikeMcqueen83/Sol-83-OpenBeta.git
@@ -84,11 +208,11 @@ cd Sol-83-OpenBeta && ./bin/setup && ./sol83 doctor
 ./sol83 serve
 ```
 
-Open http://127.0.0.1:8765 and click **New project**.
+Then open http://127.0.0.1:8765, click **+ Note** in the project stack, describe your idea and click **▶ Create project**.
 
 ## Documentation
 
-[Install](docs/en/INSTALL.md) · [Guide](docs/en/GUIDE.md) (including the Classic and Pro looks) · [Data, backups, updates, rollback](docs/en/UPDATES.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
+[Install](docs/en/INSTALL.md) · [Guide](docs/en/GUIDE.md) (notes and the Canvas, projects, the plan, models and roles, Auto, limits and tokens, versions and RUN, questions, content, language, Git and GitHub, licences, Classic and Pro looks) · [Data, backups, updates, rollback](docs/en/UPDATES.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
 
 <a id="coffee"></a>
 ## ☕ Buy me a coffee
